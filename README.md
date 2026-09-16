@@ -46,23 +46,26 @@ These skills are first drafts distilled from one session's real work. Per
 
 ## Public-repo hygiene
 
-`ns-live-verify`'s "Prod-A" row uses `<PROD_ACCOUNT_ID>` / `<PROD_SCRIPT_ID>` placeholders —
-the real values live in `notes.private.md` (gitignored, not in this repo; not distributed with
-it). Substitute them locally before running anything against that account. TEIBTO's own SB2
-(`4089685`) is left inline since it's not customer data.
+**Status: public since 2026-09-16.**
 
-Before flipping visibility again (or forking this into a new repo), re-run:
-`grep -rniE "srifa|[0-9]{7,8}" --include='*.md' --include='*.py' .` — should return nothing
-outside `notes.private.md` (which git ignores anyway) and this checklist's own example command.
+- [x] Drop the customer name label from `ns-live-verify` (`Srifa` → `Prod-A`)
+- [x] Move the real Prod-A account/script id out of tracked files into `notes.private.md`
+      (gitignored, not in this repo) — `SKILL.md` carries `<PROD_ACCOUNT_ID>` /
+      `<PROD_SCRIPT_ID>` placeholders instead; substitute the real values locally before
+      running anything against that account. TEIBTO's own SB2 (`4089685`) is left inline
+      since it's not customer data.
+- [x] Generalize internal ticket references (`#221`, `WIP-transfer fan-out`, etc.)
+- [x] Squash git history — the commits that had "Srifa" + the real account/script id in their
+      tree are gone from `origin/master`; current history starts clean
+- [x] Flip visibility to public
 
 This repo has no SDF project of its own (no `project.json`/`manifest.xml`), so a permission-
 tuning pass here should skip gating `suitecloud` subcommands — they don't apply and add no
-protection; the grep check above is the actual guard for this repo.
+protection.
 
-**Note:** git history predating this pass (commits before the `notes.private.md` rework)
-still contains the real account/script id and the original "Srifa" label in their diffs —
-`git log -p` on the old commits exposes them even though the current files are clean. Squash
-or rewrite history before going public if that matters for this repo.
+**Ongoing:** before adding new skill content, re-run
+`grep -rniE "srifa|[0-9]{7,8}" --include='*.md' --include='*.py' .` — should return nothing
+outside `notes.private.md` (gitignored) and this checklist's own example command.
 
 ## Provenance
 
