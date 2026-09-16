@@ -55,7 +55,7 @@ These skills are first drafts distilled from one session's real work. Per
 - [x] Keep only a generic `<ACCOUNT_ID>` / `<SCRIPT_ID>` template row in `ns-live-verify`;
       real per-account rows live only in `notes.private.md` (gitignored, not in this repo).
       TEIBTO's own SB2 (`4089685`) stays inline since it's not customer data
-- [x] Generalize internal ticket references (`#221`, `WIP-transfer fan-out`, etc.)
+- [x] Generalize internal ticket references and fix labels to neutral descriptions
 - [x] Drop the plugin manifest's personal contact email — a GitHub profile link is enough
       attribution for a public repo
 - [x] Squash git history — commits that had a real customer name / account id in their tree
@@ -69,9 +69,11 @@ This repo has no SDF project of its own (no `project.json`/`manifest.xml`), so a
 tuning pass here should skip gating `suitecloud` subcommands — they don't apply and add no
 protection.
 
-**Enforced automatically:** `.github/workflows/redaction-check.yml` greps every push/PR for
-known-sensitive strings + any bare 7-8 digit number in tracked `.md`/`.py`/`.json` files and
-fails CI on a match — see that file for the exact pattern. This replaces relying on
+**Enforced automatically:** `.github/workflows/redaction-check.yml` greps every push/PR of
+tracked `.md`/`.py`/`.json`/`.sh` files for three things and fails CI on a match: (1) a
+known-redacted customer name, (2) a NetSuite `script=`/`compid=` id not on an allowlist —
+caught by param, so a short 3-4 digit script id doesn't slip past a digit-count filter, (3)
+any bare 7-8 digit account-shaped number not on the allowlist. This replaces relying on
 remembering to run a check by hand before adding new skill content.
 
 ## Provenance

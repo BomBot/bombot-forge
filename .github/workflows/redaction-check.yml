@@ -10,25 +10,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Scan for known-redacted terms and unlisted account-shaped numbers
+      - name: Scan for known-redacted terms, NetSuite ids, and account-shaped numbers
         run: |
           set -euo pipefail
+          INCLUDES=(--include="*.md" --include="*.py" --include="*.json" --include="*.sh")
 
-          # Regression guard: a customer name already redacted once from this repo.
-          # Extend this pattern if another one ever needs redacting.
-          if grep -rniE "srifa" --include="*.md" --include="*.py" --include="*.json" .; then
+          # 1) Regression guard: a customer name already redacted once from this repo.
+          #    Extend this pattern if another one ever needs redacting.
+          if grep -rniE "srifa" "${INCLUDES[@]}" .; then
             echo "::error::Found a known-redacted customer name in a tracked file (see above)."
             exit 1
           fi
 
-          # Any bare 7-8 digit number is account/bundle/script-id shaped. TEIBTO's own
-          # known-safe numbers are allowlisted below; anything new fails the build so a
-          # human confirms it isn't a customer/account id before it ships.
+          # 2) NetSuite scriptlet ids by PARAM, not by digit count — a script id can be as
+          #    short as 3-4 digits (the leak that started all this was script=1434), which the
+          #    bare-number check in step 3 is too wide to catch. Only TEIBTO's own SB2 ids are
+          #    allowlisted; a placeholder like script=<SCRIPT_ID> has no digits and never matches.
+          PARAM_ALLOW="script=3171|compid=4089685"
+          PHITS=$(grep -rnoE "(script|compid)=[0-9]+" "${INCLUDES[@]}" . \
+                  | grep -vE ":($PARAM_ALLOW)$" || true)
+          if [ -n "$PHITS" ]; then
+            echo "$PHITS"
+            echo "::error::Found a NetSuite script=/compid= id that isn't on the allowlist. Use a <SCRIPT_ID>/<ACCOUNT_ID> placeholder and keep the real value in notes.private.md, or add it to PARAM_ALLOW if it's TEIBTO's own."
+            exit 1
+          fi
+
+          # 3) Any bare 7-8 digit number is account/bundle-id shaped (this is how account ids
+          #    leak in prose, e.g. "account id 8158655"). TEIBTO's own known-safe numbers are
+          #    allowlisted; anything new fails so a human confirms it before it ships.
           ALLOWLIST="4089685|2935624"
-          HITS=$(grep -rnoE "[0-9]{7,8}" --include="*.md" --include="*.py" --include="*.json" . \
+          HITS=$(grep -rnoE "[0-9]{7,8}" "${INCLUDES[@]}" . \
                  | grep -vE ":($ALLOWLIST)$" || true)
           if [ -n "$HITS" ]; then
             echo "$HITS"
-            echo "::error::Found a 7-8 digit number that isn't on the allowlist. Confirm it isn't a customer/production account id, then add it to ALLOWLIST in this workflow if it's safe (e.g. TEIBTO's own account)."
+            echo "::error::Found a 7-8 digit number that isn't on the allowlist. Confirm it isn't a customer/production account id, then add it to ALLOWLIST if it's safe (e.g. TEIBTO's own account)."
             exit 1
           fi

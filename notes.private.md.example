@@ -1,0 +1,16 @@
+# Private notes — real values (COPY to notes.private.md, which is gitignored)
+
+Copy this file to `notes.private.md` and fill in real values there. `notes.private.md` is
+gitignored and never committed; this `.example` is the committed template so a fresh clone
+knows the shape without any real id being in the repo.
+
+Real per-account endpoint rows for `ns-live-verify`'s dbgQuery table. `skills/ns-live-verify/SKILL.md`
+only carries a generic `<ACCOUNT_ID>` / `<SCRIPT_ID>` template row — add one line per real
+account here instead of committing it.
+
+| Account (your own label) | Account id | Script id |
+|---|---|---|
+| e.g. "Customer A prod"   | 00000000   | 0000      |
+
+Substitute these locally when actually running the dbgQuery recipes. Do not paste real values
+back into any tracked file.

@@ -11,6 +11,21 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.3.2 — 2026-09-16
+
+Second `teibto-redteam` confirmation pass (verified against live GitHub, not local claims) —
+F1–F6 all held, but the new CI gate had a gap and two nits.
+
+- `.github/workflows/redaction-check.yml` — now catches NetSuite ids **by param**
+  (`script=`/`compid=` values not on an allowlist), not only by digit count. The original
+  script-id leak was 4 digits — short enough to slip past the 7-8 digit bare-number check.
+  Also now scans `.sh` files. Negative-tested: a planted short script-id param fails the build.
+- Added `notes.private.md.example` — committed template so a fresh clone knows the shape of
+  the gitignored real-values file without any real id in the repo.
+- CHANGELOG/README — stopped restating the redacted ticket number in the very lines
+  describing that it was generalized (same self-defeating pattern as the v0.3.1 fix, lower
+  severity).
+
 ## v0.3.1 — 2026-09-16
 
 Fix pass from a `teibto-redteam` review of the repo *after* it went public — traced the
@@ -72,9 +87,9 @@ permission scope for a repo that has no SDF project of its own).
   `ns_write.py` to TEIBTO's own SB2 (`4089685_SB2` / `4089685`), replacing a placeholder
   account id whose ownership was never confirmed.
 - `ns-sdf-prod-deploy` **202609_02** — generalized its status footer (dropped customer name).
-- README/CHANGELOG — generalized internal ticket references (`#221`, `WIP-transfer fan-out`);
-  removed the unverified "Dev Bridge" term (not found anywhere in `ns-live-verify`'s actual
-  content) from the skill description in README and `plugin.json`.
+- README/CHANGELOG — generalized internal ticket references and fix labels to a neutral
+  description; removed the unverified "Dev Bridge" term (not found anywhere in
+  `ns-live-verify`'s actual content) from the skill description in README and `plugin.json`.
 
 ## v0.2.0 — 2026-09-15
 
