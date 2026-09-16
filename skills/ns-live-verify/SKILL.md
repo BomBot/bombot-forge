@@ -9,7 +9,7 @@ description: >-
 
 # NetSuite Live Verify (read-only via dbgQuery)
 
-**Skill version: `202609_03`**
+**Skill version: `202609_04`**
 
 Run SuiteQL / `record.toJSON` against a live account through a logged-in Chrome tab, so you
 verify against **real state** instead of guessing. Read-only, SELECT-only. Pairs with
@@ -20,25 +20,25 @@ verify against **real state** instead of guessing. Read-only, SELECT-only. Pairs
 | Account | Endpoint | Auth |
 |---|---|---|
 | SB2 (4089685) | `script=3171&deploy=1&compid=4089685_SB2&step=DEBUG_QUERY` | Admin session |
-| Prod-A (`<PROD_ACCOUNT_ID>`) | `script=<PROD_SCRIPT_ID>&deploy=1&compid=<PROD_ACCOUNT_ID>&action=dbgQuery&debug=1` | Admin session |
+| *(any other account)* | `script=<SCRIPT_ID>&deploy=1&compid=<ACCOUNT_ID>&action=dbgQuery&debug=1` | Admin session |
 
-Real values for `<PROD_ACCOUNT_ID>` / `<PROD_SCRIPT_ID>` live in `notes.private.md`
-(gitignored, not in this repo) — substitute them locally before running anything against Prod-A.
+Add a row per real account to `notes.private.md` (gitignored, not in this repo) as you set
+each one up — never commit a production account id / script id into this tracked file.
 
 Both are POST, same-origin `fetch` from a logged-in `*.app.netsuite.com` Admin tab. Fire the
 fetch to a `window.__r` var, read it back in a **separate** call (fetch is async).
 
 ```bash
 # via cdp.py (Chrome for Testing, port 9333); pin the tab with TGT_ID
-export CDP_PORT=9333; export TGT_ID=<prod-a-tab-id>
-python3 cdp.py eval 'window.__r=null; fetch("/app/site/hosting/scriptlet.nl?script=<PROD_SCRIPT_ID>&deploy=1&compid=<PROD_ACCOUNT_ID>&action=dbgQuery&debug=1",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q:"<SELECT ...>"})}).then(r=>r.text()).then(t=>window.__r=t.slice(0,900)); "fired"'
+export CDP_PORT=9333; export TGT_ID=<target-tab-id>
+python3 cdp.py eval 'window.__r=null; fetch("/app/site/hosting/scriptlet.nl?script=<SCRIPT_ID>&deploy=1&compid=<ACCOUNT_ID>&action=dbgQuery&debug=1",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q:"<SELECT ...>"})}).then(r=>r.text()).then(t=>window.__r=t.slice(0,900)); "fired"'
 sleep 3
 python3 cdp.py eval 'window.__r'
 ```
 
 - SB2 tester body: `{qtype:"sql", sql:"..."}` (also `qtype:"whoami"`, `qtype:"load",recordType,id`).
-- Prod-A body: `{q:"<SELECT>", params?:[]}` → `{rows,count,truncated}`; `action=dbgRecord` body
-  `{type,id}` → `record.toJSON()` (fields nested under `.record.fields`).
+- `action=dbgQuery` body: `{q:"<SELECT>", params?:[]}` → `{rows,count,truncated}`;
+  `action=dbgRecord` body `{type,id}` → `record.toJSON()` (fields nested under `.record.fields`).
 
 ## SuiteQL gotchas (cost real time)
 
@@ -91,5 +91,5 @@ once (blur → enables), then click submit. Fields empty (not autofilled) → st
 
 ## Status
 
-v0.1 draft — recipes verified live on SB2 + Prod-A this session. Reference skill; test retrieval
+v0.1 draft — recipes verified live on SB2 + a customer account this session. Reference skill; test retrieval
 (can an agent find + apply the right recipe) per superpowers:writing-skills.

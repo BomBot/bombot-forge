@@ -1,9 +1,8 @@
 {
   "name": "bombot-forge",
-  "version": "0.3.0",
-  "description": "BomBot's NetSuite delivery forge — personal Claude Code skills for shipping SuiteScript safely: SDF prod deploy (import-compare-confirm + temp-authid trap + guardrails), live read-only verification via Dev Bridge / dbgQuery (accounts/GL/fields/script-deployment + SuiteQL gotchas), scoped record writes via a browser helper (ns_write: submitFields + load/save, structured args, account guard, dry-run, allow-rule validation), turning an account-owned bundle into a version-controlled SDF repo (Convert to SDF Project, legacy scriptid Change ID, path-fidelity rules), and building verified stakeholder decision briefs. Skills versioned YYYYMM_##; current: ns-sdf-prod-deploy 202609_02 / ns-live-verify 202609_03 / ns-record-write 202609_02 / ns-bundle-to-sdf-repo 202609_01 / verified-decision-brief 202609_01.",
+  "version": "0.3.1",
+  "description": "BomBot's NetSuite delivery forge — personal Claude Code skills for shipping SuiteScript safely: SDF prod deploy (import-compare-confirm + temp-authid trap + guardrails), live read-only verification via Dev Bridge / dbgQuery (accounts/GL/fields/script-deployment + SuiteQL gotchas), scoped record writes via a browser helper (ns_write: submitFields + load/save, structured args, account guard, dry-run, allow-rule validation), turning an account-owned bundle into a version-controlled SDF repo (Convert to SDF Project, legacy scriptid Change ID, path-fidelity rules), and building verified stakeholder decision briefs. Skills versioned YYYYMM_##; current: ns-sdf-prod-deploy 202609_02 / ns-live-verify 202609_04 / ns-record-write 202609_02 / ns-bundle-to-sdf-repo 202609_02 / verified-decision-brief 202609_01.",
   "author": {
-    "name": "Pradchaya Areerom (BomBot)",
-    "email": "pradchaya@teibto.com"
+    "name": "Pradchaya Areerom (BomBot)"
   }
 }

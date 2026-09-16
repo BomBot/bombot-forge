@@ -11,10 +11,31 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.3.1 — 2026-09-16
+
+Fix pass from a `teibto-redteam` review of the repo *after* it went public — traced the
+actual live GitHub content via `gh api` (not just a local grep) and found the redaction
+itself had re-exposed what it removed, plus one item never in scope before.
+
+- `ns-live-verify` **202609_04** — removed the named prod-account row entirely (even as a
+  placeholder, naming a specific target added no value); `SKILL.md` now carries only a
+  generic `<ACCOUNT_ID>` / `<SCRIPT_ID>` template row, real rows live only in
+  `notes.private.md`.
+- `ns-bundle-to-sdf-repo` **202609_02** — dropped the specific bundle id and private target
+  repo name; the technique doesn't need either to be useful.
+- `plugin.json` — removed the personal contact email from the author field.
+- CHANGELOG (this file, retroactively) — past entries that described the redaction by
+  **restating the redacted customer name and account id** have been rewritten to describe
+  the change without repeating the value. Documenting a redaction by quoting the redacted
+  value defeats the redaction — don't do that again.
+- Added `.github/workflows/redaction-check.yml` — CI now fails on the known-redacted
+  customer name or any 7-8 digit number not on an explicit allowlist, instead of relying on
+  someone remembering to grep by hand before every push.
+
 ## v0.3.0 — 2026-09-16
 
-- `ns-bundle-to-sdf-repo` **202609_01** (new skill) — distilled from converting bundle 381777
-  ("TEIBTO - Custom Button", `4089685-sb2`/`4089685-sb1`) into `Teibto/TEIBTO-CustomButton`.
+- `ns-bundle-to-sdf-repo` **202609_01** (new skill) — distilled from converting one of
+  TEIBTO's own bundles (own dev/release accounts) into a private Teibto standards repo.
   Covers: the "Convert to SDF Project" flow + signed-URL download, cleaning up legacy
   auto-generated scriptids via the built-in Change ID tool (leading-underscore trap, the
   `isvalid`-flag submit-blocker workaround, verify-by-URL not by label text), why
@@ -27,13 +48,13 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 Prep for flipping this repo to public.
 
-- `ns-live-verify` **202609_03** — moved the real Prod-A account/script id out of the tracked
-  skill file into `notes.private.md` (new, gitignored); `SKILL.md` now carries
-  `<PROD_ACCOUNT_ID>` / `<PROD_SCRIPT_ID>` placeholders instead. TEIBTO's own SB2 id stays
-  inline (not customer data).
+- `ns-live-verify` **202609_03** — moved real per-account endpoint values out of the tracked
+  skill file into `notes.private.md` (new, gitignored); `SKILL.md` now carries a generic
+  `<ACCOUNT_ID>` / `<SCRIPT_ID>` template row instead. TEIBTO's own SB2 id stays inline (not
+  customer data).
 - Restored the "Dev Bridge" term in README/`plugin.json` — confirmed real, points at a
-  private repo under `github.com/Teibto`; safe to name since outsiders can't open that repo
-  either way.
+  private repo elsewhere under TEIBTO's own GitHub org; safe to name the term without naming
+  the specific repo, since outsiders can't open it either way.
 - README: replaced the "before making public" checklist with a "Public-repo hygiene" note,
   and flagged that **pre-existing git history still contains the real values** (pre-dates this
   pass) — a public flip should squash/rewrite history first, not just clean the current tree.
@@ -44,12 +65,12 @@ Redaction / hygiene pass from `teibto-redteam` review of the auto-mode-setup per
 proposal (found real customer name + account ids committed, and a misapplied `suitecloud`
 permission scope for a repo that has no SDF project of its own).
 
-- `ns-live-verify` **202609_02** — dropped the customer name label (`Srifa` → `Prod-A`);
-  numeric account/script ids kept as-is (repo is still private and the recipes are in real
-  use) — see README's new "Before making this repo public" checklist for the follow-up pass.
+- `ns-live-verify` **202609_02** — dropped the customer-identifying label from the prod
+  account row; numeric account/script ids kept as-is at the time (repo was still private) —
+  see README's new "Before making this repo public" checklist for the follow-up pass.
 - `ns-record-write` **202609_02** — standardized example `--account` across `SKILL.md` and
-  `ns_write.py` to TEIBTO's own SB2 (`4089685_SB2` / `4089685`), replacing an unlabeled
-  account id (`8158655`) that wasn't confirmed as TEIBTO's own.
+  `ns_write.py` to TEIBTO's own SB2 (`4089685_SB2` / `4089685`), replacing a placeholder
+  account id whose ownership was never confirmed.
 - `ns-sdf-prod-deploy` **202609_02** — generalized its status footer (dropped customer name).
 - README/CHANGELOG — generalized internal ticket references (`#221`, `WIP-transfer fan-out`);
   removed the unverified "Dev Bridge" term (not found anywhere in `ns-live-verify`'s actual
@@ -72,7 +93,8 @@ Initial scaffold. Three skills distilled from a real TEIBTO-MFG-Manufacturing se
 
 - `ns-sdf-prod-deploy` **202609_01** — import-compare-confirm flow, temp-authid trap,
   scoped deploy, smoke-test, prod guardrails.
-- `ns-live-verify` **202609_01** — dbgQuery recipes (SB2 3171 / Prod-A, see `notes.private.md`), SuiteQL
+- `ns-live-verify` **202609_01** — dbgQuery recipes (SB2 3171 / a customer account, see
+  `notes.private.md`), SuiteQL
   gotchas, script-deployment / GL / field verification, login handling.
 - `verified-decision-brief` **202609_01** — verify as-is from code+live, comparison/GL
   worked examples, who-answers tags, redaction for sharing.

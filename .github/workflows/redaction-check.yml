@@ -1,0 +1,34 @@
+name: Redaction check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for known-redacted terms and unlisted account-shaped numbers
+        run: |
+          set -euo pipefail
+
+          # Regression guard: a customer name already redacted once from this repo.
+          # Extend this pattern if another one ever needs redacting.
+          if grep -rniE "srifa" --include="*.md" --include="*.py" --include="*.json" .; then
+            echo "::error::Found a known-redacted customer name in a tracked file (see above)."
+            exit 1
+          fi
+
+          # Any bare 7-8 digit number is account/bundle/script-id shaped. TEIBTO's own
+          # known-safe numbers are allowlisted below; anything new fails the build so a
+          # human confirms it isn't a customer/account id before it ships.
+          ALLOWLIST="4089685|2935624"
+          HITS=$(grep -rnoE "[0-9]{7,8}" --include="*.md" --include="*.py" --include="*.json" . \
+                 | grep -vE ":($ALLOWLIST)$" || true)
+          if [ -n "$HITS" ]; then
+            echo "$HITS"
+            echo "::error::Found a 7-8 digit number that isn't on the allowlist. Confirm it isn't a customer/production account id, then add it to ALLOWLIST in this workflow if it's safe (e.g. TEIBTO's own account)."
+            exit 1
+          fi

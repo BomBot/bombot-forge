@@ -10,11 +10,11 @@ description: >-
 
 # NetSuite Bundle → SDF Repo (Convert to SDF Project)
 
-**Skill version: `202609_01`**
+**Skill version: `202609_02`**
 
 Turns a live, account-owned bundle into a proper git repo without breaking its ability to
-sync back to the account it came from. Distilled from converting bundle 381777 ("TEIBTO -
-Custom Button") on `4089685-sb2`/`4089685-sb1` into `Teibto/TEIBTO-CustomButton`.
+sync back to the account it came from. Distilled from converting one of TEIBTO's own bundles
+on `4089685-sb2`/`4089685-sb1` into a private Teibto standards repo.
 
 ## Iron rules (do not soften)
 
@@ -156,7 +156,7 @@ artifact). NetSuite has a built-in, non-destructive rename:
 
 ## Status
 
-v0.1 draft — one conversion (bundle 381777, `4089685-sb2`/`sb1`). Not yet pressure-tested per
+v0.1 draft — one conversion so far (own `4089685-sb2`/`sb1` accounts). Not yet pressure-tested per
 `superpowers:writing-skills`. Things likely to need a second data point before trusting as
 general: whether *every* legacy custom-object type exposes a "Change ID" button the same way
 (only tested on a custom form so far), and whether the `isvalid`-flag workaround generalizes
