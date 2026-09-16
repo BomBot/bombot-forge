@@ -11,6 +11,7 @@ fan-out fix).
 | **ns-sdf-prod-deploy** | deploying SDF changes to a live/prod account; import-compare before deploy; per-round prod deploy (temp-authid trap, scoped deploy, smoke-test) |
 | **ns-live-verify** | reading/verifying live NetSuite state read-only via Dev Bridge / dbgQuery (accounts, GL, fields, script deployment) — confirm real state, don't assume |
 | **ns-record-write** | writing a field to a live record from a logged-in browser session — scoped `submitFields` helper (structured args, account guard, dry-run), the `permissions.allow` line, and a per-machine setup validator |
+| **ns-bundle-to-sdf-repo** | turning an account-owned NetSuite bundle into a version-controlled SDF repo — "Convert to SDF Project" flow, cleaning up legacy auto-generated scriptids via Change ID, and the path-fidelity rules that keep a future deploy landing on the bundle's real live location |
 | **verified-decision-brief** | turning an informal requirement into a stakeholder decision doc grounded in verified as-is (code + live), incl. redaction for sharing |
 
 ## Structure
@@ -37,6 +38,9 @@ These skills are first drafts distilled from one session's real work. Per
 - [ ] For `ns-record-write` (has discipline rules + script): verify dry-run-first + account-guard
       compliance; confirm `validate-setup.sh` passes on all 3 machines
 - [ ] For `verified-decision-brief` (technique): test application to a fresh requirement
+- [ ] For `ns-bundle-to-sdf-repo` (has discipline rules): only one data point (bundle 381777)
+      so far — needs a second bundle conversion to confirm the Change ID `isvalid`-flag
+      workaround and the "no plain branch-push trigger" CI gotcha generalize, not one-off
 - [ ] Decide final layout for your setup (`skills/` plugin format here vs `.claude/skills/`
       + `.agents/skills/` mirror used by teibto-dev-standards)
 

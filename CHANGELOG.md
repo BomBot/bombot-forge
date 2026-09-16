@@ -11,6 +11,18 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.3.0 — 2026-09-16
+
+- `ns-bundle-to-sdf-repo` **202609_01** (new skill) — distilled from converting bundle 381777
+  ("TEIBTO - Custom Button", `4089685-sb2`/`4089685-sb1`) into `Teibto/TEIBTO-CustomButton`.
+  Covers: the "Convert to SDF Project" flow + signed-URL download, cleaning up legacy
+  auto-generated scriptids via the built-in Change ID tool (leading-underscore trap, the
+  `isvalid`-flag submit-blocker workaround, verify-by-URL not by label text), why
+  `FileCabinet/` paths must stay unrenamed for deploy path-fidelity, and infra gotchas hit
+  along the way (classic-UI megamenu AJAX discovery, `read:packages` scope, package-version
+  lag vs repo tags, first-push Actions discovery, `gh api -f/-F` nested-JSON flattening,
+  org-level secret-scanning plan lock).
+
 ## v0.2.2 — 2026-09-16
 
 Prep for flipping this repo to public.
