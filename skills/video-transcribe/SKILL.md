@@ -1,5 +1,5 @@
 ---
-name: ns-video-transcribe
+name: video-transcribe
 description: >-
   Use when transcribing a video or audio file to text (SRT with timestamps, plain TXT, and a
   cleaned Markdown) via the homelab `bombot` MCP server — a Tailscale bridge to a Windows GPU
@@ -8,7 +8,7 @@ description: >-
   the SSH job-object gotcha.
 ---
 
-# NetSuite Video Transcribe (homelab bombot MCP)
+# Video Transcribe (homelab bombot MCP)
 
 **Skill version: `202609_01`**
 

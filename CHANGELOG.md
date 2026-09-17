@@ -11,6 +11,13 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.4.1 — 2026-09-17
+
+- Renamed skill `ns-video-transcribe` → **`video-transcribe`** (content unchanged, still
+  `202609_01`). The `ns-` prefix implied a NetSuite tie the skill doesn't have — it's a generic
+  homelab-MCP transcription flow. Also dropped "NetSuite" from the skill's H1 title. Folder,
+  frontmatter `name`, README row, and `plugin.json` description updated to match.
+
 ## v0.4.0 — 2026-09-17
 
 - `ns-video-transcribe` **202609_01** (new skill) — transcribe a video/audio file to
