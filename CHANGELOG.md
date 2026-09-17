@@ -11,6 +11,23 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.5.0 — 2026-09-18
+
+- `setup-global-instructions` **202609_01** (new skill) — set up / sync a machine's global
+  `~/.claude/CLAUDE.md` to the canonical NetSuite-dev instructions. Ships a **redacted**
+  snapshot of the real global file at `reference/global-CLAUDE.snapshot.md` (customer project
+  names, work + personal emails, and the author name replaced with placeholders — `bombot` in
+  `/Users/bombot/...` paths is kept, it's the public handle). The skill compares
+  the snapshot against the machine's existing file and proposes a **section-by-section merge**,
+  never a blind overwrite: back up first, keep the target's machine-local sections, fill
+  placeholders from the user's own values (ask, never invent), confirm before writing. Snapshot
+  is a point-in-time capture — re-captured (redacted) on request via the maintainer redaction map
+  in the SKILL.
+  - Design note: the snapshot is public-safe because it's redacted; it passes the repo's
+    redaction CI (no known-redacted customer name, no bare 7-8 digit id). Real customer/account
+    values live only on
+    each machine's own `~/.claude/CLAUDE.md`, never back in the snapshot.
+
 ## v0.4.1 — 2026-09-17
 
 - Renamed skill `ns-video-transcribe` → **`video-transcribe`** (content unchanged, still
