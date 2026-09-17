@@ -11,6 +11,18 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.6.0 — 2026-09-18
+
+- `cdp-browser` **202609_01** (new skill) — driving Chrome for Testing over CDP with the
+  personal `cdp.py` helper: launching on a fixed persistent profile (port 9333, `--user-data-dir`
+  is mandatory on Chrome 136+), the `tabs`/`nav`/`eval`/`a11y`/`click`/`shot` commands,
+  render-accurate `shot` screenshots (why they beat macOS `screencapture`), piercing nested
+  shadow-DOM web components (a11y `@ref` / `Input.dispatchMouseEvent` via `cdp.C()`), and the
+  safe click-submit auto-login (never read the password field). Generic browser mechanics, so
+  **no `ns-` prefix**; cross-references `netsuite-qa-browser` for the NetSuite-specific session
+  recovery. The `cdp.py` script itself is deliberately **not** bundled — it's a large personal
+  tool with a credential-reading `login` command, so the skill documents usage only.
+
 ## v0.5.0 — 2026-09-18
 
 - `setup-global-instructions` **202609_01** (new skill) — set up / sync a machine's global
