@@ -1,0 +1,15 @@
+{
+  "$schema": "https://code.claude.com/schemas/marketplace.json",
+  "name": "bombot-forge",
+  "description": "BomBot's personal Claude Code marketplace for NetSuite/SuiteScript delivery skills.",
+  "owner": {
+    "name": "Pradchaya Areerom (BomBot)"
+  },
+  "plugins": [
+    {
+      "name": "bombot-forge",
+      "source": "./",
+      "description": "BomBot's NetSuite delivery forge — SDF prod deploy, live read-only verification, scoped record writes, bundle-to-SDF-repo conversion, and verified decision briefs."
+    }
+  ]
+}

@@ -11,6 +11,17 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.3.3 — 2026-09-17
+
+Make the repo installable as a plugin marketplace (not just a bare plugin).
+
+- Added `.claude-plugin/marketplace.json` — a single-plugin marketplace manifest pointing at
+  this repo's own plugin (`source: "./"`). Previously the repo only had `plugin.json`, so
+  `/plugin marketplace add BomBot/bombot-forge` failed with "no manifest found at
+  `.claude-plugin/marketplace.json`". Passes `claude plugin validate .`.
+- Install flow: `/plugin marketplace add BomBot/bombot-forge` →
+  `/plugin install bombot-forge@bombot-forge`.
+
 ## v0.3.2 — 2026-09-16
 
 Second `teibto-redteam` confirmation pass (verified against live GitHub, not local claims) —
