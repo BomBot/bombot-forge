@@ -11,6 +11,19 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.4.0 — 2026-09-17
+
+- `ns-video-transcribe` **202609_01** (new skill) — transcribe a video/audio file to
+  SRT/TXT/MD through the homelab `bombot` MCP server (a Tailscale bridge to a Windows GPU box,
+  `bombot-gaming`, running ffmpeg + faster-whisper). Covers: the prereq check (Tailscale up +
+  `bombot` MCP connected, else `homelab-mcp/mac/install.sh` with a matching `.env`), scp'ing the
+  file to the Windows inbox and verifying its size matches before transcribing (guards a
+  half-copy), the fact that `mcp__bombot__transcribe_video` is a **sync/blocking** call that must
+  be flagged to the user, scp'ing the whole result folder back, and the Windows SSH job-object
+  gotcha (SSH-spawned processes die on disconnect — doesn't affect the tool, only bridge
+  restarts). Uses `mcp__bombot__list_transcribe_inbox` to avoid transcribing the wrong file in a
+  shared inbox.
+
 ## v0.3.3 — 2026-09-17
 
 Make the repo installable as a plugin marketplace (not just a bare plugin).
