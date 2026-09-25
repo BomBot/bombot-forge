@@ -11,6 +11,19 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.9.0 — 2026-09-25
+
+- **Renamed `cheap-worker` → `teibto-worker`** (agent) and `setup-cheap-worker` →
+  **`setup-teibto-worker`** **202609_06** (skill folder moved; `ask_cheap.py` / `prices.json`
+  unchanged). The name now says which worker it is: DeepSeek on the TEIBTO key.
+- `teibto-worker` **202609_01** (new skill) — `/teibto-worker <task>` entry point: data check
+  (never secrets; customer data only with explicit OK, else offer `local-llm`), delegate to the
+  agent, relay the verbatim usage line, spot-check the answer.
+- Separated from the user's existing local worker `local-llm` (Ollama — free, private). Both
+  described the same kind of work, so a vague "use a cheap AI" could pick either; the
+  `teibto-worker` description now defers to `local-llm` by default and is chosen when named or
+  when local is unavailable/busy. `local-llm`'s own file (user-level, outside this repo) is untouched.
+
 ## v0.8.2 — 2026-09-25
 
 - `setup-cheap-worker` **202609_05** — default key setup is now "open the key file in the

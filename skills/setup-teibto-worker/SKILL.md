@@ -1,18 +1,18 @@
 ---
-name: setup-cheap-worker
+name: setup-teibto-worker
 description: >-
-  Use when setting up, testing, or troubleshooting the `cheap-worker` subagent on a machine —
+  Use when setting up, testing, or troubleshooting the `teibto-worker` subagent on a machine —
   the worker that delegates bulk low-judgement text work to a cheap external model (deepseek via
   the TEIBTO OpenAI-compatible endpoint). Covers saving `TEIBTO_API_KEY` once per machine without
   it touching a repo or shell history, the smoke test, switching model/endpoint by env var, and
   the python.org-macOS empty-CA-store gotcha.
 ---
 
-# Setup Cheap Worker (deepseek via TEIBTO endpoint)
+# Setup Teibto Worker (deepseek via TEIBTO endpoint)
 
-**Skill version: `202609_05`**
+**Skill version: `202609_06`**
 
-The `cheap-worker` subagent ships with this plugin (`agents/cheap-worker.md`), so every
+The `teibto-worker` subagent ships with this plugin (`agents/teibto-worker.md`), so every
 machine that installs bombot-forge gets it in every session. It's a thin Claude (haiku) worker
 that forwards the task to an external cheap model through `scripts/ask_cheap.py`. The only
 per-machine step is the API key.
@@ -57,14 +57,17 @@ per-machine step is the API key.
    ```
 3. Smoke test (prints the model's reply; exit 0):
    ```bash
-   S=$(ls ~/.claude/plugins/cache/bombot-forge/bombot-forge/*/skills/setup-cheap-worker/scripts/ask_cheap.py | sort -V | tail -1)
+   S=$(ls ~/.claude/plugins/cache/bombot-forge/bombot-forge/*/skills/setup-teibto-worker/scripts/ask_cheap.py | sort -V | tail -1)
    python3 "$S" <<<'Reply with exactly: pong'
    ```
 
 ## Using it
 
-Ask for it by name, or let Claude pick it for bulk text work:
-> "ให้ cheap-worker สรุป transcript นี้เป็น bullet ภาษาไทย"
+Type `/teibto-worker <task>` (the `teibto-worker` skill), or ask for it by name:
+> "ให้ teibto-worker สรุป transcript นี้เป็น bullet ภาษาไทย"
+
+The local `local-llm` (Ollama, free, private) stays the default for this kind of work;
+`teibto-worker` is picked when you name it or when `local-llm` is unavailable/busy/not good enough.
 
 Change model or endpoint without code changes (env vars read by the helper):
 `TEIBTO_MODEL`, `TEIBTO_BASE_URL`, `TEIBTO_TIMEOUT`, `TEIBTO_ENV_FILE`.

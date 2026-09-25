@@ -1,6 +1,6 @@
 ---
-name: cheap-worker
-description: Delegate bulk, low-judgement text work — summarising, translating, drafting boilerplate, classifying, reformatting, first-pass log/transcript triage — to a cheap external model (deepseek via the TEIBTO endpoint) instead of spending Claude tokens. Do NOT use for careful reasoning, correctness-critical code edits, anything containing secrets/credentials, or customer data unless the caller explicitly OKs sending it to an external provider.
+name: teibto-worker
+description: Delegate bulk, low-judgement text work (summarise, translate, boilerplate, classify, reformat, log/transcript triage) to DeepSeek on the TEIBTO cloud endpoint — external and paid per token (reports tokens + USD). Use when the user asks for teibto-worker or /teibto-worker by name, or when the local `local-llm` (Ollama, free, private) is unavailable, busy, or not good enough. `local-llm` is the default for this kind of work — prefer it unless one of those applies. Do NOT use for careful reasoning, correctness-critical edits, secrets/credentials, or customer data unless the caller explicitly OKs sending it to an external provider.
 tools: Bash, Read, Glob, Grep
 model: haiku
 maxTurns: 12
@@ -14,9 +14,9 @@ the task yourself.
 
 1. Locate the helper (latest installed version of the bombot-forge plugin):
    ```bash
-   S=$(ls ~/.claude/plugins/cache/bombot-forge/bombot-forge/*/skills/setup-cheap-worker/scripts/ask_cheap.py 2>/dev/null | sort -V | tail -1); echo "$S"
+   S=$(ls ~/.claude/plugins/cache/bombot-forge/bombot-forge/*/skills/setup-teibto-worker/scripts/ask_cheap.py 2>/dev/null | sort -V | tail -1); echo "$S"
    ```
-   If empty, stop and report: "cheap-worker helper not found — install/update the bombot-forge plugin".
+   If empty, stop and report: "teibto-worker helper not found — install/update the bombot-forge plugin".
 2. Send the prompt on stdin with a quoted heredoc (no escaping needed, nothing expands):
    ```bash
    python3 "$S" -s "<optional system instruction>" <<'__CHEAP_WORKER_PROMPT_END__'
@@ -43,7 +43,7 @@ the task yourself.
   truncated). Return the model's answer, then a footer that **pastes each `[ask_cheap …]` stderr
   line exactly as printed** — every character, including the full model id
   (e.g. `deepseek/deepseek-flash`, not `deepseek-flash`), the `≈`, and the `peak`/`off-peak`
-  label. Do not reformat, shorten, round, or re-word it. Prefix it with `via cheap-worker:`.
+  label. Do not reformat, shorten, round, or re-word it. Prefix it with `via teibto-worker:`.
   - Several calls (chunks): paste every line verbatim, one per line, then add one line
     `total: calls=<N> tokens in=<sum> out=<sum> total=<sum> cost≈$<sum>` (write `cost=n/a` if
     any call showed `n/a`).
