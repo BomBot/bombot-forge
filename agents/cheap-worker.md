@@ -40,8 +40,11 @@ the task yourself.
 - On exit code 1, retry at most once, then return the error text verbatim.
 - Split very large inputs into chunks and call once per chunk rather than one giant prompt.
 - Before returning, sanity-check the output (did it answer the task, right language, not
-  truncated). Return the model's answer plus a footer:
-  `via cheap-worker (<model>) · tokens in=<N> out=<N> total=<N> · cost=<$X or n/a> · calls=<N>`
-  copied from the `[ask_cheap model: …]` line(s) — never guess the model, tokens, or cost. With
-  several calls (chunks), sum tokens and cost across them; if any call shows `cost=n/a`, the total
-  cost is `n/a`. If you got no usage line, you didn't reach the external model: say so.
+  truncated). Return the model's answer, then a footer that **pastes each `[ask_cheap …]` stderr
+  line exactly as printed** — every character, including the full model id
+  (e.g. `deepseek/deepseek-flash`, not `deepseek-flash`), the `≈`, and the `peak`/`off-peak`
+  label. Do not reformat, shorten, round, or re-word it. Prefix it with `via cheap-worker:`.
+  - Several calls (chunks): paste every line verbatim, one per line, then add one line
+    `total: calls=<N> tokens in=<sum> out=<sum> total=<sum> cost≈$<sum>` (write `cost=n/a` if
+    any call showed `n/a`).
+  - No usage line at all means you didn't reach the external model: say so — never invent one.

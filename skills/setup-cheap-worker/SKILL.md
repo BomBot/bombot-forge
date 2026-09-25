@@ -10,7 +10,7 @@ description: >-
 
 # Setup Cheap Worker (deepseek via TEIBTO endpoint)
 
-**Skill version: `202609_04`**
+**Skill version: `202609_05`**
 
 The `cheap-worker` subagent ships with this plugin (`agents/cheap-worker.md`), so every
 machine that installs bombot-forge gets it in every session. It's a thin Claude (haiku) worker
@@ -26,8 +26,8 @@ per-machine step is the API key.
 - **The key never goes in a repo, a prompt, or a command line.** Store it only in
   `~/.config/teibto/api.env` (or the env). The helper sends it in the HTTP header and never
   prints it. This repo is public; its redaction CI blocks `sk-…`-shaped keys as a backstop.
-- **Save the key by typing it at a hidden prompt**, not by pasting it into a command — pasted
-  commands land in shell history.
+- **The user types/pastes the key themselves** — into the key file in an editor, or at a hidden
+  prompt. Never into a shell command (lands in history), never into chat, never read back.
 - **Never turn off TLS verification** to "fix" an SSL error — see Gotchas for the real fix.
 - **Customer data leaves to an external provider** when you delegate to this worker. The agent
   refuses unless the caller explicitly OKs it — keep that rule.
@@ -39,7 +39,19 @@ per-machine step is the API key.
    claude plugin marketplace update bombot-forge && claude plugin update bombot-forge@bombot-forge
    ```
    Then restart Claude (Cmd+Q, reopen) so the new agent is loaded.
-2. Save the key — run in a real terminal (it prompts, input hidden):
+2. Save the key. **Default: open the key file in the user's editor** (BomBot uses Sublime) —
+   run this yourself; it creates an empty template only if the file is missing, locks it to
+   600, and opens it. It never reads or writes a key:
+   ```bash
+   F=~/.config/teibto/api.env; mkdir -p ~/.config/teibto
+   [ -s "$F" ] || printf 'TEIBTO_API_KEY=\n' > "$F"; chmod 600 "$F"
+   open -a "Sublime Text" "$F" 2>/dev/null || open -e "$F"   # fallback: TextEdit
+   ```
+   Tell the user: paste the key right after `TEIBTO_API_KEY=` (no quotes/spaces), Cmd+S, then
+   say "saved". Check it's filled **without reading the value** — length only:
+   `sed -n 's/^TEIBTO_API_KEY=//p' ~/.config/teibto/api.env | tr -d '\n' | wc -c` (> 0).
+
+   Alternative (terminal, hidden prompt — the user runs it, it can't run inside Claude's Bash):
    ```bash
    bash -c 'mkdir -p ~/.config/teibto && read -rsp "TEIBTO_API_KEY: " k && printf "TEIBTO_API_KEY=%s\n" "$k" > ~/.config/teibto/api.env && chmod 600 ~/.config/teibto/api.env && echo && echo saved'
    ```
@@ -101,7 +113,8 @@ the plan is a provider list with an order and an on/off flag (priority = order, 
 | Need | Command |
 |---|---|
 | Update plugin | `claude plugin marketplace update bombot-forge && claude plugin update bombot-forge@bombot-forge` |
-| Save key (hidden prompt) | the `bash -c 'read -rsp …'` line in Setup step 2 |
+| Save key (default) | open `~/.config/teibto/api.env` in Sublime — Setup step 2 |
+| Save key (terminal) | the `bash -c 'read -rsp …'` line in Setup step 2 |
 | Smoke test | `python3 "$S" <<<'Reply with exactly: pong'` |
 | Switch model | `TEIBTO_MODEL=<id>` |
 | Key location | `~/.config/teibto/api.env` (chmod 600) |

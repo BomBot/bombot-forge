@@ -11,6 +11,18 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.8.2 — 2026-09-25
+
+- `setup-cheap-worker` **202609_05** — default key setup is now "open the key file in the
+  user's editor" (Sublime, TextEdit fallback): Claude creates an empty template only if the file
+  is missing, locks it to 600 and opens it; the user pastes + saves; Claude checks it's filled by
+  **length only**. The hidden-prompt terminal command stays as the alternative. Verified the step
+  never overwrites an existing key.
+- `cheap-worker` agent — footer must paste each `[ask_cheap …]` usage line **verbatim** (full
+  model id, `≈`, peak/off-peak label), plus a `total:` line when chunked. Found on the README
+  summary run: the agent shortened `deepseek/deepseek-flash` to `deepseek-flash` and dropped
+  `≈ peak`, even though the numbers were right.
+
 ## v0.8.1 — 2026-09-25
 
 - `setup-cheap-worker` **202609_04** — cost is now live for `deepseek/deepseek-flash` using
