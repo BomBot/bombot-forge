@@ -11,6 +11,17 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.8.0 — 2026-09-25
+
+- `setup-cheap-worker` **202609_03** — every `ask_cheap.py` call now reports token usage
+  (in / out / total, plus cached and reasoning) from the response's `usage` field, and a USD cost
+  when a price is configured. `cheap-worker` puts tokens + cost + call count in its footer,
+  summed across chunked calls.
+  - Prices live in `scripts/prices.json` (USD per 1M, per model id) with env overrides. Shipped
+    **empty for `deepseek/deepseek-flash`** on purpose: the only public figure found (~$0.14/1M on
+    a TokenHub article) has no input/output split and names `deepseek-v4-flash`, not the id this
+    endpoint returns — so cost shows `n/a` until the rate card is confirmed.
+
 ## v0.7.1 — 2026-09-25
 
 - `setup-cheap-worker` **202609_02** — `ask_cheap.py` now prints the model that actually

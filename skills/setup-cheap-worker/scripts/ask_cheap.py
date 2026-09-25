@@ -53,6 +53,42 @@ def load_key():
     return ""
 
 
+def load_prices(model):
+    """USD per 1M tokens for this model: prices.json next to this script, overridden by env."""
+    p = {}
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "prices.json"),
+                  encoding="utf-8") as fh:
+            p = dict(json.load(fh).get(model) or {})
+    except (FileNotFoundError, ValueError):
+        pass
+    for key, env in (("input", "TEIBTO_PRICE_IN"), ("output", "TEIBTO_PRICE_OUT"),
+                     ("cached_input", "TEIBTO_PRICE_CACHED")):
+        if os.environ.get(env):
+            p[key] = float(os.environ[env])
+    return p
+
+
+def usage_line(model, usage):
+    """One stderr line with token counts (and USD cost when prices are configured)."""
+    u = usage or {}
+    pin, pout = int(u.get("prompt_tokens") or 0), int(u.get("completion_tokens") or 0)
+    cached = int((u.get("prompt_tokens_details") or {}).get("cached_tokens") or 0)
+    reasoning = int((u.get("completion_tokens_details") or {}).get("reasoning_tokens") or 0)
+    total = int(u.get("total_tokens") or pin + pout)
+    line = "[ask_cheap model: %s | tokens in=%d out=%d total=%d (cached=%d, reasoning=%d incl. in out)" % (
+        model, pin, pout, total, cached, reasoning)
+    pr = load_prices(model)
+    if pr.get("input") is not None and pr.get("output") is not None:
+        cached_rate = pr["cached_input"] if pr.get("cached_input") is not None else pr["input"]
+        # OpenAI-style usage: prompt_tokens includes cached tokens; completion includes reasoning.
+        cost = ((pin - cached) * pr["input"] + cached * cached_rate + pout * pr["output"]) / 1e6
+        line += " | cost=$%.6f" % cost
+    else:
+        line += " | cost=n/a (no price set for this model)"
+    return line + "]"
+
+
 def tls_context():
     # python.org macOS builds ship with an empty CA store until "Install Certificates" is run.
     ctx = ssl.create_default_context()
@@ -117,7 +153,8 @@ def main():
     try:
         sys.stdout.write(data["choices"][0]["message"]["content"])
         sys.stdout.write("\n")
-        sys.stderr.write("[ask_cheap model: %s]\n" % (data.get("model") or os.environ.get("TEIBTO_MODEL", DEFAULT_MODEL)))
+        model = data.get("model") or os.environ.get("TEIBTO_MODEL", DEFAULT_MODEL)
+        sys.stderr.write(usage_line(model, data.get("usage")) + "\n")
     except (KeyError, IndexError, TypeError):
         sys.stderr.write("ask_cheap: unexpected response shape: %s\n" % json.dumps(data)[:500])
         return 1

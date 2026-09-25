@@ -1,0 +1,10 @@
+{
+  "_note": "USD per 1M tokens, per model id as returned in the response. Leave null until verified from the provider's rate card; cost is only computed when input and output are both set. Env overrides: TEIBTO_PRICE_IN / TEIBTO_PRICE_OUT / TEIBTO_PRICE_CACHED.",
+  "deepseek/deepseek-flash": {
+    "input": null,
+    "output": null,
+    "cached_input": null,
+    "source": "",
+    "verified": ""
+  }
+}

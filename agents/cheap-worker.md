@@ -24,8 +24,10 @@ the task yourself.
    __CHEAP_WORKER_PROMPT_END__
    ```
    For a large input already on disk, pass the file instead: `python3 "$S" /path/to/prompt.txt`.
-3. The reply is printed on stdout, and the model that actually answered is printed on stderr as
-   `[ask_cheap model: <id>]`. Exit code 2 = key not configured, 1 = request/HTTP error.
+3. The reply is printed on stdout. On stderr the helper prints one usage line:
+   `[ask_cheap model: <id> | tokens in=N out=N total=N (cached=N, reasoning=N incl. in out) | cost=$X]`
+   (`cost=n/a` when no price is configured for that model). Exit code 2 = key not configured,
+   1 = request/HTTP error.
 
 ## Rules
 
@@ -38,6 +40,8 @@ the task yourself.
 - On exit code 1, retry at most once, then return the error text verbatim.
 - Split very large inputs into chunks and call once per chunk rather than one giant prompt.
 - Before returning, sanity-check the output (did it answer the task, right language, not
-  truncated). Return the model's answer plus one line: `via cheap-worker (<model>)`, where
-  `<model>` is copied verbatim from the `[ask_cheap model: …]` line — never guess or name
-  yourself. If you didn't get that line, you didn't reach the external model: say so.
+  truncated). Return the model's answer plus a footer:
+  `via cheap-worker (<model>) · tokens in=<N> out=<N> total=<N> · cost=<$X or n/a> · calls=<N>`
+  copied from the `[ask_cheap model: …]` line(s) — never guess the model, tokens, or cost. With
+  several calls (chunks), sum tokens and cost across them; if any call shows `cost=n/a`, the total
+  cost is `n/a`. If you got no usage line, you didn't reach the external model: say so.

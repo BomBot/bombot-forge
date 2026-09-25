@@ -10,7 +10,7 @@ description: >-
 
 # Setup Cheap Worker (deepseek via TEIBTO endpoint)
 
-**Skill version: `202609_02`**
+**Skill version: `202609_03`**
 
 The `cheap-worker` subagent ships with this plugin (`agents/cheap-worker.md`), so every
 machine that installs bombot-forge gets it in every session. It's a thin Claude (haiku) worker
@@ -56,6 +56,21 @@ Ask for it by name, or let Claude pick it for bulk text work:
 
 Change model or endpoint without code changes (env vars read by the helper):
 `TEIBTO_MODEL`, `TEIBTO_BASE_URL`, `TEIBTO_TIMEOUT`, `TEIBTO_ENV_FILE`.
+
+## Token usage + cost
+
+Every call prints a usage line on stderr, from the response's OpenAI-style `usage` field (works
+for any OpenAI-compatible provider):
+`[ask_cheap model: … | tokens in=N out=N total=N (cached=N, reasoning=N incl. in out) | cost=$X]`
+
+- `prompt_tokens` includes cached tokens; `completion_tokens` includes reasoning tokens (both
+  confirmed on the live endpoint: reasoning ≤ out).
+- **Cost needs a verified rate card.** Prices live in `scripts/prices.json` (USD per 1M tokens,
+  keyed by the model id the response returns). Until `input` and `output` are both set, cost
+  shows `n/a` — never fill it from a blog/aggregator figure. Per-machine override:
+  `TEIBTO_PRICE_IN` / `TEIBTO_PRICE_OUT` / `TEIBTO_PRICE_CACHED`.
+- Formula: `((in − cached)·input + cached·cached_input + out·output) / 1e6`
+  (`cached_input` falls back to `input` if unset).
 
 ## Gotchas (hit for real)
 
