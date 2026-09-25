@@ -26,7 +26,7 @@ Changes here take effect the next time a Claude Code session loads this plugin's
 .claude-plugin/plugin.json   # plugin manifest: name, semver, author, description (mirrors skill versions)
 skills/<name>/SKILL.md       # one folder per skill — frontmatter (name + description) drives when
                               # Claude auto-invokes it; body is the instructions given to the agent
-skills/<name>/scripts/       # optional per-skill support scripts (ns-record-write, setup-teibto-worker)
+skills/<name>/scripts/       # optional per-skill support scripts (ns-record-write, setup-teibto-worker, setup-local-llm)
 agents/<name>.md             # plugin subagents, auto-installed with the plugin (teibto-worker)
 README.md                    # skill index table + status checklist
 CHANGELOG.md                 # versioned history, see convention above

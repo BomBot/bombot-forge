@@ -11,6 +11,22 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.10.0 — 2026-09-25
+
+- `setup-local-llm` **202609_01** (new skill) — per-machine setup for the default `local-llm`
+  worker: Ollama on `bombot-gaming` over Tailscale, reached through the `ollama` MCP server.
+  Ships canonical copies of the MCP script (`scripts/ollama_mcp_server.py`, stdlib only) and the
+  agent (`reference/local-llm.agent.md`), the exact `claude mcp add` line, and a read-only
+  PASS/FAIL checker (`scripts/check-local-llm.sh`: Tailscale, Ollama reachable, pinned model
+  pulled, script + agent match canonical, MCP connected).
+  - Why: the MCP script lived **only** in `~/.claude/mcp-servers/` on one machine, in no git repo.
+    Now it's versioned and reproducible.
+  - The agent copy sits in `reference/`, not `agents/`, so the plugin doesn't register a second
+    `local-llm` beside the user-level one.
+  - Docs use MagicDNS `bombot-gaming:11434` (verified reachable) instead of the tailnet IP.
+  - Verified: ALL PASS on this machine; a simulated fresh machine flags exactly the 3 missing
+    pieces.
+
 ## v0.9.0 — 2026-09-25
 
 - **Renamed `cheap-worker` → `teibto-worker`** (agent) and `setup-cheap-worker` →
