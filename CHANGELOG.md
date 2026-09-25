@@ -11,6 +11,17 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.11.1 — 2026-09-25
+
+- New `docs/benchmarks/2026-09-25-suitelet-5-models.md`: 5 models (Opus 5.5, Sonnet 5, Opus 4.8,
+  teibto-worker, local-llm) on one Suitelet 2.1 coding task, with the same prompt, one shot,
+  blind grading on an 8-criterion rubric, plus tokens, USD and time. Opus 5.5 won (15/16, $0.17).
+  Both cheap workers produced code that would fail at runtime. The file records the method for
+  re-runs, including the `claude -p --setting-sources ""` trick that removes ~10k hidden input
+  tokens.
+- `teibto-code` **202609_02**: cites the benchmark in its Gotchas.
+- README gets a Benchmarks table; CLAUDE.md lists `docs/benchmarks/`.
+
 ## v0.11.0 — 2026-09-25
 
 - `teibto-code` **202609_01** (new skill) — `/teibto-code <task>`: delegate a coding task to

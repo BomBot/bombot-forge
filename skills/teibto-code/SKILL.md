@@ -9,7 +9,7 @@ description: >-
 
 # /teibto-code — delegate code to teibto-worker, verify before applying
 
-**Skill version: `202609_01`**
+**Skill version: `202609_02`**
 
 The worker (DeepSeek) has **no repo context** and **invents platform identifiers** (field/table/
 record ids, API methods, config keys). It only saves tokens when the output is long. The calling
@@ -92,6 +92,11 @@ If fixing the output cost more than writing it would have, say so — that's the
 delegating that kind of task.
 
 ## Gotchas (measured)
+
+- **Benchmark (2026-09-25, same Suitelet task, blind-graded /16):** Opus 5.5 15 · Sonnet 5 13 ·
+  Opus 4.8 12 · teibto-worker 3 · local-llm 1. Both cheap workers produced code that fails at
+  runtime on NetSuite-API-heavy logic (invalid `LIMIT`, invented APIs). Keep them for long mechanical
+  output, and verify line by line. Full write-up: `docs/benchmarks/2026-09-25-suitelet-5-models.md`.
 
 - **Reasoning tokens dominate the DeepSeek bill.** A 2-function draft (2026-09-25): 208 in / 6,272
   out, of which **5,942 were reasoning** (95%) → ≈ $0.0076. Output length ≠ cost; the thinking is.

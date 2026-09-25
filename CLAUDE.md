@@ -29,6 +29,7 @@ skills/<name>/SKILL.md       # one folder per skill — frontmatter (name + desc
 skills/<name>/scripts/       # optional per-skill support scripts (ns-record-write, setup-teibto-worker, setup-local-llm)
 agents/<name>.md             # plugin subagents, auto-installed with the plugin (teibto-worker)
 README.md                    # skill index table + status checklist
+docs/benchmarks/             # dated model comparisons (one file per run; don't edit old runs)
 CHANGELOG.md                 # versioned history, see convention above
 ```
 

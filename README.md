@@ -20,6 +20,12 @@ fan-out fix).
 | **teibto-worker** | `/teibto-worker <task>` — send one task to DeepSeek on the TEIBTO endpoint via the `teibto-worker` agent; checks for secrets/customer data first, relays the answer + verbatim token/cost line |
 | **setup-teibto-worker** | setting up / testing the `teibto-worker` subagent on a machine — saving `TEIBTO_API_KEY` at a hidden prompt (never in a repo or shell history), the smoke test, switching model/endpoint by env var, and the python.org-macOS empty-CA-store fix |
 
+## Benchmarks
+
+| Date | What | Result |
+|---|---|---|
+| 2026-09-25 | [Suitelet template → 2-step SuiteQL Suitelet, 5 models, blind-graded](docs/benchmarks/2026-09-25-suitelet-5-models.md) | Opus 5.5 15/16 ($0.17) · Sonnet 5 13 · Opus 4.8 12 ($0.31) · teibto-worker 3 ($0.01) · local-llm 1 (free) |
+
 ## Agents
 
 | Agent | Use when |
