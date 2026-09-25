@@ -15,6 +15,13 @@ fan-out fix).
 | **video-transcribe** | transcribing a video/audio file to SRT/TXT/MD via the homelab `bombot` MCP (Tailscale bridge to a Windows GPU box with ffmpeg + faster-whisper) — prereq check, scp-to-inbox + size verify, the sync `transcribe_video` wait, scp-results-back, and the SSH job-object gotcha |
 | **cdp-browser** | driving Chrome for Testing over CDP with the `cdp.py` helper — launching on a fixed persistent profile (port 9333), `tabs`/`nav`/`eval`/`a11y`/`click`/`shot`, render-accurate screenshots, piercing shadow-DOM web components, and safe click-submit auto-login (pairs with `netsuite-qa-browser` for NetSuite session recovery) |
 | **setup-global-instructions** | setting up or syncing a machine's global `~/.claude/CLAUDE.md` to the canonical NetSuite-dev instructions — compares a bundled redacted snapshot against the machine's file and proposes a section-by-section merge (never blind-overwrite); real customer/email/path values filled per-machine |
+| **setup-cheap-worker** | setting up / testing the `cheap-worker` subagent on a machine — saving `TEIBTO_API_KEY` at a hidden prompt (never in a repo or shell history), the smoke test, switching model/endpoint by env var, and the python.org-macOS empty-CA-store fix |
+
+## Agents
+
+| Agent | Use when |
+|---|---|
+| **cheap-worker** | delegating bulk, low-judgement text work (summarise, translate, boilerplate, classify, triage) to deepseek via the TEIBTO endpoint instead of Claude tokens — haiku forwarder over `ask_cheap.py`; refuses secrets, and customer data unless explicitly OK'd |
 | **verified-decision-brief** | turning an informal requirement into a stakeholder decision doc grounded in verified as-is (code + live), incl. redaction for sharing |
 
 ## Structure

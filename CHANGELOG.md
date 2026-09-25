@@ -11,6 +11,26 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.7.0 — 2026-09-25
+
+First plugin **agent** (the repo was skills-only until now).
+
+- `agents/cheap-worker.md` (new agent) — a haiku forwarder that hands bulk low-judgement text
+  work to a cheap external model (default `deepseek/deepseek-flash` on the TEIBTO
+  OpenAI-compatible endpoint). Ships with the plugin, so every machine with bombot-forge gets it
+  in every session. Refuses secrets; refuses customer data unless the caller explicitly OKs it.
+- `setup-cheap-worker` **202609_01** (new skill) — per-machine setup: save `TEIBTO_API_KEY` at a
+  hidden prompt into `~/.config/teibto/api.env` (chmod 600), smoke test, env-var switches.
+  Includes `scripts/ask_cheap.py` (stdlib only; key only in the HTTP header, never printed).
+  - Verified against the live endpoint: a fake key returns `401 authentication_error`, proving
+    URL + request shape.
+  - Gotcha found and fixed: python.org macOS Python loads 0 CAs → `CERTIFICATE_VERIFY_FAILED`.
+    Helper falls back to certifi, then `/etc/ssl/cert.pem`; verification stays on.
+- Redaction CI — new guard for `sk-…`-shaped API keys (20+ chars, so placeholders like
+  `sk-XXXXX` and words like `task-` don't trip it).
+- Priority / enable-disable across multiple cheap models is deliberately deferred until there's
+  a second provider (one provider = nothing to order).
+
 ## v0.6.0 — 2026-09-18
 
 - `cdp-browser` **202609_01** (new skill) — driving Chrome for Testing over CDP with the

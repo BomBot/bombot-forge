@@ -35,6 +35,13 @@ jobs:
             exit 1
           fi
 
+          # 2b) API-key-shaped secrets (OpenAI-style sk-… keys). The prefix check avoids words
+          #     like "task-…"; 20+ chars skips short placeholders such as sk-XXXXX.
+          if grep -rnE "(^|[^A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}" "${INCLUDES[@]}" .; then
+            echo "::error::Found an API-key-shaped string (sk-…). Keys belong in ~/.config/teibto/api.env, never in the repo."
+            exit 1
+          fi
+
           # 3) Any bare 7-8 digit number is account/bundle-id shaped (this is how account ids
           #    leak in prose, e.g. "account id 8158655"). TEIBTO's own known-safe numbers are
           #    allowlisted; anything new fails so a human confirms it before it ships.
