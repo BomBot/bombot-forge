@@ -11,6 +11,25 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.11.0 — 2026-09-25
+
+- `teibto-code` **202609_01** (new skill) — `/teibto-code <task>`: delegate a coding task to
+  teibto-worker and verify before applying. Worth-it check (delegate only long mechanical output;
+  ~20k-token worker overhead — measured: 23.7k haiku + 3.4k DeepSeek ≈ $0.004 / 28 s vs an Opus
+  subagent 63.5k / 5 s, both correct), data check (customer data = ask every time; secrets never),
+  attaches the repo's `docs/ai/teibto-worker-brief.md` (part above "For the caller" only), required
+  `### Code / ### Where it goes / ### Assumptions` output, line-by-line verify (ids, limits,
+  forbidden APIs, style, change header), Claude applies + syntax-checks + runs the project's test
+  flow, report with the verbatim usage footer. Generalised from a NetSuite-repo prototype —
+  project-specific rules stay in each repo's brief. Requested via the MFG session.
+  - Live test: all 3 sections returned; an identifier it wasn't given came back as
+    `/* TODO: confirm id */` + an Assumptions bullet (not invented). 95% of output tokens were
+    reasoning.
+- `teibto-worker` agent — may now draft code under `teibto-code` (caller verifies); coding tasks
+  go in one call and the 3 sections are returned verbatim, never edited or split. Its old
+  "not for correctness-critical code" line contradicted this flow and is replaced.
+- `teibto-worker` skill **202609_02** — points code work to `/teibto-code`.
+
 ## v0.10.0 — 2026-09-25
 
 - `setup-local-llm` **202609_01** (new skill) — per-machine setup for the default `local-llm`

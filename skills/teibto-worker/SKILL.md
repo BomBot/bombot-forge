@@ -9,11 +9,13 @@ description: >-
 
 # /teibto-worker — send a task to DeepSeek (TEIBTO endpoint)
 
-**Skill version: `202609_01`**
+**Skill version: `202609_02`**
 
 A shortcut for delegating one task to the `teibto-worker` subagent, which forwards it to
 DeepSeek on the TEIBTO endpoint and reports tokens + an estimated USD cost. Setup lives in
 `setup-teibto-worker`; this skill is only the "run a task" entry point.
+**Writing or drafting code?** Use `/teibto-code` instead — it adds the worth-it check, the
+project brief, and line-by-line verification before anything is applied.
 
 ## Which worker
 
