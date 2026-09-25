@@ -10,7 +10,7 @@ description: >-
 
 # Setup Cheap Worker (deepseek via TEIBTO endpoint)
 
-**Skill version: `202609_01`**
+**Skill version: `202609_02`**
 
 The `cheap-worker` subagent ships with this plugin (`agents/cheap-worker.md`), so every
 machine that installs bombot-forge gets it in every session. It's a thin Claude (haiku) worker

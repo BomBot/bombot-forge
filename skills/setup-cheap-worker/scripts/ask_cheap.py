@@ -117,6 +117,7 @@ def main():
     try:
         sys.stdout.write(data["choices"][0]["message"]["content"])
         sys.stdout.write("\n")
+        sys.stderr.write("[ask_cheap model: %s]\n" % (data.get("model") or os.environ.get("TEIBTO_MODEL", DEFAULT_MODEL)))
     except (KeyError, IndexError, TypeError):
         sys.stderr.write("ask_cheap: unexpected response shape: %s\n" % json.dumps(data)[:500])
         return 1

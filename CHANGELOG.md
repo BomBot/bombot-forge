@@ -11,6 +11,14 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.7.1 — 2026-09-25
+
+- `setup-cheap-worker` **202609_02** — `ask_cheap.py` now prints the model that actually
+  answered to stderr (`[ask_cheap model: <id>]`), and `cheap-worker` must copy that verbatim into
+  its `via cheap-worker (<model>)` footer. Found on the first end-to-end poke: the haiku forwarder
+  labelled a correct deepseek answer as "Claude 3.5 Sonnet" — a guessed name. Missing line now
+  means "didn't reach the external model", not "make one up".
+
 ## v0.7.0 — 2026-09-25
 
 First plugin **agent** (the repo was skills-only until now).

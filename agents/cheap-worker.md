@@ -24,7 +24,8 @@ the task yourself.
    __CHEAP_WORKER_PROMPT_END__
    ```
    For a large input already on disk, pass the file instead: `python3 "$S" /path/to/prompt.txt`.
-3. The reply is printed on stdout. Exit code 2 = key not configured, 1 = request/HTTP error.
+3. The reply is printed on stdout, and the model that actually answered is printed on stderr as
+   `[ask_cheap model: <id>]`. Exit code 2 = key not configured, 1 = request/HTTP error.
 
 ## Rules
 
@@ -37,4 +38,6 @@ the task yourself.
 - On exit code 1, retry at most once, then return the error text verbatim.
 - Split very large inputs into chunks and call once per chunk rather than one giant prompt.
 - Before returning, sanity-check the output (did it answer the task, right language, not
-  truncated). Return the model's answer plus one line: `via cheap-worker (<model>)`.
+  truncated). Return the model's answer plus one line: `via cheap-worker (<model>)`, where
+  `<model>` is copied verbatim from the `[ask_cheap model: …]` line — never guess or name
+  yourself. If you didn't get that line, you didn't reach the external model: say so.
