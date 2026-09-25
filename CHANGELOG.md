@@ -11,6 +11,17 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.11.2 — 2026-09-26
+
+- New `docs/benchmarks/2026-09-26-local-models.md`: four more local Ollama models (`qwen3-coder:30b`,
+  `glm-4.7-flash`, `qwen3:30b-a3b`, `deepseek-coder-v2:16b`) on the same prompt and rubric, run one
+  at a time on the 12 GB GPU and graded blind next to two re-graded anchors from the 2026-09-25 run.
+  Opus 5.5 re-scored 15 and `gpt-oss:20b` 3, so the grading scale held. All four new models scored
+  0–1, so `gpt-oss:20b` stays pinned for `local-llm`. Long reasoning (4–5 min) didn't raise scores.
+  The file also records that `teibto-main` / `teibto-alt` share weights with `qwen3-coder:30b` /
+  `gpt-oss:20b` and differ only in a 64k context.
+- README Benchmarks table gets the new row.
+
 ## v0.11.1 — 2026-09-25
 
 - New `docs/benchmarks/2026-09-25-suitelet-5-models.md`: 5 models (Opus 5.5, Sonnet 5, Opus 4.8,

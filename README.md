@@ -25,6 +25,7 @@ fan-out fix).
 | Date | What | Result |
 |---|---|---|
 | 2026-09-25 | [Suitelet template → 2-step SuiteQL Suitelet, 5 models, blind-graded](docs/benchmarks/2026-09-25-suitelet-5-models.md) | Opus 5.5 15/16 ($0.17) · Sonnet 5 13 · Opus 4.8 12 ($0.31) · teibto-worker 3 ($0.01) · local-llm 1 (free) |
+| 2026-09-26 | [Same task, 4 more local models vs pinned gpt-oss:20b](docs/benchmarks/2026-09-26-local-models.md) | qwen3-coder:30b 1 · glm-4.7-flash 1 · qwen3:30b-a3b 1 · deepseek-coder-v2:16b 0 — keep gpt-oss:20b pinned |
 
 ## Agents
 
