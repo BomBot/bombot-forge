@@ -1,10 +1,14 @@
 {
-  "_note": "USD per 1M tokens, per model id as returned in the response. Leave null until verified from the provider's rate card; cost is only computed when input and output are both set. Env overrides: TEIBTO_PRICE_IN / TEIBTO_PRICE_OUT / TEIBTO_PRICE_CACHED.",
+  "_note": "USD per 1M tokens at PEAK rate, keyed by the model id returned in the response. Off-peak = peak * off_peak_multiplier outside peak_hours_utc on peak_weekdays (0=Mon). Env overrides (flat, no peak logic): TEIBTO_PRICE_IN / TEIBTO_PRICE_OUT / TEIBTO_PRICE_CACHED.",
   "deepseek/deepseek-flash": {
-    "input": null,
-    "output": null,
-    "cached_input": null,
-    "source": "",
-    "verified": ""
+    "input": 0.30,
+    "output": 1.20,
+    "cached_input": 0.006,
+    "off_peak_multiplier": 0.5,
+    "peak_hours_utc": [[1, 4], [6, 10]],
+    "peak_weekdays": [0, 1, 2, 3, 4],
+    "source": "DeepSeek official pricing, DeepSeek-V4.1-Flash (deepseek-flash): https://api-docs.deepseek.com/quick_start/pricing/",
+    "verified": "2026-09-25",
+    "caveat": "DeepSeek's own API rates; TEIBTO endpoint (Tencent TokenHub) billing may differ — treat cost as an estimate."
   }
 }

@@ -10,7 +10,7 @@ description: >-
 
 # Setup Cheap Worker (deepseek via TEIBTO endpoint)
 
-**Skill version: `202609_03`**
+**Skill version: `202609_04`**
 
 The `cheap-worker` subagent ships with this plugin (`agents/cheap-worker.md`), so every
 machine that installs bombot-forge gets it in every session. It's a thin Claude (haiku) worker
@@ -65,10 +65,14 @@ for any OpenAI-compatible provider):
 
 - `prompt_tokens` includes cached tokens; `completion_tokens` includes reasoning tokens (both
   confirmed on the live endpoint: reasoning ≤ out).
-- **Cost needs a verified rate card.** Prices live in `scripts/prices.json` (USD per 1M tokens,
-  keyed by the model id the response returns). Until `input` and `output` are both set, cost
-  shows `n/a` — never fill it from a blog/aggregator figure. Per-machine override:
+- **Cost needs a verified rate card.** Prices live in `scripts/prices.json` (USD per 1M tokens
+  at peak, keyed by the model id the response returns). A model with no `input`/`output` shows
+  `cost=n/a` — never fill it from a blog/aggregator figure. Per-machine flat override:
   `TEIBTO_PRICE_IN` / `TEIBTO_PRICE_OUT` / `TEIBTO_PRICE_CACHED`.
+- `deepseek/deepseek-flash` uses DeepSeek's official **V4.1-Flash** rates (peak: in $0.30,
+  cached in $0.006, out $1.20; off-peak = half, outside 01–04 & 06–10 UTC Mon–Fri). The helper
+  picks peak/off-peak from the call time and labels the cost. These are DeepSeek's own API rates —
+  the TEIBTO/TokenHub bill may differ, so the figure is `cost≈` (an estimate).
 - Formula: `((in − cached)·input + cached·cached_input + out·output) / 1e6`
   (`cached_input` falls back to `input` if unset).
 

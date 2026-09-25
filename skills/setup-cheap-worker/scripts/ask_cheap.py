@@ -62,11 +62,27 @@ def load_prices(model):
             p = dict(json.load(fh).get(model) or {})
     except (FileNotFoundError, ValueError):
         pass
+    overridden = False
     for key, env in (("input", "TEIBTO_PRICE_IN"), ("output", "TEIBTO_PRICE_OUT"),
                      ("cached_input", "TEIBTO_PRICE_CACHED")):
         if os.environ.get(env):
             p[key] = float(os.environ[env])
+            overridden = True
+    if overridden:
+        p.pop("peak_hours_utc", None)  # env override = flat rate
     return p
+
+
+def rate_multiplier(pr, now=None):
+    """(multiplier, label) for peak/off-peak pricing; flat 1.0 when no schedule is configured."""
+    hours = pr.get("peak_hours_utc")
+    if not hours:
+        return 1.0, ""
+    import datetime
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    peak = now.weekday() in pr.get("peak_weekdays", [0, 1, 2, 3, 4]) and any(
+        start <= now.hour < end for start, end in hours)
+    return (1.0, " peak") if peak else (float(pr.get("off_peak_multiplier", 1.0)), " off-peak")
 
 
 def usage_line(model, usage):
@@ -82,8 +98,9 @@ def usage_line(model, usage):
     if pr.get("input") is not None and pr.get("output") is not None:
         cached_rate = pr["cached_input"] if pr.get("cached_input") is not None else pr["input"]
         # OpenAI-style usage: prompt_tokens includes cached tokens; completion includes reasoning.
-        cost = ((pin - cached) * pr["input"] + cached * cached_rate + pout * pr["output"]) / 1e6
-        line += " | cost=$%.6f" % cost
+        mult, label = rate_multiplier(pr)
+        cost = mult * ((pin - cached) * pr["input"] + cached * cached_rate + pout * pr["output"]) / 1e6
+        line += " | cost≈$%.6f%s" % (cost, label)
     else:
         line += " | cost=n/a (no price set for this model)"
     return line + "]"

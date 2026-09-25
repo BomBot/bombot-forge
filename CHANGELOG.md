@@ -11,6 +11,15 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.8.1 — 2026-09-25
+
+- `setup-cheap-worker` **202609_04** — cost is now live for `deepseek/deepseek-flash` using
+  DeepSeek's official **V4.1-Flash** rate card (peak: input $0.30 / cached input $0.006 / output
+  $1.20 per 1M; off-peak = half, outside 01–04 & 06–10 UTC Mon–Fri). The helper picks peak or
+  off-peak from the call time and labels it. Shown as `cost≈` because these are DeepSeek's own API
+  rates, not a confirmed TEIBTO/TokenHub bill. Boundary-tested (09:59 peak, 10:00 off-peak,
+  Saturday off-peak; 1M in + 1M out at peak = $1.50).
+
 ## v0.8.0 — 2026-09-25
 
 - `setup-cheap-worker` **202609_03** — every `ask_cheap.py` call now reports token usage

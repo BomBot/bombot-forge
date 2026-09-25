@@ -25,8 +25,8 @@ the task yourself.
    ```
    For a large input already on disk, pass the file instead: `python3 "$S" /path/to/prompt.txt`.
 3. The reply is printed on stdout. On stderr the helper prints one usage line:
-   `[ask_cheap model: <id> | tokens in=N out=N total=N (cached=N, reasoning=N incl. in out) | cost=$X]`
-   (`cost=n/a` when no price is configured for that model). Exit code 2 = key not configured,
+   `[ask_cheap model: <id> | tokens in=N out=N total=N (cached=N, reasoning=N incl. in out) | cost≈$X peak|off-peak]`
+   (`cost=n/a` when no price is configured for that model; the figure is an estimate). Exit code 2 = key not configured,
    1 = request/HTTP error.
 
 ## Rules
