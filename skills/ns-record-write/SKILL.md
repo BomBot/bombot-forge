@@ -10,7 +10,7 @@ description: >-
 
 # NetSuite Record Write (scoped ns_write helper)
 
-**Skill version: `202609_04`**
+**Skill version: `202609_05`**
 
 Writing to a live NetSuite record from a logged-in browser tab. The **only** sanctioned
 write channel here is `scripts/qa/ns_write.py` — a helper that takes **structured args**
@@ -129,7 +129,7 @@ python3 scripts/qa/ns_write.py --engine bsk --bsk-session <SID> --bsk-tab <TAB> 
 - `--account` = expected `runtime.accountId` (`4089685_SB2` sandbox, `4089685` prod). Mismatch → abort.
 - Reads BEFORE + AFTER via `N/search.lookupFields` so you get a before→after diff for free.
 - Exit codes: `0` ok / dry-run · `1` write failed (the page rejected it) · `2` aborted by a guard · `3` **outcome unknown** (transport failure mid-write — do not re-run blind).
-- bsk was verified on a sandbox: dry-run (account guard, BEFORE read, dialog guard, wrong-account abort) and **a live `--confirm` write** (`submitFields` on a sandbox `currency` record: a value the page rejects → exit 1, nothing written; a valid value → `WRITE ok` with AFTER matching, then reverted to the original and re-read). Offline stubs cover the refuse / unknown-outcome paths. Not exercised live: `--mode save` through bsk, and a real transport failure mid-write.
+- bsk was verified on a sandbox: dry-run (account guard, BEFORE read, dialog guard, wrong-account abort) and **a live `--confirm` write** (`submitFields` on a sandbox `currency` record: a value the page rejects → exit 1, nothing written; a valid value → `WRITE ok` with AFTER matching, then reverted to the original and re-read). Offline stubs cover the refuse / unknown-outcome paths. `--mode save` was also exercised live the same way (write `AU1`, revert to `AUD`, re-read; both `WRITE ok`). Not exercised live: a real transport failure mid-write.
 - Dialogs: a page rejection comes back as the error text, not a dialog — the guard stayed silent in the live run.
 
 ## Validate the setup (run on EACH machine)
