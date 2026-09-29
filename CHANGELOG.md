@@ -9,6 +9,13 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.13.1 — 2026-09-29
+
+- `ns-record-write` **202609_04** — docs only: records the first live `--confirm` write through bsk on a
+  sandbox (page-rejected value → exit 1, nothing written; valid value → `WRITE ok`, AFTER matches,
+  reverted and re-read). `--mode save` via bsk and a real mid-write transport failure remain
+  unexercised.
+
 ---
 
 ## v0.13.0 — 2026-09-29
