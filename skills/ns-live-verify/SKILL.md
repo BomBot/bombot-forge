@@ -9,7 +9,7 @@ description: >-
 
 # NetSuite Live Verify (read-only via dbgQuery)
 
-**Skill version: `202609_04`**
+**Skill version: `202609_05`**
 
 Run SuiteQL / `record.toJSON` against a live account through a logged-in Chrome tab, so you
 verify against **real state** instead of guessing. Read-only, SELECT-only. Pairs with
@@ -25,11 +25,31 @@ verify against **real state** instead of guessing. Read-only, SELECT-only. Pairs
 Add a row per real account to `notes.private.md` (gitignored, not in this repo) as you set
 each one up — never commit a production account id / script id into this tracked file.
 
-Both are POST, same-origin `fetch` from a logged-in `*.app.netsuite.com` Admin tab. Fire the
-fetch to a `window.__r` var, read it back in a **separate** call (fetch is async).
+Both are POST, same-origin `fetch` from a logged-in `*.app.netsuite.com` Admin tab. Two ways to
+drive that tab — **bsk is the default for these reads** (see `cdp-browser` for the engine choice):
+
+### Option A — via bsk (verified on a Mac, 2026-09-29; `evaluate` awaits the promise, one call)
 
 ```bash
-# via cdp.py (Chrome for Testing, port 9333); pin the tab with TGT_ID
+export BSK_AUTO_START=0
+bsk session start --no-focus --name lv --json > s.json          # note session_id
+bsk tab create --no-active --url about:blank --session <sid> --json > t.json   # note tab_id
+# open a CLASSIC NetSuite page first — fetch from about:blank fails
+bsk navigate "https://<host>/app/center/card.nl?sc=-29&whence=" --wait-until domcontentloaded --session <sid> --tab-id <tab>
+# guards from cdp-browser: dialog guard + identity gate (company + SANDBOX), then:
+bsk evaluate "fetch('/app/site/hosting/scriptlet.nl?script=<SCRIPT_ID>&deploy=1&compid=<ACCOUNT_ID>&action=dbgQuery&debug=1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:'<SELECT ...>'})}).then(r=>r.text())" --session <sid> --tab-id <tab> --json
+bsk session stop <sid>                                            # always, even on failure
+```
+
+Return only what you need from the response (`.then(t=>JSON.parse(t).data...)`) — a `whoami`
+call answered in 1.2 s. Read-only: never run writes through this path.
+
+### Option B — via cdp.py (needs a registered NetSuite lane / claimed tab; pin `TGT_ID`)
+
+Fire the fetch to a `window.__r` var, read it back in a **separate** call (fetch is async).
+
+```bash
+# Chrome for Testing, port 9333; pin the tab with TGT_ID
 export CDP_PORT=9333; export TGT_ID=<target-tab-id>
 python3 cdp.py eval 'window.__r=null; fetch("/app/site/hosting/scriptlet.nl?script=<SCRIPT_ID>&deploy=1&compid=<ACCOUNT_ID>&action=dbgQuery&debug=1",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q:"<SELECT ...>"})}).then(r=>r.text()).then(t=>window.__r=t.slice(0,900)); "fired"'
 sleep 3

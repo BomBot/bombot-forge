@@ -1,46 +1,123 @@
 ---
 name: cdp-browser
 description: >-
-  Use when driving Chrome for Testing over CDP with the `cdp.py` helper (port 9333, fixed
-  persistent profile) — launching the browser, running `tabs`/`nav`/`eval`/`a11y`/`click`/`shot`,
-  taking render-accurate screenshots, piercing shadow-DOM web components, and the safe
-  click-submit auto-login. The browser-driver mechanics; for NetSuite QA session recovery
+  Use when driving a browser: BrowserSkill (`bsk`) is the default for read-only checks, QA,
+  screenshots and dbgQuery reads in the browser you're already logged in to; the cdp lane
+  (Chrome for Testing + `cdp.py`, port 9333) is for writes, anything where a native dialog matters,
+  and `lens`/`netlog`/`stub`/`diff`. Covers which engine to pick (with measured numbers), the bsk
+  safety recipes verified on a Mac (own session + pinned tab, dialog guard, NetSuite identity gate,
+  bounded observe), and the cdp launch/commands/coordinator rules. For NetSuite session recovery
   (black screen, SSO loop, permission gates) pair with `netsuite-qa-browser`.
 ---
 
-# CDP Browser (Chrome for Testing + cdp.py)
+# Browser driving: bsk for read/QA, cdp for the rest
 
-**Skill version: `202609_01`**
+**Skill version: `202609_02`**
 
-Drive a dedicated **Chrome for Testing** over the DevTools Protocol with the `cdp.py` helper.
-It runs on a **fixed CDP port (9333)** and a **persistent profile**, so the session (and
-trusted-device token) survives across runs — no re-login every time. Chrome for Testing is
-installed separately from the main Chrome and does **not** auto-update, so it won't break
-mid-task when Chrome bumps a version.
+Two engines, one rule: **read/QA → `bsk`; writes and anything a dialog could touch → cdp.**
+This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
+`browser-skill` (installed by `bsk install-skill --harness claude-code`); `cdp.py` is your own tool
+(not bundled — large, and its `login` subcommand reads credentials from a local env file).
 
-`cdp.py` is your own tool (canonical copy at `~/WebstormProjects/<qa-project>/scripts/qa/cdp.py`,
-copied into projects as `scripts/qa/cdp.py`) — this skill is how to **use** it, not a copy of it.
-Related: `netsuite-qa-browser` owns the NetSuite-specific session-recovery playbook (black
-screen / hang, session drop, 2FA/SSO loop, CDP not responding, File Cabinet hash verify, role
-switching, permission-gate proof).
+## Pick the engine
 
-## When to use which browser
-
-| | Chrome for Testing (cdp.py, port 9333) | Claude in Chrome (MCP, main Chrome) |
+| Task | Engine | Why |
 |---|---|---|
-| Use for | QA/verify NetSuite, automation, screenshots, driving shadow DOM, multi-account login | tasks that need the main Google/Chrome session (e.g. Google Sheets under `<work-email>`) |
-| Driven by | `cdp.py` (eval/click/shot) | `mcp__claude-in-chrome__*` (navigate/computer/read_page) — pick Browser 1/2 |
+| Read a page, smoke/QA, screenshots, dbgQuery / SuiteQL reads | **bsk** | Uses the browser you're already logged in to; no separate profile or login |
+| Any write — record edit/save/submit, deploy-adjacent UI clicks | **cdp** | `bsk` **auto-accepts every native dialog** (`alert`/`confirm`/`prompt`/`beforeunload`) and can't be told not to (verified below) |
+| `lens` / `netlog` / `stub` / `diff`, shadow-DOM piercing (`a11y`), coordinate work | **cdp** | Not in `bsk` |
+| Unattended or long runs, production | **cdp** (or don't) | Team policy: no `bsk` for production writes or unattended runs; a person closing the Agent Window kills the run |
 
-- ❌ Don't use the 9333 profile (a `<personal-gmail>` login) to open Google Sheets owned by
-  `<work-email>` → Access denied. Use claude-in-chrome (main Chrome) for that.
+When in doubt, use cdp. NetSuite record-form QA belongs to a dedicated skill, not here.
 
-## Launch Chrome for Testing (fixed profile)
+## Measured on this machine (2026-09-29, Apple Silicon Mac, Chrome 152, bsk 0.3.1)
 
-```
-~/Applications/Google Chrome for Testing.app     # binary (separate from main Chrome)
-~/.qa-chrome/<task>                               # persistent profile — session stays logged in
-CDP port 9333
-```
+| What | bsk | cdp.py |
+|---|---|---|
+| `eval 1+1`, one process per command, n=10 (median, min–max) | **18 ms** (15–33) | 409 ms (256–1401) |
+| Screenshot to file, n=3 | 210 ms | 709 ms (different browsers — not the same pixels) |
+| `navigate` example.com, n=5 | 352 ms | 3,688 ms — cdp looks like a built-in wait; **not comparable** |
+| `evaluate` awaiting a `fetch()` (dbgQuery `whoami`) | one command, 1.2 s | needs the two-call `window.__r` pattern |
+
+Read these with the caveats: cdp side ran as a throwaway headless Chrome for Testing (the shared
+browser's coordinator refuses tab creation), one process per command (how these skills call it —
+not the runner's JSONL session), small n, no NetSuite. **On real NetSuite pages the page dominates:**
+Home took 14–19 s to `load` (8.9 s to `domcontentloaded`) with bsk, so engine speed barely moves
+end-to-end time — the win is per-command overhead and not needing a second logged-in browser.
+
+## bsk lane
+
+### Setup (once per machine)
+
+1. **CLI** — upstream `install.sh` (macOS/Linux; installs to `~/.local/bin`, verifies a checksum).
+   Read it before running. Repo: `Tencent/BrowserSkill`.
+2. **Extension** — the user installs it in Chrome/Edge (Chrome Web Store link is in the upstream
+   `AGENT_INSTALL.md`) and turns the connection on in its popup. An agent can't do this.
+3. **Daemon** — `bsk daemon start` (survived after the command returned on macOS). For agent
+   commands set `BSK_AUTO_START=0`, redirect output to a file instead of piping (the team saw a
+   hang from `bsk doctor | tail`, inferred), then run `bsk doctor` → expect all `ok`.
+4. **Skill** — `bsk install-skill --harness claude-code` puts the upstream `browser-skill` in
+   `~/.claude/skills`. It carries no network/telemetry instructions (read on install) but it
+   **updates itself with the CLI**; the daemon also auto-updates every ~30 min unless
+   `BSK_AUTO_UPDATE=off`.
+5. **Pin caveat** — Teibto's `flow-runner.py` refuses anything but daemon **and** extension `0.3.0`.
+   `0.3.1` works with direct `bsk` commands, not with that runner.
+
+### Every run
+
+1. **Own session, always stopped:** `bsk session start --no-focus --name <job> --json` → `session_id`.
+   `bsk session stop <id>` at the end **even on failure**; confirm `bsk status` shows 0 sessions.
+2. **Own tab, pinned:** `bsk tab create --no-active --url about:blank --session <id> --json` →
+   `tab_id`; pass `--tab-id` on every command. Without it a command follows the active tab, which a
+   peer can move. One command per session at a time (a second is refused with `session_busy`).
+3. **Dialog guard after every navigation** (the page changes, the guard is gone):
+   ```bash
+   bsk evaluate "window.alert=function(){};window.confirm=function(){return false};window.prompt=function(){return null};window.onbeforeunload=null" --session <id> --tab-id <tab>
+   ```
+   Verified on macOS: without it `confirm()` returned `true` and the result listed
+   `handled: "accepted"`; with it `confirm()` returned `false` and no dialog was reported. Assert
+   the `dialogs` field of every result stays empty.
+4. **NetSuite identity gate before reading anything past the login page:**
+   ```js
+   JSON.stringify({co:nlapiGetContext().getCompany(), env:nlapiGetContext().getEnvironment()})
+   ```
+   Must match the account you mean and (for anything beyond reads) `SANDBOX`. A login page has no
+   `nlapiGetContext`, so the gate also catches an expired session. Fetching `/app/...` from
+   `about:blank` fails — open a classic NetSuite page first.
+5. **Expired session (redirected to the login page):** follow the BomBot auto-login rule — only if
+   `#login-submit` exists and is enabled (Chrome autofilled), click it once; never read or type a
+   credential; stop on empty fields or an MFA prompt. It counts as a login in the account's
+   "My login audit".
+6. **Read cheaply.** `bsk observe` on a one-paragraph page returned 18.6 KB (one node per
+   character) — always cap it: `bsk observe --max-tokens 600 …` gave 2.6 KB on the NetSuite Home
+   page. Prefer `evaluate` for targeted reads (titles, counts, one value); save screenshots to a
+   file (`--out`), don't return image bytes. `evaluate` awaits promises, so a `fetch(...).then(…)`
+   returns in one call.
+7. **Console:** filter out `chrome-extension://` entries — another extension's messages were half
+   of the log; judge only the page's own.
+8. **Faster navigation:** `bsk navigate <url> --wait-until domcontentloaded`, then wait for the
+   element you need (Home: 8.9 s vs 14–19 s for the default `load`).
+
+### Known limits (Teibto's tests, mostly Windows — recheck on this Mac before relying)
+
+- `fill` fails or is silently dropped on `<input type=date>`, React-controlled inputs and Quill
+  editors; values starting with `-` need `--value=<v>`. Details: `Teibto/teibto-browser-qa`,
+  `references/engine2-bsk.md` §4.
+- Screenshot of a **background** tab is documented to fail; on macOS/0.3.1 it succeeded (not
+  investigated — may be because it was the window's only tab).
+- Closing the Agent Window mid-run kills the run — including after a Save. Tell the owner first.
+- Everything above was measured with a person's real Chrome: an Agent Window shares its logins and is
+  **not** a sandbox.
+
+## cdp lane (Chrome for Testing + cdp.py)
+
+Dedicated **Chrome for Testing** over the DevTools Protocol on a **fixed port (9333)** and a
+**persistent profile** (session and trusted-device token survive). It's separate from the main
+Chrome and doesn't auto-update. `cdp.py` talks CDP directly — no daemon layer; its header records
+the reason (an earlier daemon-based tool hung silently). `bsk` is a daemon too, and its team tests
+are loopback-only, so keep cdp for long or unattended work.
+
+### Launch (fixed profile)
 
 ```bash
 ~/Applications/"Google Chrome for Testing.app"/Contents/MacOS/"Google Chrome for Testing" \
@@ -48,12 +125,16 @@ CDP port 9333
   --no-first-run --no-default-browser-check --disable-session-crashed-bubble about:blank
 ```
 
-- **⚠️ Chrome 136+ ignores `--remote-debugging-port` when using the default profile** — you
-  **must** pass a `--user-data-dir`. The fixed profile is not optional; it's what makes CDP work
-  at all on current Chrome.
-- One profile per kind of work (`~/.qa-chrome/<task>`) keeps sessions from colliding.
+- **Chrome 136+ ignores `--remote-debugging-port` on the default profile** — `--user-data-dir` is
+  mandatory. One profile per kind of work.
+- **Shared NetSuite browser + coordinator.** On a browser registered as shared, `cdp.py newtab` is
+  **refused** ("use ns-session tab <account> or claim_tab"). Don't work around it. Check
+  `python3 cdp.py ns-session status <compid>` (read-only): `bound:false` means no lane is registered
+  for that account on this machine (true for SB2 on 2026-09-29), and `ns-session bind` is a registry
+  change for the session owner to decide. With a lane: `TGT_ID=$(python3 cdp.py ns-session tab <compid>)`,
+  work in that tab only, close only that tab.
 
-## cdp.py commands
+### Commands
 
 ```bash
 export CDP_PORT=9333
@@ -63,62 +144,50 @@ python3 cdp.py click <sel|@ref>       # real click via Input event (not syntheti
 python3 cdp.py shot <out.png> [sel] [--dsf=N] [--vw=W] [--vh=H]
 ```
 
-## Screenshots — use `cdp.py shot` only
+### Screenshots — `cdp.py shot`
 
-`Page.captureScreenshot` tells Chrome to **render the page** to PNG — it is not a screen grab.
-So it's correct even if another window covers Chrome or Chrome isn't frontmost (unlike macOS
-`screencapture`, which captures whatever is painted on screen). It writes a real file to disk,
-so you can embed it in an HTML report — unlike an extension screenshot that only lives in chat.
+`Page.captureScreenshot` renders the page to PNG — it's not a screen grab, so a covered or
+non-frontmost Chrome still gives the right image (unlike macOS `screencapture`), and it writes a real
+file you can embed in a report.
+- `--vw/--vh/--dsf` must be passed on the `shot` call itself (a separate `viewport` command dies
+  with the websocket).
+- `shot <sel>` uses `document.querySelector` — can't pierce shadow DOM; shoot the viewport and crop.
+- Cropping to one element drops popups/dropdowns (different layer).
 
-Gotchas that have bitten:
-- **`--vw/--vh/--dsf` must be passed on the `shot` call itself** — a separate `viewport` command
-  has no effect (the Emulation override dies with the websocket).
-- **`shot <sel>` uses `document.querySelector` and can't pierce shadow DOM** — for web-component
-  apps, shoot the whole viewport and crop afterward.
-- **Cropping to one element drops popups/dropdowns** — they're on a different layer.
-- A tab that isn't frontmost **in Chrome** won't be painted — `shot` calls `Page.bringToFront`
-  for you already.
+### Web-component apps (nested shadow DOM)
 
-## Web-component apps (nested shadow DOM)
+`document.querySelector` from outside finds nothing → `cdp.py a11y` for a `@ref`, then `click`, or
+walk `shadowRoot` yourself. Synthetic events (`el.click()`/`dispatchEvent`) are rejected by some
+apps — fire a real `Input.dispatchMouseEvent` (import `cdp`, use `cdp.C()`, which sets
+`suppress_origin=True`; a raw websocket gets a 403 origin check).
 
-For apps built as web components (deeply nested shadow roots), `document.querySelector` from
-outside finds nothing. Use `cdp.py a11y` to get a `@ref`, then `click` it — or write a helper
-that walks `shadowRoot` itself. **Synthetic events (`el.click()` / `dispatchEvent`) are rejected
-by some apps** — fire a real `Input.dispatchMouseEvent` at actual coordinates (import `cdp` and
-use `cdp.C()`, which sets `suppress_origin=True`; a raw websocket connection gets a 403 origin
-check).
+### Auto-login (click submit, never type credentials)
 
-## Auto-login (safe: click submit, never type credentials)
+Same rule as bsk step 5: if the Login button is disabled, click the background once (fires `blur`);
+click **Login**; never read the password field; empty fields → stop and ask. `cdp.py login` (reads
+`NS_EMAIL`/`NS_PASSWORD`/`NS_TOTP_SECRET` from a local `NS_ENVFILE`) exists for hands-off login —
+prefer click-submit.
 
-When a session expires and a page bounces to the login screen (Chrome has autofill set up):
-1. If the **Login button is disabled**, click the background outside the login box once (fires
-   `blur` → the button enables).
-2. Click **Login / submit**.
-- 🔑 **Never read or extract the password field** — only click submit; the credential belongs to
-  Chrome, not to you.
-- If the fields are **empty** (not autofilled) → **stop and ask**; never type a credential.
-- 2FA/trusted-device: the persistent profile keeps the token ~30 days, so it usually won't
-  re-prompt for a TOTP.
+## Other browsers
 
-> `cdp.py` also has a fuller `login` subcommand that reads `NS_EMAIL`/`NS_PASSWORD`/`NS_TOTP_SECRET`
-> from a local `NS_ENVFILE` (`.env`) for hands-off login. That `.env` stays on the machine and is
-> never committed. Prefer the click-submit path above unless you specifically need the automated one.
+Claude in Chrome (`mcp__claude-in-chrome__*`) drives the main Chrome for tasks that need the main
+Google session (e.g. Sheets under `<work-email>`). Don't use the 9333 profile (a `<personal-gmail>`
+login) for those — Access denied.
 
 ## Quick reference
 
-| Need | Command |
-|---|---|
-| Launch (fixed profile) | `"…/Google Chrome for Testing" --user-data-dir="$HOME/.qa-chrome/<task>" --remote-debugging-port=9333 …` |
-| List tabs / current url | `python3 cdp.py tabs` · `python3 cdp.py url` |
-| Navigate | `python3 cdp.py nav <url> [wait]` |
-| Run JS | `python3 cdp.py eval "<js>"` · `python3 cdp.py evalf <file.js>` |
-| Find a clickable (pierces shadow DOM) | `python3 cdp.py a11y [query]` → `@NNNN` |
-| Real click | `python3 cdp.py click <sel\|@ref>` |
-| Render-accurate screenshot | `python3 cdp.py shot out.png [--dsf=N --vw=W --vh=H]` |
+| Need | bsk | cdp |
+|---|---|---|
+| Session / tab | `bsk session start --no-focus --json` · `bsk tab create --no-active --url about:blank …` | `cdp.py ns-session tab <compid>` |
+| Navigate | `bsk navigate <url> --wait-until domcontentloaded …` | `cdp.py nav <url>` |
+| Run JS | `bsk evaluate "<js>" …` (awaits promises) | `cdp.py eval "<js>"` |
+| Bounded page view | `bsk observe --max-tokens 600 …` | `cdp.py a11y <query>` |
+| Screenshot | `bsk screenshot --out f.png …` | `cdp.py shot f.png` |
+| Cleanup | `bsk session stop <id>` · `bsk status` | close only your own tab |
 
 ## Status
 
-v0.1 draft — distilled from BomBot's own browser-automation conventions (verified in use). Not
-yet pressure-tested per `superpowers:writing-skills`. The `cdp.py` script itself is intentionally
-not bundled here (it's a large personal tool with a credential-reading `login` command); this
-skill documents its usage, which is what's reusable.
+v0.2 — bsk lane verified 2026-09-29 on one Apple Silicon Mac against a NetSuite sandbox (login,
+identity gate, Home read, dialog behaviour, `evaluate`+`fetch`); numbers above are from that run.
+Not yet pressure-tested per `superpowers:writing-skills`. Not measured: cdp against a bound NetSuite
+lane on this Mac, long sessions, multi-agent contention on macOS.

@@ -11,6 +11,34 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.12.0 — 2026-09-29
+
+- `cdp-browser` **202609_02** — now the engine-choice + recipes skill: **`bsk` (BrowserSkill,
+  `Tencent/BrowserSkill`) is the default for read-only checks and QA; cdp stays for writes,
+  dialog-sensitive work, `lens`/`netlog`/`stub`/`diff` and unattended/production.** Verified on an
+  Apple Silicon Mac against the SB2 sandbox: install (arm64 build, checksum OK), daemon + extension
+  connect, login via the autofilled `#login-submit`, identity gate (company + `SANDBOX`), Home read,
+  session stopped with 0 left over.
+  - Measured (bsk 0.3.1, Chrome 152; cdp side = throwaway headless Chrome for Testing, one process
+    per command): `eval 1+1` **18 ms vs 409 ms** (n=10); screenshot 210 vs 709 ms (different
+    browsers); `navigate` not comparable. On real NetSuite pages the page dominates (Home 14–19 s
+    to `load`, 8.9 s to `domcontentloaded`) — the win is per-command overhead and not needing a second
+    logged-in browser, not end-to-end speed.
+  - Confirmed on macOS: **`bsk` auto-accepts `confirm()`** (`handled: accepted`, returned `true`);
+    a page-level override returns `false` with no dialog — hence "writes stay on cdp".
+  - New facts: `observe` is 18.6 KB on a one-paragraph page → cap with `--max-tokens`
+    (2.6 KB on Home); `evaluate` awaits promises; console output includes other extensions'
+    messages (filter `chrome-extension://`); Teibto's `flow-runner.py` pins bsk `0.3.0` and refuses
+    `0.3.1`; upstream skill and daemon self-update unless `BSK_AUTO_UPDATE=off`.
+  - Correction to 202609_01: it described `cdp.py newtab` as freely usable. On a shared NetSuite
+    browser it is refused; the lane comes from `ns-session tab <compid>` after `ns-session bind`
+    (a registry change for the session owner). `ns-session status` showed SB2 unbound on this Mac.
+- `ns-live-verify` **202609_05** — adds Option A: run dbgQuery through `bsk evaluate` (awaits
+  `fetch`, one command, 1.2 s for `whoami`, verified) instead of the two-call `window.__r` pattern;
+  the cdp recipe stays as Option B.
+- Not changed: `ns-record-write` (writes) and the global CLAUDE.md snapshot in
+  `setup-global-instructions` still describe cdp-first.
+
 ## v0.11.2 — 2026-09-26
 
 - New `docs/benchmarks/2026-09-26-local-models.md`: four more local Ollama models (`qwen3-coder:30b`,
