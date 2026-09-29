@@ -133,25 +133,28 @@ Claude Code เก็บ session ที่อิง `cwd` ใน **2 ที่**
 - ภายหลังพบว่า fact ที่เก็บไว้ผิด/ล้าสมัย → แก้หรือลบทันที ไม่ปล่อยค้าง
 - ไฟล์ที่เนื้อหาทับกัน ยุบเป็นตัวเดียว อย่าให้ `MEMORY.md` บวมจนไม่มีใครอ่าน
 
-# Browser automation (2 ทาง: cdp.py + Claude in Chrome)
+# Browser automation (bsk เป็นตัวหลัก · cdp.py เป็น fallback · Claude in Chrome)
 
-**เลือก browser ให้ถูก:**
-| | Chrome for Testing (cdp.py, port 9333) | Claude in Chrome (MCP, Chrome หลัก) |
-|---|---|---|
-| ใช้เมื่อ | QA/verify NetSuite, automation, screenshot, ขับ shadow DOM, login หลาย account | งานที่ต้องใช้ session Google/Chrome หลัก (เช่น Google Sheets, login `<work-email>`) |
-| ขับด้วย | `cdp.py` (eval/click/shot) | `mcp__claude-in-chrome__*` (navigate/computer/read_page) — ระบุ Browser 1/2 |
+**เลือก engine ให้ถูก:**
+| | **bsk** (BrowserSkill · Chrome หลักที่ login อยู่) — ค่าเริ่มต้น | **cdp.py** (Chrome for Testing, port 9333) — fallback | Claude in Chrome (MCP, Chrome หลัก) |
+|---|---|---|---|
+| ใช้เมื่อ | **อ่านหน้า / QA / screenshot / dbgQuery** (วัดแล้วเร็วกว่า ~22× ต่อคำสั่ง) และ record write ผ่าน `ns_write.py` บน **sandbox** | เมื่อ bsk ใช้ไม่ได้บนเครื่องนั้น · **write บน production** · งานคลิก UI ที่เปลี่ยนข้อมูล/มี dialog · `lens`/`netlog`/`stub`/`diff` · shadow DOM · งานไม่มีคนเฝ้า | งานที่ต้องใช้ session Google/Chrome หลัก (เช่น Google Sheets, login `<work-email>`) |
+| ขับด้วย | `bsk` CLI (`session`/`tab`/`navigate`/`evaluate`/`observe`/`screenshot`) — ดู skill `cdp-browser` | `cdp.py` (eval/click/shot) | `mcp__claude-in-chrome__*` (navigate/computer/read_page) — ระบุ Browser 1/2 |
+- **cdp.py = deprecated สำหรับงานอ่าน/QA (ยังไม่ลบ)** — งานอ่าน/QA ใหม่เริ่มด้วย bsk; ใช้ cdp เมื่อ `BSK_AUTO_START=0 bsk status --json` ล้ม (ไม่มี daemon/extension หรือเครื่องนั้นใช้ bsk ไม่ได้)
+- **bsk กด accept dialog ให้เองทุกชนิด (alert/confirm/prompt/beforeunload) ปิดไม่ได้** → ทุกครั้งหลัง navigate ติด guard (`window.confirm=()=>false` ฯลฯ) และตรวจ identity gate (`nlapiGetContext().getCompany()` + `getEnvironment()`) ก่อนอ่านต่อ · **ห้ามใช้ bsk เขียน/คลิกเปลี่ยนข้อมูลบน production**
+- **bsk: มี tab ของตัวเอง + pin + ปิด session ทุกครั้ง** (`bsk session start --no-focus` → `tab create --no-active --url about:blank` → ใส่ `--tab-id` ทุกคำสั่ง → `bsk session stop`) · `observe` ใส่ `--max-tokens` เสมอ (ไม่ใส่ = หน้าเล็กๆ ก็ 18 KB) · รายละเอียดใน skill `cdp-browser`
 - ❌ อย่าใช้ 9333 (`<personal-gmail>`) เข้า Google Sheets ของ `<work-email>` = Access denied → ใช้ claude-in-chrome Browser 2
 
 **Auto-login (session หมด → เด้งหน้า login)** — Chrome ตั้ง autofill email/password ไว้แล้ว:
 1. ถ้าปุ่ม Login/เข้าสู่ระบบ **disable อยู่** → คลิกพื้นหลังนอกกรอบ login 1 ครั้ง (trigger blur → ปุ่ม enable)
-2. กดปุ่ม **Login / เข้าสู่ระบบ** (ได้ทั้ง cdp.py click และ claude-in-chrome)
+2. กดปุ่ม **Login / เข้าสู่ระบบ** (ได้ทั้ง `bsk click '#login-submit'`, cdp.py click และ claude-in-chrome)
 - 🔑 **ห้ามอ่าน/ดึงค่า field password** — แค่คลิก submit; credential เป็นของ Chrome ไม่ใช่ของ Claude
 - field ไม่ถูก autofill (ว่าง) → หยุด ถามก่อน **ห้ามพิมพ์ credential เอง**
 - 2FA/trusted-device: profile เก็บ token ~30 วัน มักไม่ถาม TOTP
 
 ---
 
-**Chrome for Testing (cdp.py) — รายละเอียด:**
+**Chrome for Testing (cdp.py) — รายละเอียด (fallback / write บน production):**
 มี **Google Chrome for Testing** ลงไว้แล้ว (ติดตั้ง 18/08/2026) แยกขาดจาก Chrome ตัวหลัก
 ตัวหลัก update ปกติ ตัวนี้ไม่ auto-update จึงไม่พังเองกลางทาง
 
@@ -189,6 +192,7 @@ python3 cdp.py shot <out.png> [sel] [--dsf=N] [--vw=W] [--vh=H]
 - `shot <sel>` ใช้ `document.querySelector` **เจาะ shadow DOM ไม่ได้** — แอปที่เป็น web component ให้ถ่ายทั้ง viewport แล้ว crop ทีหลัง
 - crop เฉพาะ element จะ**ตก popup/dropdown** เพราะอยู่คนละ layer
 - แท็บที่ไม่ได้อยู่หน้าสุด **ใน Chrome** จะไม่ถูกวาด (`shot` เรียก `Page.bringToFront` ให้เองแล้ว)
+- browser กลางที่ลงทะเบียนเป็น shared NetSuite: `cdp.py newtab` **โดน coordinator ปฏิเสธ** — ห้ามเลี่ยง; ใช้ `cdp.py ns-session tab <compid>` หลัง `ns-session bind <compid>` (เป็นการแก้ registry ของ session owner) · เช็คก่อนด้วย `ns-session status <compid>` (`bound:false` = ยังไม่มี lane)
 
 **แอปที่เป็น web component (shadow DOM ซ้อนหลายชั้น)** เช่น MFG Handheld / Release 2.0
 `document.querySelector` จากภายนอกหาไม่เจอ ⇒ ใช้ `cdp.py a11y` เอา `@ref` แล้ว `click` หรือเขียน

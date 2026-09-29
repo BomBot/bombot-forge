@@ -11,6 +11,36 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.13.0 — 2026-09-29
+
+- `ns-record-write` **202609_03** + `ns_write.py` — new `--engine {auto,cdp,bsk}` with
+  `--bsk-session` / `--bsk-tab` (the caller owns the session and pinned tab). The write logic that runs
+  in the page is unchanged; only the transport is new (`bsk evaluate` awaits promises, so the
+  result is polled in the page instead of from Python). New guards for bsk: a page-level dialog
+  guard installed first (a dialog that still fires aborts); **`--confirm` refused unless the
+  environment is `SANDBOX`** (team policy — bsk auto-accepts dialogs); and for **both** engines a
+  transport failure or timeout *during* the write now exits `3` with "OUTCOME UNKNOWN — do not
+  re-run blind" (previously a cdp timeout printed a plain failure). `CDP_SCRIPT` / `CDP_PORT` env
+  overrides for the cdp path.
+  - Verified live on the SB2 sandbox, **dry-run only** (nothing was written): account guard read
+    `SANDBOX`, BEFORE read through `N/search`, wrong `--account` aborts, `auto` picks bsk, no dialogs.
+  - Verified with offline stubs (7 cases): bsk on production refuses `--confirm` without calling
+    the write; unknown-outcome exit 3 on bsk and cdp; page-side failure exit 1; success prints
+    AFTER; cdp on production still allowed.
+  - **Not exercised: a live `--confirm` write through bsk.** Do the first one on a throwaway
+    sandbox record.
+  - Found while testing: the helper needs a **record page** — the Home dashboard has no `require`
+    (`require is not defined`); a currency record page does. Documented as a precondition.
+  - `validate-setup.sh` now passes when either lane is usable (bsk or cdp) instead of requiring cdp.py.
+- `cdp-browser` **202609_03** — soft deprecation, nothing removed: cdp is deprecated for
+  read/QA only; it stays for production writes, UI-driven writes, `lens`/`netlog`/`stub`/`diff`,
+  shadow DOM, unattended runs, and as the fallback whenever `bsk` is unusable on a machine
+  (`BSK_AUTO_START=0 bsk status --json` fails, no extension, unsupported OS). Engine table now
+  separates "`ns_write.py` (bsk on sandbox)" from "UI-driven writes (cdp)".
+- `setup-global-instructions` **202609_02** — reference snapshot's "Browser automation" section
+  re-captured (bsk default, cdp fallback, coordinator note), still redacted. The real
+  `~/.claude/CLAUDE.md` on this machine got the same edit (backup kept alongside).
+
 ## v0.12.0 — 2026-09-29
 
 - `cdp-browser` **202609_02** — now the engine-choice + recipes skill: **`bsk` (BrowserSkill,

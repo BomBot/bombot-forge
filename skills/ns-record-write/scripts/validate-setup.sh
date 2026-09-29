@@ -51,10 +51,21 @@ else
   bad "$SETTINGS missing — create it with permissions.allow containing \"$ALLOW_RULE\""
 fi
 
-# 3. cdp.py present (the write channel)
-if [ -f "$CDP" ]; then pass "cdp.py present ($CDP)"; else bad "cdp.py missing at $CDP (install netsuite-qa-browser)"; fi
+# 3. write engines — at least ONE must be usable (bsk = sandbox writes, cdp = anywhere incl. production)
+engines=0
+if [ -f "$CDP" ]; then pass "cdp lane: cdp.py present ($CDP)"; engines=$((engines+1)); else info "cdp lane unavailable: cdp.py missing at $CDP"; fi
+if command -v bsk >/dev/null 2>&1; then
+  if BSK_AUTO_START=0 bsk status --json >/dev/null 2>&1; then
+    pass "bsk lane: $(bsk --version 2>/dev/null) — daemon up"; engines=$((engines+1))
+  else
+    info "bsk installed ($(bsk --version 2>/dev/null)) but daemon/extension not connected (run: bsk daemon start; bsk doctor)"
+  fi
+else
+  info "bsk lane unavailable: bsk not installed (see the cdp-browser skill, bsk setup)"
+fi
+if [ "$engines" -eq 0 ]; then bad "no usable write engine — need bsk (sandbox writes) or cdp.py"; fi
 
-# 4. QA Chrome reachable (informational — only needed at write time)
+# 4. QA Chrome reachable (informational — only needed for the cdp lane at write time)
 if curl -s --max-time 2 "http://127.0.0.1:${CDP_PORT}/json/version" >/dev/null 2>&1; then
   info "QA Chrome answering on CDP port ${CDP_PORT}"
 else

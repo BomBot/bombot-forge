@@ -1,22 +1,33 @@
 ---
 name: ns-record-write
 description: >-
-  Use when writing to a live NetSuite record from a logged-in QA-browser session (updating a
-  field, fixing a bad value, a scoped submitFields or load/save), instead of allow-listing
-  raw `cdp.py eval`. Covers the scoped `ns_write.py` helper (structured args only, submit +
-  save modes, account guard, dry-run default), the exact `permissions.allow` line it needs,
-  and a validator that checks each machine is set up the same way.
+  Use when writing to a live NetSuite record from a logged-in browser tab (updating a field,
+  fixing a bad value, a scoped submitFields or load/save), instead of allow-listing raw
+  `cdp.py eval`. Covers the scoped `ns_write.py` helper (structured args only, submit + save
+  modes, account guard, dry-run default), its two engines (bsk for sandbox, cdp for anywhere),
+  the exact `permissions.allow` line it needs, and a validator that checks each machine.
 ---
 
 # NetSuite Record Write (scoped ns_write helper)
 
-**Skill version: `202609_02`**
+**Skill version: `202609_03`**
 
 Writing to a live NetSuite record from a logged-in browser tab. The **only** sanctioned
 write channel here is `scripts/qa/ns_write.py` — a helper that takes **structured args**
 (`--type`, `--id`, `--set field=value`) and runs the write in the tab. It does NOT accept
 free-form JS, so allow-listing this one script is safe where `Bash(...cdp.py eval:*)` would
 hand over full unrestricted browser control.
+
+Two engines drive the tab (**the caller owns the tab**; the helper never opens or closes one):
+
+| Engine | Flags | Where writes are allowed |
+|---|---|---|
+| `bsk` (BrowserSkill) | `--bsk-session <id> --bsk-tab <id>` | **Sandbox only.** `bsk` auto-accepts native dialogs, so `--confirm` is refused on any other environment |
+| `cdp` (Chrome for Testing) | `--tab <TARGET_ID>` | Sandbox or production (needs a claimed lane — see `cdp-browser`) |
+| `auto` (default) | — | `bsk` if `--bsk-session` is given, else `cdp` |
+
+The helper only runs `N/record` / `N/search` in the page — it clicks nothing, so no dialog is
+expected; the guards below exist because a dialog is the failure that can't be undone.
 
 Two modes, one script:
 - `--mode submit` (default) — `N/record.submitFields` (fast body-field update; no sourcing / no user-event scripts)
@@ -39,6 +50,15 @@ Two modes, one script:
   Use `save` only when you need sourcing or user-event scripts to fire. Sublist edits are
   NOT supported yet — do not force them through `--set`.
 - **No credentials, ever.** The browser session cookie authenticates the write.
+- **bsk = sandbox only.** With `--engine bsk` the helper installs a page-level dialog guard
+  first (a dialog that still fires aborts the run) and refuses `--confirm` unless the live
+  environment is `SANDBOX`. Production writes go through cdp.
+- **`OUTCOME UNKNOWN` (exit 3) means stop.** If the transport fails or times out *during* the
+  write (bsk `session_busy` / window closed / timeout; cdp timeout), the write may have happened.
+  **Never re-run blind** — dry-run the same record and read the current values first.
+- **The tab must be on a record page.** The helper uses the SuiteScript 2.x `require`, which the
+  Home dashboard does **not** have (`require is not defined`); a record page does. Open the
+  target record (or any record) in your pinned tab first.
 
 ## Setup (per project + per machine)
 
@@ -68,8 +88,13 @@ Two modes, one script:
      ]
    }
    ```
-3. **cdp.py + QA Chrome:** the helper drives `cdp.py` on CDP port 9333 (see
-   `netsuite-qa-browser`). The QA Chrome must be up and logged into the target account.
+3. **Engine lane (at least one):**
+   - **bsk** (sandbox): CLI + extension + daemon per the `cdp-browser` skill; start your own
+     session and pinned tab, open a **record page** on the target account, then pass
+     `--bsk-session`/`--bsk-tab`. Stop the session when done.
+   - **cdp** (anywhere): `cdp.py` on CDP port 9333 with a claimed lane (see `cdp-browser` and
+     `netsuite-qa-browser`); pass `--tab`. The QA Chrome must be logged into the target account.
+   `scripts/validate-setup.sh` passes when **either** lane is usable.
 
 > Path form matters: always invoke as `python3 scripts/qa/ns_write.py ...` from the project
 > root (relative). The allow rule matches that literal prefix; an absolute path will NOT match.
@@ -93,11 +118,18 @@ python3 scripts/qa/ns_write.py \
 python3 scripts/qa/ns_write.py --account 4089685_SB2 --mode save \
     --type salesorder --id 12345 --set memo="fixed" --confirm
 
-# multiple fields: repeat --set. pin a tab with --tab <CDP_TARGET_ID> when several NS tabs open.
+# multiple fields: repeat --set. cdp: pin a tab with --tab <CDP_TARGET_ID> when several NS tabs open.
+
+# 4) same dry-run through bsk (sandbox) — your own session + pinned tab, already on a record page
+python3 scripts/qa/ns_write.py --engine bsk --bsk-session <SID> --bsk-tab <TAB> \
+    --account 4089685_SB2 --type customrecord_mfg_completionusage --id 16525 \
+    --set custrecord_mfg_usagecompletion=2935624
 ```
 
 - `--account` = expected `runtime.accountId` (`4089685_SB2` sandbox, `4089685` prod). Mismatch → abort.
 - Reads BEFORE + AFTER via `N/search.lookupFields` so you get a before→after diff for free.
+- Exit codes: `0` ok / dry-run · `1` write failed (the page rejected it) · `2` aborted by a guard · `3` **outcome unknown** (transport failure mid-write — do not re-run blind).
+- bsk was verified on a sandbox with the dry-run path (account guard, BEFORE read, dialog guard, wrong-account abort) and offline stubs for the write / refuse / unknown-outcome paths; **a live `--confirm` write through bsk has not been exercised** — do the first one on a throwaway sandbox record.
 
 ## Validate the setup (run on EACH machine)
 

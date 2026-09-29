@@ -12,9 +12,9 @@ description: >-
 
 # Browser driving: bsk for read/QA, cdp for the rest
 
-**Skill version: `202609_02`**
+**Skill version: `202609_03`**
 
-Two engines, one rule: **read/QA → `bsk`; writes and anything a dialog could touch → cdp.**
+Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
 `browser-skill` (installed by `bsk install-skill --harness claude-code`); `cdp.py` is your own tool
 (not bundled — large, and its `login` subcommand reads credentials from a local env file).
@@ -24,11 +24,24 @@ This skill is the policy + verified recipes. Command reference for `bsk` comes f
 | Task | Engine | Why |
 |---|---|---|
 | Read a page, smoke/QA, screenshots, dbgQuery / SuiteQL reads | **bsk** | Uses the browser you're already logged in to; no separate profile or login |
-| Any write — record edit/save/submit, deploy-adjacent UI clicks | **cdp** | `bsk` **auto-accepts every native dialog** (`alert`/`confirm`/`prompt`/`beforeunload`) and can't be told not to (verified below) |
+| Record write through the scoped `ns_write.py` (no clicks, no dialogs) | **bsk on sandbox**, cdp on production | The helper adds its own guards: dialog guard, sandbox-only for bsk, stop on unknown outcome |
+| Any **UI-driven** write (clicking Save, filling forms, buttons) or anything a dialog could touch | **cdp** | `bsk` **auto-accepts every native dialog** (`alert`/`confirm`/`prompt`/`beforeunload`) and can't be told not to (verified below) |
 | `lens` / `netlog` / `stub` / `diff`, shadow-DOM piercing (`a11y`), coordinate work | **cdp** | Not in `bsk` |
 | Unattended or long runs, production | **cdp** (or don't) | Team policy: no `bsk` for production writes or unattended runs; a person closing the Agent Window kills the run |
 
 When in doubt, use cdp. NetSuite record-form QA belongs to a dedicated skill, not here.
+
+## Deprecation status (soft — nothing is removed)
+
+- **Deprecated: cdp for read-only checks, QA and screenshots.** New read/QA work starts on `bsk`.
+- **Not deprecated:** cdp for production writes, UI-driven writes / dialog-sensitive work,
+  `lens`/`netlog`/`stub`/`diff`, shadow-DOM piercing, unattended runs.
+- **Fallback rule:** use the cdp lane whenever `bsk` is unusable on the machine — `bsk` not
+  installed, `BSK_AUTO_START=0 bsk status --json` fails (no daemon / no extension connected),
+  no Chrome/Edge extension allowed, an unsupported OS/arch, or a broken auto-update.
+- **Stays in the tree:** the cdp lane below, `ns_write.py --engine cdp`, and `netsuite-qa-browser`.
+- **Revisit** once `bsk` has run on more than one machine and over long sessions, and once the
+  team decides on production writes through `bsk` (today's policy: not allowed).
 
 ## Measured on this machine (2026-09-29, Apple Silicon Mac, Chrome 152, bsk 0.3.1)
 
