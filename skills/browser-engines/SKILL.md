@@ -14,7 +14,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0 — the skill covers both engines now (bsk first), so the old name misled.
 
-**Skill version: `202609_13`**
+**Skill version: `202609_14`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -94,7 +94,7 @@ end-to-end time — the win is per-command overhead and not needing a second log
 
 ### Every run
 
-0. **Say it.** Tell the user **each time you start using `bsk`** — one line in the chat before the first `bsk` command of the job: what for, which account/page, and that it opens a *background Agent Window* (own session, closed when done). Not for every command inside the same job. `bsk` always works inside an **Agent Window** (a separate window that only the
+0. **Say it.** Tell the user **each time you start using `bsk`** — one line in the chat before the first `bsk` command of the job: what for, which account/page, and that it opens a *background Agent Window* (own session, closed when done). Not for every command inside the same job. It is a **notice, not a question**: do not wait for a reply and do not ask for approval — send it and keep working. (Approvals that DO exist come from elsewhere: a `bsk tab borrow` prompt in the extension, a non-sandbox account not yet confirmed, a production write, or Login clicking without consent.) `bsk` always works inside an **Agent Window** (a separate window that only the
    session owns): `tab create` makes tabs *in that window* and there is no `bsk` mode that opens a tab in
    the user's everyday window. `--no-focus` / `--no-active` (below) keep it from stealing focus — that is the
    least intrusive `bsk` can be. If the user must SEE the page or log in, use a real tab instead (step 5).

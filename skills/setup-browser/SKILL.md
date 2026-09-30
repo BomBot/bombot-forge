@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (engine choice, install, Dev Bridge, login consent)
 
-**Skill version: `202609_11`**
+**Skill version: `202609_12`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -37,7 +37,7 @@ A choice is never buried in a paragraph. Do these, in this order:
 
 - **Never read, extract, or type a password.** The login helper only clicks a submit button;
   Chrome's own autofill fills the fields. Not autofilled (`:-webkit-autofill` not set — never judge by the value length), MFA, or a changed page → stop and ask.
-- **Say it every time you use `bsk`** (one line before the first `bsk` command of a job: what for, which account/page, a background Agent Window that is closed when done).
+- **Say it every time you use `bsk`** (one line before the first `bsk` command of a job: what for, which account/page, a background Agent Window that is closed when done). A notice, not a question: don't wait for a reply.
 - **Ask before installing anything** and before running a downloaded script — read it first.
 - **Don't guess.** If a step's outcome can't be verified (extension connected, Dev Bridge script
   id), say so and ask; never invent an id, URL, or version.

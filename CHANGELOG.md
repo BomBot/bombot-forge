@@ -9,6 +9,16 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.22.4 — 2026-09-30
+
+- "Say it every time `bsk` is used" now says what it is: a **notice, not a question** — send it and keep working, no
+  waiting for a reply and no approval step, so it never blocks a run. `browser-engines` **202609_14**,
+  `setup-browser` **202609_12**, `setup-coding-agent` **202609_11**, `setup-global-instructions` **202609_09** and the
+  user's global `CLAUDE.md`. Approvals that remain by design are listed in `browser-engines` step 0: the extension's
+  `tab borrow` prompt, a non-sandbox account not yet confirmed, production writes, and Login clicking without consent.
+
+---
+
 ## v0.22.3 — 2026-09-30
 
 **Correction of my own earlier finding (0.21.0 – 0.22.2).**
