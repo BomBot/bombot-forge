@@ -9,6 +9,21 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.15.0 — 2026-09-30
+
+- **New skill `setup-coding-agent` 202609_01** — use Cline (or OpenCode, if that is what the machine
+  has) as the worker for code/text edits so tokens burn on the company DeepSeek key, with Claude
+  only briefing and reviewing. `scripts/agent_run.py` runs one task through `cline --worktree --json`
+  in an isolated git worktree, stages the result into the worktree's own index, writes
+  `changes.patch` (build junk excluded), prints tokens + an estimated USD, and stops — it never
+  applies or deletes anything. Verified on one Mac: two scratch-repo runs (bug fixed, patch
+  reviewed, applied, test passed, worktree removed; ~5–10 s, ≈ US$0.005 each) and the dirty-tree
+  refusal. NOT verified: OpenCode (not installed), Cline hooks as a guard, a real customer repo.
+  Honest limit recorded: Cline defaults to auto-approve, so the worktree isolates repo edits, not
+  the machine; the guardrail preamble is advice, not enforcement.
+
+---
+
 ## v0.14.5 — 2026-09-30
 
 - `cdp-browser` **202609_05** — measured what the page-level dialog guard does NOT cover: it works
