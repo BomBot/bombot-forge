@@ -9,6 +9,17 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.20.1 — 2026-09-30
+
+- `setup-coding-agent` **202609_09** — docs only: the confirmed-account path was exercised end to end. After the
+  user confirmed one customer production account (not yet live) through the picker, it was recorded with
+  local + UTC time, session id and name; the agent then ran `whoami` and `ping` on it, its attempt on a
+  different production account was refused by OpenCode, and the run without `--allow-prod-read` was refused
+  by `ns_read.py`. Identity only — no record or query was read. One tool call in the agent's log had an
+  empty command (a non-shell tool); not investigated.
+
+---
+
 ## v0.20.0 — 2026-09-30
 
 - **`ns-reader` can read the accounts the user confirmed, not only sandboxes** (`setup-coding-agent`

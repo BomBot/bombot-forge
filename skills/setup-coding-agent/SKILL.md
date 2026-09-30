@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_08`**
+**Skill version: `202609_09`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -221,7 +221,7 @@ A non-sandbox account NOT in that list stays out of the agent's reach; Claude ca
 | Listed non-sandbox account: `--allow-prod-read query --account <listed>` runs; an unlisted account, `--account <listed>x`, `--account <other> --allow-prod-read`, and a listed account with `--config` / `--bridge-path` are all denied | **verified live** with OpenCode's real matcher on the exact generated rules (a stub `ns_read.py` that only echoes; 2 allowed, 5 denied) |
 | A later rule overrides an earlier one (last match wins) | **verified live**: an allow after a broader deny runs; the same allow before it is denied |
 | Repeating `--account` (so a later one could replace the listed one) | `ns_read.py` refuses it (offline test); the permission glob alone would not |
-| A read against a real non-sandbox account through the agent | see the status line at the bottom of this section |
+| A read against a real non-sandbox account through the agent | **verified live** on a customer production account not yet live, after the user confirmed it: `whoami` and `ping` ran with the exact confirmed form; the same form on a different production account was refused by OpenCode; the same account without `--allow-prod-read` was refused by `ns_read.py`. Identity only — no record or query was read in that test |
 | Env-prefixed commands (`VAR=x python3 …`) and other quoting tricks are denied | reasoned from the glob rule, **not tested** |
 | Cline equivalent | none — the profile refuses `--agent cline` |
 | `cdp` engine | not implemented in `ns_read.py` |
