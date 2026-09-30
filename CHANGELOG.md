@@ -41,15 +41,6 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
-## v0.14.6 — 2026-09-30
-
-- `cdp-browser` **202609_06** — concurrency soak recorded: 3 parallel `bsk` sessions, 30 min,
-  read-only on a sandbox, 273 iterations, 0 failures, latency flat over the run, no tab cross-talk,
-  no session left behind. Write workloads, >3 sessions, other OSes and an auto-update mid-run not
-  covered.
-
----
-
 ## v0.14.5 — 2026-09-30
 
 - `cdp-browser` **202609_05** — measured what the page-level dialog guard does NOT cover: it works
