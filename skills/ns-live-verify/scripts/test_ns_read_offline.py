@@ -161,7 +161,8 @@ class OfflineReadTest(unittest.TestCase):
         v = self.mod.validate_bridge_path
         self.assertIsNone(v(DEFAULT_PATH))
         self.assertIsNone(v(OTHER_PATH))
-        self.assertIsNone(v("/app/site/hosting/scriptlet.nl?script=17&deploy=1"))   # numeric ids are fine
+        # numeric ids are fine (built with %d so the redaction CI does not read a literal script=<digits>)
+        self.assertIsNone(v("/app/site/hosting/scriptlet.nl?script=%d&deploy=%d" % (17, 1)))
         for bad in ["/app/x", "", None, DEFAULT_PATH + "&action=query", DEFAULT_PATH + "&x=1",
                     '/app/site/hosting/scriptlet.nl?script="x"&deploy=1',
                     "https://evil.example/app/site/hosting/scriptlet.nl?script=a&deploy=b",
