@@ -14,7 +14,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0 — the skill covers both engines now (bsk first), so the old name misled.
 
-**Skill version: `202609_10`**
+**Skill version: `202609_11`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -130,9 +130,13 @@ end-to-end time — the win is per-command overhead and not needing a second log
      window, not an Agent Window). Tell the user which tab it is, and re-run the read after they say
      they're in. You cannot close that tab yourself — say so.
    - `bsk tab borrow <tab-id> --session <id>` moves a user's tab into the Agent Window and asks the user to
-     confirm in the extension. **Tried once: it timed out after 60 s (nobody confirmed), so whether Chrome
-     autofills that tab and keeps the value through the borrow is still unknown.** bsk's own hint on
-     the timeout: report the blocked step; do not repeat the request or switch tools — so don't loop on it.
+     confirm in the extension (default on, set in the extension's Automation settings). **Tried once: it timed
+     out after 60 s. The user reported the confirmation prompt showed for only about a second — too short
+     to reach with the mouse.** So do not build the login path on borrow: whether autofill happens in that
+     tab and survives the borrow is still unknown, and the confirmation is easy to miss. bsk's own hint on a
+     timeout: report the blocked step; do not repeat the request or switch tools — so don't loop on it. Where
+     the prompt actually appears (extension popup, a Chrome/macOS notification that is still in Notification
+     Center, or in-page) is **not known**.
    A login counts in the account's "My login audit".
 6. **Read cheaply.** `bsk observe` on a one-paragraph page returned 18.6 KB (one node per
    character) — always cap it: `bsk observe --max-tokens 600 …` gave 2.6 KB on the NetSuite Home

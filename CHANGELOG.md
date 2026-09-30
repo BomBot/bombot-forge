@@ -9,6 +9,16 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.22.1 — 2026-09-30
+
+- `browser-engines` **202609_11**, `setup-browser` **202609_09** — the `bsk tab borrow` confirmation, as the user
+  saw it: the prompt appeared for about **one second**, too brief to click, which is why the earlier test timed
+  out. Login hand-off therefore no longer leans on borrow: open the login page as a real tab (verified) and let
+  the user press Login, or use Claude in Chrome. Where the prompt lives is still unknown; the daemon log
+  (info level) records nothing about borrow requests, so it cannot say either.
+
+---
+
 ## v0.22.0 — 2026-09-30
 
 **Rename (breaking for anything that calls the old name).**

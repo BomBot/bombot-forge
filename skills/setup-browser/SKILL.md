@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (engine choice, install, Dev Bridge, login consent)
 
-**Skill version: `202609_08`**
+**Skill version: `202609_09`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -148,7 +148,7 @@ How the helper works when consented (this is the exact rule):
 4. Click **Login / เข้าสู่ระบบ**. If it was never disabled, just click it.
 5. A 2FA / trusted-device prompt or any change in the page → stop and ask.
 The click: Claude in Chrome's click on the real tab; with cdp use `cdp.py click`; with bsk only on a tab the
-user borrowed into the Agent Window (not exercised) — otherwise the user presses Login.
+user borrowed into the Agent Window (its confirmation prompt was too brief to click in the one test, so do not rely on it) — otherwise the user presses Login in their own tab.
 
 ## Re-running: update, don't overwrite
 
