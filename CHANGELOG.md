@@ -9,6 +9,14 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.24.2 — 2026-09-30
+
+- Test-only fix: the 0.24.1 tests used made-up run folder names shaped like dates (eight digits), which the repo's
+  redaction check treats as account-shaped numbers, so CI failed on 0.24.1. Replaced with non-numeric names. The local
+  check had printed the hit count before the commit and it was not acted on.
+
+---
+
 ## v0.24.1 — 2026-09-30
 
 - **`agent_run.py` deletes the OpenCode session each run creates** (all three profiles, OpenCode only). Until now every

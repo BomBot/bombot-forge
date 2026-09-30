@@ -418,11 +418,11 @@ class LedgerTest(unittest.TestCase):
         root = os.path.join(home, ".cache", "bombot-forge", "agent-runs")
         con = sqlite3.connect(db)
         con.execute("CREATE TABLE session_v2 (id text primary key, directory text not null)")
-        rows = [("ses_in1", root + "/20260101_010101/worktree"), ("ses_in2", root + "/20260101_020202_nsr/work"),
+        rows = [("ses_in1", root + "/run-a_first/worktree"), ("ses_in2", root + "/run-b_reader_nsr/work"),
                 ("ses_out", "/somewhere/else/worktree"),
                 # differs from the root only where a LIKE pattern would treat '_' as a wildcard
-                ("ses_lookalike", root.replace("home_x", "homeXx") + "/20260101_030303/worktree"),
-                ("ses_prefix", root + "-old/20260101/worktree")]
+                ("ses_lookalike", root.replace("home_x", "homeXx") + "/run-c_third/worktree"),
+                ("ses_prefix", root + "-old/run-d/worktree")]
         con.executemany("INSERT INTO session_v2 VALUES (?, ?)", rows)
         con.commit(); con.close()
         return db, root
@@ -431,7 +431,7 @@ class LedgerTest(unittest.TestCase):
         home = os.path.join(self.tmp, "home_x"); os.makedirs(home)
         db, root = self.make_db(home)
         got = self.mod.agent_run_sessions(db, root)
-        self.assertEqual(sorted(got), [("ses_in1", "20260101_010101"), ("ses_in2", "20260101_020202_nsr")])
+        self.assertEqual(sorted(got), [("ses_in1", "run-a_first"), ("ses_in2", "run-b_reader_nsr")])
 
     def test_purge_is_a_dry_run_until_yes(self):
         home = os.path.join(self.tmp, "home_x"); os.makedirs(home)
