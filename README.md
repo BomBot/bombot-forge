@@ -30,7 +30,7 @@ Used while delivering NetSuite work. Claude picks them from their descriptions; 
 | **ns-live-verify** | reading/verifying live NetSuite state read-only via the TEIBTO Dev Bridge (`ping` / `query` / `record` / `lookup` / `feature` / `search`; accounts, GL, fields, script deployment; driven through `bsk` by default, `cdp.py` as the alternative) — confirm real state, don't assume |
 | **ns-record-write** | writing a field to a live record from a logged-in browser session (`bsk` on sandbox, or on production only with an explicit `--allow-bsk-prod`; `cdp` anywhere; transport failure mid-write = outcome unknown, exit 3) — scoped `submitFields` / load-save helper (structured args, account guard, dry-run), the `permissions.allow` line, and a per-machine setup validator |
 | **ns-bundle-to-sdf-repo** | turning an account-owned NetSuite bundle into a version-controlled SDF repo — "Convert to SDF Project" flow, cleaning up legacy auto-generated scriptids via Change ID, and the path-fidelity rules that keep a future deploy landing on the bundle's real live location |
-| **cdp-browser** | which browser engine to use: **`bsk` (BrowserSkill) for read/QA** — measured ~18 ms vs ~409 ms per command, verified recipes (own session + pinned tab, dialog guard, NetSuite identity gate, bounded `observe`) — and **cdp (`cdp.py`, Chrome for Testing on a fixed profile) for writes, dialogs and `lens`/`netlog`/`stub`/`diff`**; includes the shared-browser coordinator rules; cdp for read/QA is **soft-deprecated** (kept as fallback when `bsk` is unusable on a machine) |
+| **browser-engines** | which browser engine to use: **`bsk` (BrowserSkill) for read/QA** — measured ~18 ms vs ~409 ms per command, verified recipes (own session + pinned tab, dialog guard, NetSuite identity gate, bounded `observe`) — and **cdp (`cdp.py`, Chrome for Testing on a fixed profile) for writes, dialogs and `lens`/`netlog`/`stub`/`diff`**; includes the shared-browser coordinator rules; cdp for read/QA is **soft-deprecated** (kept as fallback when `bsk` is unusable on a machine) |
 | **video-transcribe** | transcribing a video/audio file to SRT/TXT/MD via the homelab `bombot` MCP (Tailscale bridge to a Windows GPU box with ffmpeg + faster-whisper) — prereq check, scp-to-inbox + size verify, the sync `transcribe_video` wait, scp-results-back, and the SSH job-object gotcha |
 | **verified-decision-brief** | turning an informal requirement into a stakeholder decision doc grounded in verified as-is (code + live), incl. redaction for sharing |
 
@@ -43,6 +43,7 @@ Kept as short redirect stubs so an old reference doesn't dead-end; the old text 
 | **teibto-code** | *(deprecated in 0.17.0)* replaced by the `teibto-agent` subagent — see `setup-coding-agent`; the verify-before-apply rule carries over |
 | **teibto-worker** | *(deprecated in 0.17.0)* the subagent it called was removed; use `teibto-agent` (edits), `local-llm` (private text) or `ask_cheap.py` |
 | **setup-teibto-worker** | *(deprecated in 0.18.0)* moved into `setup-coding-agent`: saving `TEIBTO_API_KEY` at a hidden prompt, the `ask_cheap.py` helper and the token/USD price table |
+| **cdp-browser** | *(renamed in 0.22.0)* now **`browser-engines`** — the skill covers `bsk` first and `cdp`; the old name is a redirect stub |
 
 ## Benchmarks
 

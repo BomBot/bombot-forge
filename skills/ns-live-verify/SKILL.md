@@ -9,7 +9,7 @@ description: >-
 
 # NetSuite Live Verify (read-only via the TEIBTO Dev Bridge)
 
-**Skill version: `202609_08`**
+**Skill version: `202609_09`**
 
 Run SuiteQL / `record.load().toJSON()` / searches against a live account through a logged-in Chrome
 tab, so you verify against **real state** instead of guessing. Read-only. Pairs with
@@ -55,7 +55,7 @@ caps non-paged SuiteQL at 5000 rows and the bridge cuts to 1000, so `truncated:t
 than 1000": count with `SELECT COUNT(*)`, never with `rows.length`. `OFFSET` is silently ignored — page with
 the `ROWNUM` double-subquery. Every call is written to the script's Execution Log (who + what).
 
-Two ways to drive the tab — **bsk is the default** (see `cdp-browser` for the engine choice):
+Two ways to drive the tab — **bsk is the default** (see `browser-engines` for the engine choice):
 
 ### Option A — raw `bsk` (verified live on a sandbox; `evaluate` awaits the promise, one call)
 
@@ -67,7 +67,7 @@ bsk session start --no-focus --name lv --json > s.json          # note session_i
 bsk tab create --no-active --url about:blank --session <sid> --json > t.json   # note tab_id
 # open a CLASSIC NetSuite page first — fetch from about:blank fails
 bsk navigate "https://<host>/app/center/card.nl?sc=-29&whence=" --wait-until domcontentloaded --session <sid> --tab-id <tab> --json
-# guards from cdp-browser: dialog guard + identity gate (company + SANDBOX), then:
+# guards from browser-engines: dialog guard + identity gate (company + SANDBOX), then:
 bsk evaluate "fetch('/app/site/hosting/scriptlet.nl?script=customscript_teibto_dev_bridge&deploy=customdeploy_teibto_dev_bridge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'query',q:'<SELECT ...>',params:[]})}).then(r=>r.text())" --session <sid> --tab-id <tab> --json
 bsk session stop <sid>                                            # always, even on failure
 ```

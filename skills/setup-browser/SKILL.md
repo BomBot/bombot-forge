@@ -10,11 +10,11 @@ description: >-
 
 # Setup Browser (engine choice, install, Dev Bridge, login consent)
 
-**Skill version: `202609_07`**
+**Skill version: `202609_08`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
-secrets**, never in a repo. Other skills (`cdp-browser`, `ns-record-write`, `ns-live-verify`) read
+secrets**, never in a repo. Other skills (`browser-engines`, `ns-record-write`, `ns-live-verify`) read
 it. Ask **one step at a time** and wait for the answer; never install or click ahead of an OK. Every
 decision follows *How to ask the user* below.
 
@@ -83,11 +83,11 @@ fallback, but two things to keep working. Record `engine` (primary) and `also_in
 4. `bsk install-skill --harness claude-code`.
 5. Verify: `BSK_AUTO_START=0 bsk status --json` lists a connected browser; open a throwaway session
    (`bsk session start --no-focus`, own tab on `about:blank`, `bsk session stop`) and confirm
-   your session id is gone from `bsk session list` — stop only your own id, never `--all`, and do not expect the count to be 0 (another Claude session may be using the same daemon). Details and per-run rules: skill `cdp-browser`.
+   your session id is gone from `bsk session list` — stop only your own id, never `--all`, and do not expect the count to be 0 (another Claude session may be using the same daemon). Details and per-run rules: skill `browser-engines`.
 
 ## Step 2b — install cdp (if chosen)
 
-Follow the `cdp-browser` skill's cdp lane: Chrome for Testing, a fixed profile under
+Follow the `browser-engines` skill's cdp lane: Chrome for Testing, a fixed profile under
 `~/.qa-chrome/<name>`, port 9333, `cdp.py` supplied by the user. Verify with `cdp.py tabs`.
 
 ## Step 3 — Claude in Chrome (optional)

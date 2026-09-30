@@ -9,6 +9,25 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.22.0 — 2026-09-30
+
+**Rename (breaking for anything that calls the old name).**
+
+- `cdp-browser` → **`browser-engines`** (**202609_10**): it chooses between `bsk` and `cdp` and holds the
+  verified `bsk` recipes, so a name with only `cdp` in it misled (the user asked "is there a bsk-browser
+  skill?"). Moved with `git mv`; content unchanged apart from a one-line rename note. Invoke it as
+  `/bombot-forge:browser-engines`.
+- A `cdp-browser` **redirect stub** (**202609_10**) stays so old references do not dead-end; delete it once
+  nothing points at it.
+- References updated: `setup-browser` **202609_08**, `ns-record-write` **202609_12** (text + `validate-setup.sh`
+  message), `ns-live-verify` **202609_09**, the README, the global instructions snapshot
+  (`setup-global-instructions` **202609_07**) and the user's own `~/.claude/CLAUDE.md` (backed up first).
+  Older CHANGELOG entries keep the old name on purpose — they describe what shipped then.
+- Anything outside this repo that names `cdp-browser` (a project `CLAUDE.md`, a script, a note) still works
+  through the stub but should be switched.
+
+---
+
 ## v0.21.2 — 2026-09-30
 
 - `cdp-browser` **202609_09** — the real-tab hand-off, tried on a Mac (Chrome 152, bsk 0.3.1). **Verified:**

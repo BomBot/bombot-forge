@@ -61,7 +61,7 @@ if command -v bsk >/dev/null 2>&1; then
     info "bsk installed ($(bsk --version 2>/dev/null)) but daemon/extension not connected (run: bsk daemon start; bsk doctor)"
   fi
 else
-  info "bsk lane unavailable: bsk not installed (see the cdp-browser skill, bsk setup)"
+  info "bsk lane unavailable: bsk not installed (see the browser-engines skill, bsk setup)"
 fi
 if [ "$engines" -eq 0 ]; then bad "no usable write engine — need bsk (sandbox writes) or cdp.py"; fi
 
