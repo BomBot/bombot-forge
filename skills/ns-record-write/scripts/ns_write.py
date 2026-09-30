@@ -219,8 +219,8 @@ def main():
     refuse_bsk = engine == "bsk" and not bsk_write_allowed(guard.get("env"), args.allow_bsk_prod)
     if not args.confirm:
         if refuse_bsk:
-            print("\nNOTE: --confirm would be REFUSED — bsk writes are sandbox-only (env=%r); "
-                  "use --engine cdp." % guard.get("env"))
+            print("\nNOTE: --confirm would be REFUSED — bsk writes are sandbox-only unless "
+                  "--allow-bsk-prod is given (env=%r)." % guard.get("env"))
         print("\nDRY-RUN (no --confirm) — nothing written."); return
     if refuse_bsk:
         print("ABORT: bsk writes are sandbox-only unless --allow-bsk-prod is given; env=%r. "

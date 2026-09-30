@@ -9,6 +9,16 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.14.3 — 2026-09-30
+
+- `ns-record-write` **202609_08** — `--allow-bsk-prod` verified live once on a customer production
+  account still in implementation: `--mode submit` on one free-text field, owner-approved record
+  and value, dry-run → write → re-read → revert → re-read, final value identical, no dialog.
+  Docs: custom-record `--type` must be the script id, not the URL's numeric `rectype`. Fix: the
+  dry-run NOTE no longer says "use --engine cdp" as the only way (it mentions the flag).
+
+---
+
 ## v0.14.2 — 2026-09-30
 
 - `setup-global-instructions` **202609_03** — snapshot's "Browser automation" section matches
