@@ -9,6 +9,15 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.18.1 — 2026-09-30
+
+- README: new top section "Setup skills — run once per machine" (setup-global-instructions, setup-browser,
+  setup-coding-agent, setup-local-llm) with what each writes on the machine; the rest regrouped into
+  "Work skills" and "Deprecated" (teibto-code, teibto-worker, setup-teibto-worker); `verified-decision-brief`
+  moved from the Agents table (it is a skill); Agents lists only what `agents/` ships (`teibto-agent`).
+
+---
+
 ## v0.18.0 — 2026-09-30
 
 - **`setup-teibto-worker` deprecated (202609_08 stub) and folded into `setup-coding-agent` (202609_06).**

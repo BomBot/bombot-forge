@@ -4,7 +4,25 @@ BomBot's personal Claude Code plugin — NetSuite delivery skills, forged from r
 MFG work (customer SDF deploys, a costing-variance analysis, live verification, a production
 fan-out fix).
 
-## Skills
+## Setup skills — run once per machine
+
+Run each in Claude Code as `/bombot-forge:<name>` (for example `/bombot-forge:setup-browser`). They walk you
+through it step by step and test what they set up. There is no hard dependency between them; a
+sensible order is the one below. `setup-browser` and `setup-global-instructions` are written to update
+on a re-run instead of overwriting (they back up / merge / ask per key).
+
+| Setup skill | Use when | Writes on this machine |
+|---|---|---|
+| **setup-global-instructions** | setting up or syncing a machine's global `~/.claude/CLAUDE.md` to the canonical NetSuite-dev instructions — compares a bundled redacted snapshot against the machine's file and proposes a section-by-section merge (never blind-overwrite); real customer/email/path values filled per-machine | `~/.claude/CLAUDE.md` — compared with the bundled redacted snapshot, merged section by section, backed up first |
+| **setup-browser** | first-time or changed browser setup on a machine — choose `bsk` or `cdp` with trade-offs, install, optional Claude in Chrome, Dev Bridge trial, login-click consent (never reads the password); saves a local no-secrets prefs file | `~/.config/bombot-forge/browser.json` (engine choice, Dev Bridge endpoint, login-click consent; no secrets); installs `bsk` or Chrome for Testing |
+| **setup-coding-agent** | making Cline (or OpenCode) the worker for code/text edits on the company DeepSeek key — detect, point at the TEIBTO endpoint, privacy check, smoke test, worktree-isolated `agent_run.py`, and the review-then-apply protocol (Claude briefs and reviews; browser/production/deploy/secrets never delegated) | the company key in `~/.config/teibto/api.env`; `~/.config/bombot-forge/agent.json` (agent + model) only if you opt in to delegating edits; points OpenCode/Cline at the TEIBTO DeepSeek endpoint |
+| **setup-local-llm** | setting up / checking the default `local-llm` worker (free, private — Ollama on `bombot-gaming` over Tailscale via the `ollama` MCP) — installs the MCP script + agent from canonical copies, registers the MCP, PASS/FAIL checker, re-snapshot flow | the `ollama` MCP and the `local-llm` agent, registered on this machine |
+
+Nothing secret is stored in this repo: keys and prefs live in `~/.config/...` on each machine.
+
+## Work skills
+
+Used while delivering NetSuite work. Claude picks them from their descriptions; you can also name them.
 
 | Skill | Use when |
 |---|---|
@@ -12,12 +30,16 @@ fan-out fix).
 | **ns-live-verify** | reading/verifying live NetSuite state read-only via the TEIBTO Dev Bridge (`ping` / `query` / `record` / `lookup` / `feature` / `search`; accounts, GL, fields, script deployment; driven through `bsk` by default, `cdp.py` as the alternative) — confirm real state, don't assume |
 | **ns-record-write** | writing a field to a live record from a logged-in browser session (`bsk` on sandbox, or on production only with an explicit `--allow-bsk-prod`; `cdp` anywhere; transport failure mid-write = outcome unknown, exit 3) — scoped `submitFields` / load-save helper (structured args, account guard, dry-run), the `permissions.allow` line, and a per-machine setup validator |
 | **ns-bundle-to-sdf-repo** | turning an account-owned NetSuite bundle into a version-controlled SDF repo — "Convert to SDF Project" flow, cleaning up legacy auto-generated scriptids via Change ID, and the path-fidelity rules that keep a future deploy landing on the bundle's real live location |
-| **video-transcribe** | transcribing a video/audio file to SRT/TXT/MD via the homelab `bombot` MCP (Tailscale bridge to a Windows GPU box with ffmpeg + faster-whisper) — prereq check, scp-to-inbox + size verify, the sync `transcribe_video` wait, scp-results-back, and the SSH job-object gotcha |
 | **cdp-browser** | which browser engine to use: **`bsk` (BrowserSkill) for read/QA** — measured ~18 ms vs ~409 ms per command, verified recipes (own session + pinned tab, dialog guard, NetSuite identity gate, bounded `observe`) — and **cdp (`cdp.py`, Chrome for Testing on a fixed profile) for writes, dialogs and `lens`/`netlog`/`stub`/`diff`**; includes the shared-browser coordinator rules; cdp for read/QA is **soft-deprecated** (kept as fallback when `bsk` is unusable on a machine) |
-| **setup-browser** | first-time or changed browser setup on a machine — choose `bsk` or `cdp` with trade-offs, install, optional Claude in Chrome, Dev Bridge trial, login-click consent (never reads the password); saves a local no-secrets prefs file |
-| **setup-coding-agent** | making Cline (or OpenCode) the worker for code/text edits on the company DeepSeek key — detect, point at the TEIBTO endpoint, privacy check, smoke test, worktree-isolated `agent_run.py`, and the review-then-apply protocol (Claude briefs and reviews; browser/production/deploy/secrets never delegated) |
-| **setup-global-instructions** | setting up or syncing a machine's global `~/.claude/CLAUDE.md` to the canonical NetSuite-dev instructions — compares a bundled redacted snapshot against the machine's file and proposes a section-by-section merge (never blind-overwrite); real customer/email/path values filled per-machine |
-| **setup-local-llm** | setting up / checking the default `local-llm` worker (free, private — Ollama on `bombot-gaming` over Tailscale via the `ollama` MCP) — installs the MCP script + agent from canonical copies, registers the MCP, PASS/FAIL checker, re-snapshot flow |
+| **video-transcribe** | transcribing a video/audio file to SRT/TXT/MD via the homelab `bombot` MCP (Tailscale bridge to a Windows GPU box with ffmpeg + faster-whisper) — prereq check, scp-to-inbox + size verify, the sync `transcribe_video` wait, scp-results-back, and the SSH job-object gotcha |
+| **verified-decision-brief** | turning an informal requirement into a stakeholder decision doc grounded in verified as-is (code + live), incl. redaction for sharing |
+
+## Deprecated
+
+Kept as short redirect stubs so an old reference doesn't dead-end; the old text is in git history.
+
+| Skill | Status |
+|---|---|
 | **teibto-code** | *(deprecated in 0.17.0)* replaced by the `teibto-agent` subagent — see `setup-coding-agent`; the verify-before-apply rule carries over |
 | **teibto-worker** | *(deprecated in 0.17.0)* the subagent it called was removed; use `teibto-agent` (edits), `local-llm` (private text) or `ask_cheap.py` |
 | **setup-teibto-worker** | *(deprecated in 0.18.0)* moved into `setup-coding-agent`: saving `TEIBTO_API_KEY` at a hidden prompt, the `ask_cheap.py` helper and the token/USD price table |
@@ -31,10 +53,13 @@ fan-out fix).
 
 ## Agents
 
+Subagents shipped in `agents/` (auto-installed with the plugin):
+
 | Agent | Use when |
 |---|---|
 | **teibto-agent** | handing ONE well-scoped edit in a git repo to the machine's coding-agent CLI (OpenCode/Cline on the company DeepSeek key) via `agent_run.py` — edits an isolated worktree, returns a patch marked NOT REVIEWED; Claude reviews and applies. Not for browser, production, deploy, secrets or customer data (haiku runner; needs `setup-coding-agent` first) |
-| **verified-decision-brief** | turning an informal requirement into a stakeholder decision doc grounded in verified as-is (code + live), incl. redaction for sharing |
+
+The `local-llm` agent is not shipped here: `setup-local-llm` installs it (with its `ollama` MCP) on each machine.
 
 ## Structure
 
@@ -42,6 +67,7 @@ fan-out fix).
 bombot-forge/
   .claude-plugin/plugin.json     # plugin manifest
   skills/<name>/SKILL.md         # one folder per skill
+  agents/<name>.md               # plugin subagents
   README.md
 ```
 
