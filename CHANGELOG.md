@@ -9,6 +9,15 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.14.4 — 2026-09-30
+
+- `ns-record-write` **202609_09** — docs only: mid-write transport failure verified live on a
+  sandbox (a `bsk` shim triggers the failure; real `bsk`, real page). Session stopped before the
+  write → exit 3, record unchanged. Reply lost after a real write → exit 3, record HAD changed,
+  which is why exit 3 means "re-read, never re-run". Every test value was reverted.
+
+---
+
 ## v0.14.3 — 2026-09-30
 
 - `ns-record-write` **202609_08** — `--allow-bsk-prod` verified live once on a customer production
