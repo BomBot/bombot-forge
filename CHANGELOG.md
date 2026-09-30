@@ -19,6 +19,13 @@ Versioning (matches Teibto-Claude-Skills convention):
 
 ---
 
+## v0.15.1 — 2026-09-30
+
+- `cdp-browser` **202609_06** — concurrency soak recorded: 3 parallel bsk sessions, 30 min, 273 cycles,
+  0 failures, no cross-talk, no stray dialogs, clean teardown (read-only, sandbox, one Mac).
+
+---
+
 ## v0.15.0 — 2026-09-30
 
 - **New skill `setup-coding-agent` 202609_01** — use Cline (or OpenCode, if that is what the machine
