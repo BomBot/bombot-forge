@@ -12,7 +12,7 @@ description: >-
 
 # Browser driving: bsk for read/QA, cdp for the rest
 
-**Skill version: `202609_03`**
+**Skill version: `202609_04`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -24,12 +24,25 @@ This skill is the policy + verified recipes. Command reference for `bsk` comes f
 | Task | Engine | Why |
 |---|---|---|
 | Read a page, smoke/QA, screenshots, dbgQuery / SuiteQL reads | **bsk** | Uses the browser you're already logged in to; no separate profile or login |
-| Record write through the scoped `ns_write.py` (no clicks, no dialogs) | **bsk on sandbox**, cdp on production | The helper adds its own guards: dialog guard, sandbox-only for bsk, stop on unknown outcome |
+| Record write through the scoped `ns_write.py` (no clicks, no dialogs) | **bsk** (production needs `--allow-bsk-prod` + approval) or cdp | The helper adds its own guards: dialog guard, explicit opt-in for non-sandbox on bsk, stop on unknown outcome |
 | Any **UI-driven** write (clicking Save, filling forms, buttons) or anything a dialog could touch | **cdp** | `bsk` **auto-accepts every native dialog** (`alert`/`confirm`/`prompt`/`beforeunload`) and can't be told not to (verified below) |
 | `lens` / `netlog` / `stub` / `diff`, shadow-DOM piercing (`a11y`), coordinate work | **cdp** | Not in `bsk` |
-| Unattended or long runs, production | **cdp** (or don't) | Team policy: no `bsk` for production writes or unattended runs; a person closing the Agent Window kills the run |
+| Unattended or long runs | **cdp** (or don't) | A person closing the Agent Window kills a `bsk` run |
 
 When in doubt, use cdp. NetSuite record-form QA belongs to a dedicated skill, not here.
+
+## Lane priority (per machine)
+
+1. **`bsk` or `cdp.py`** — whichever the machine chose in `setup-browser` (recorded in
+   `~/.config/bombot-forge/browser.json`, key `engine`). `cdp.py` drives only **Chrome for Testing
+   with its own profile**: Chrome 136+ ignores `--remote-debugging-port` on the default profile, so
+   it cannot drive your everyday Chrome. A machine on everyday Chrome uses `bsk`.
+2. **Claude in Chrome** (MCP, everyday Chrome) — optional; when the lane above is missing or
+   unsuitable. Not verified here against native dialogs — treat it like `bsk` for anything that
+   changes data.
+3. **The user acts on the screen** — the last resort, and the only choice for a data-changing
+   click when the lane above would auto-accept a dialog. Say exactly what to click and check the
+   result afterwards through a read lane.
 
 ## Deprecation status (soft — nothing is removed)
 
@@ -41,7 +54,8 @@ When in doubt, use cdp. NetSuite record-form QA belongs to a dedicated skill, no
   no Chrome/Edge extension allowed, an unsupported OS/arch, or a broken auto-update.
 - **Stays in the tree:** the cdp lane below, `ns_write.py --engine cdp`, and `netsuite-qa-browser`.
 - **Revisit** once `bsk` has run on more than one machine and over long sessions, and once the
-  team decides on production writes through `bsk` (today's policy: not allowed).
+  team decides on production writes through `bsk`. Today: allowed only for the scoped `ns_write.py`
+  helper with `--allow-bsk-prod`; never for UI clicks.
 
 ## Measured on this machine (2026-09-29, Apple Silicon Mac, Chrome 152, bsk 0.3.1)
 
