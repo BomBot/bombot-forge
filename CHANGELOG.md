@@ -9,6 +9,26 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.17.0 — 2026-09-30
+
+**Breaking.**
+
+- **Removed the `teibto-worker` subagent** (the haiku forwarder to DeepSeek). **New subagent
+  `teibto-agent`** in its place: a thin haiku runner that hands ONE well-scoped edit to the machine's
+  coding-agent CLI (OpenCode or Cline, company DeepSeek key) through `agent_run.py`, and returns the
+  run report and the patch path marked NOT REVIEWED — it never applies, commits or edits the repo;
+  the caller reviews every line and applies. It refuses to run without `~/.config/bombot-forge/agent.json`.
+  Not yet exercised through the Agent tool (a subagent only loads at session start).
+- `teibto-worker` **202609_03** and `teibto-code` **202609_03** skills are now deprecated redirect
+  stubs (their old flow called the removed subagent; it is in git history). `setup-teibto-worker`
+  **202609_07** keeps `ask_cheap.py`, `prices.json` and the key step, text updated.
+- `setup-coding-agent` **202609_04** + `agent_run.py`: `--agent` / `--model` now default from
+  `~/.config/bombot-forge/agent.json` (a model name is only reused for the agent it was saved with);
+  documents `teibto-agent`. Other repos or sessions that call `subagent_type: bombot-forge:teibto-worker`
+  (for example a project-level `teibto-code` skill) will break and must be switched.
+
+---
+
 ## v0.16.1 — 2026-09-30
 
 - `setup-coding-agent` **202609_03** + `agent_run.py --profile ns-reader` — lets an OpenCode agent

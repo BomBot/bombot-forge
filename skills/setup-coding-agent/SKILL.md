@@ -11,12 +11,12 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_03`**
+**Skill version: `202609_04`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
-DeepSeek key, not Claude's. This is the agentic sibling of `teibto-worker` / `teibto-code`
-(those are one-shot text calls with no file access; this one reads, edits and runs commands).
+DeepSeek key, not Claude's. It replaces the removed `teibto-worker` / `teibto-code` (0.17.0): those were one-shot text calls with no
+file access; this one reads, edits and runs commands — and is what the **`teibto-agent`** subagent drives.
 
 ## What was verified, and on what
 
@@ -101,12 +101,24 @@ Expect `finish: completed`, a one-line patch in `calc.py`, and a token/USD line.
 the last command the helper printed.
 
 **Step 4 — make it the default (opt-in).** Ask: *"Delegate all code/text edits to the agent, with
-me only briefing and reviewing?"* If yes, record `{"default_delegate": true, "agent": "cline"}` in
-`~/.config/bombot-forge/agent.json` (no secrets), and **offer** to add a short rule to the global
+me only briefing and reviewing?"* If yes, record `{"default_delegate": true, "agent": "opencode", "model": "<provider-id>/deepseek/deepseek-flash"}`
+(use the agent and the model name exactly as that CLI's own config spells them; for Cline `model` may be
+omitted) in `~/.config/bombot-forge/agent.json` (no secrets). `agent_run.py` and the `teibto-agent`
+subagent read `agent` and `model` from this file, so they need no flags, and **offer** to add a short rule to the global
 `~/.claude/CLAUDE.md` (back up, show the diff, wait for OK):
 
 > Code/text edits go to the coding agent via `agent_run.py` (skill `setup-coding-agent`); Claude
 > briefs and reviews. Never delegate browser, production, deploy, secrets or customer data.
+
+## The subagent `teibto-agent`
+
+Ships in `agents/teibto-agent.md`. Ask for it by name ("ให้ teibto-agent …") or let Claude pick it when
+`default_delegate` is on. It is a thin haiku runner: it checks the repo is clean, runs `agent_run.py` once,
+and returns the helper's output verbatim plus the `changes.patch` path, marked **NOT REVIEWED**. It never
+applies, commits or edits the repo — Claude (the caller) does the review and the apply per the protocol
+below. It refuses to run without `agent.json` (it never guesses a provider or model). **Not yet exercised
+through the Agent tool** — the file was written and the command path it uses was run by hand; a subagent
+is only loaded at session start, so the first real call needs a fresh session after the plugin update.
 
 ## Profile `ns-reader` — let the agent READ a NetSuite sandbox, nothing else (OpenCode only)
 

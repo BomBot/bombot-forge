@@ -22,6 +22,8 @@ It NEVER applies the patch to your repo and never deletes the worktree — the c
   --bridge-path / --config are denied. It can therefore read a SANDBOX account, and nothing else.
   Usage: agent_run.py --profile ns-reader --task-file ask.md --model <provider>/<model>
 
+Defaults: --agent / --model fall back to ~/.config/bombot-forge/agent.json ({"agent": ..., "model": ...}).
+
 Exit codes: 0 agent completed · 1 agent did not complete (see summary) · 2 precondition failed
 
 Usage:
@@ -164,6 +166,16 @@ def main():
     ap.add_argument("--allow-dirty", action="store_true")
     ap.add_argument("--dry-run", action="store_true", help="print the command, run nothing")
     a = ap.parse_args()
+    # defaults from the per-machine file written by the setup-coding-agent skill (no secrets in it)
+    try:
+        cfg = json.load(open(os.path.expanduser("~/.config/bombot-forge/agent.json")))
+        cfg = cfg if isinstance(cfg, dict) else {}
+    except (OSError, ValueError):
+        cfg = {}
+    eff_agent = a.agent or cfg.get("agent")
+    if a.model is None and eff_agent and eff_agent == cfg.get("agent"):
+        a.model = cfg.get("model")   # a model name belongs to ONE agent's config: only reuse it for that agent
+    a.agent = eff_agent
     if a.profile == "ns-reader":
         return run_ns_reader(a)
 

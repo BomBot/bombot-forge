@@ -13,7 +13,7 @@ description: >-
 **Skill version: `202609_01`**
 
 `local-llm` is the **default** cheap worker — free and private (text stays on your own tailnet).
-`teibto-worker` (paid DeepSeek) is the fallback, used when named or when this one is unavailable.
+paid DeepSeek (`ask_cheap.py`, see `setup-teibto-worker`) is the fallback when this one is unavailable; the old `teibto-worker` subagent was removed in 0.17.0.
 
 Three pieces, all per machine:
 

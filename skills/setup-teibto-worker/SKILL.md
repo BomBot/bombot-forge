@@ -1,21 +1,24 @@
 ---
 name: setup-teibto-worker
 description: >-
-  Use when setting up, testing, or troubleshooting the `teibto-worker` subagent on a machine —
-  the worker that delegates bulk low-judgement text work to a cheap external model (deepseek via
-  the TEIBTO OpenAI-compatible endpoint). Covers saving `TEIBTO_API_KEY` once per machine without
+  Use when setting up, testing, or troubleshooting the TEIBTO DeepSeek helper `ask_cheap.py` on a
+  machine (the `teibto-worker` subagent that used it was removed in 0.17.0; `teibto-agent` replaced
+  it and uses the coding-agent CLI instead). Covers saving `TEIBTO_API_KEY` once per machine without
   it touching a repo or shell history, the smoke test, switching model/endpoint by env var, and
   the python.org-macOS empty-CA-store gotcha.
 ---
 
 # Setup Teibto Worker (deepseek via TEIBTO endpoint)
 
-**Skill version: `202609_06`**
+**Skill version: `202609_07`**
 
-The `teibto-worker` subagent ships with this plugin (`agents/teibto-worker.md`), so every
-machine that installs bombot-forge gets it in every session. It's a thin Claude (haiku) worker
-that forwards the task to an external cheap model through `scripts/ask_cheap.py`. The only
-per-machine step is the API key.
+> **0.17.0:** the `teibto-worker` subagent and its `/teibto-worker`, `/teibto-code` skills were removed
+> (replaced by `teibto-agent`, see `setup-coding-agent`). What is left here is the one-shot helper
+> `scripts/ask_cheap.py`, the price table `scripts/prices.json` (which `agent_run.py` also reads for its
+> USD estimate) and the per-machine key step below.
+
+`ask_cheap.py` sends one prompt to DeepSeek on the TEIBTO endpoint and prints the answer plus a usage
+line. The only per-machine step is the API key.
 
 - Endpoint: `https://tokenhub-intl.tencentcloudmaas.com/v1` (OpenAI-compatible `/chat/completions`)
 - Default model: `deepseek/deepseek-flash`
@@ -63,14 +66,8 @@ per-machine step is the API key.
 
 ## Using it
 
-Type `/teibto-worker <task>` (the `teibto-worker` skill), or ask for it by name:
-> "ให้ teibto-worker สรุป transcript นี้เป็น bullet ภาษาไทย"
-
-The local `local-llm` (Ollama, free, private) stays the default for this kind of work;
-`teibto-worker` is picked when you name it or when `local-llm` is unavailable/busy/not good enough.
-
-Change model or endpoint without code changes (env vars read by the helper):
-`TEIBTO_MODEL`, `TEIBTO_BASE_URL`, `TEIBTO_TIMEOUT`, `TEIBTO_ENV_FILE`.
+Run the helper directly from a shell (`python3 <plugin>/skills/setup-teibto-worker/scripts/ask_cheap.py`);
+there is no subagent for it any more. For edits use `teibto-agent`; for private bulk text use `local-llm`.
 
 ## Token usage + cost
 

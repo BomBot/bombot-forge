@@ -18,9 +18,9 @@ fan-out fix).
 | **setup-coding-agent** | making Cline (or OpenCode) the worker for code/text edits on the company DeepSeek key — detect, point at the TEIBTO endpoint, privacy check, smoke test, worktree-isolated `agent_run.py`, and the review-then-apply protocol (Claude briefs and reviews; browser/production/deploy/secrets never delegated) |
 | **setup-global-instructions** | setting up or syncing a machine's global `~/.claude/CLAUDE.md` to the canonical NetSuite-dev instructions — compares a bundled redacted snapshot against the machine's file and proposes a section-by-section merge (never blind-overwrite); real customer/email/path values filled per-machine |
 | **setup-local-llm** | setting up / checking the default `local-llm` worker (free, private — Ollama on `bombot-gaming` over Tailscale via the `ollama` MCP) — installs the MCP script + agent from canonical copies, registers the MCP, PASS/FAIL checker, re-snapshot flow |
-| **teibto-code** | `/teibto-code <task>` — delegate a *coding* task to teibto-worker and verify before applying: worth-it check (~20k-token overhead), data check, attaches the repo's `docs/ai/teibto-worker-brief.md`, required `### Code / ### Where it goes / ### Assumptions` format, line-by-line verify of every id/limit/style, Claude applies + syntax-checks |
-| **teibto-worker** | `/teibto-worker <task>` — send one task to DeepSeek on the TEIBTO endpoint via the `teibto-worker` agent; checks for secrets/customer data first, relays the answer + verbatim token/cost line |
-| **setup-teibto-worker** | setting up / testing the `teibto-worker` subagent on a machine — saving `TEIBTO_API_KEY` at a hidden prompt (never in a repo or shell history), the smoke test, switching model/endpoint by env var, and the python.org-macOS empty-CA-store fix |
+| **teibto-code** | *(deprecated in 0.17.0)* replaced by the `teibto-agent` subagent — see `setup-coding-agent`; the verify-before-apply rule carries over |
+| **teibto-worker** | *(deprecated in 0.17.0)* the subagent it called was removed; use `teibto-agent` (edits), `local-llm` (private text) or `ask_cheap.py` |
+| **setup-teibto-worker** | saving `TEIBTO_API_KEY` at a hidden prompt (never in a repo or shell history) for the `ask_cheap.py` helper and its price table — the subagent that used it was removed in 0.17.0 |
 
 ## Benchmarks
 
@@ -33,7 +33,7 @@ fan-out fix).
 
 | Agent | Use when |
 |---|---|
-| **teibto-worker** | delegating bulk, low-judgement text work (summarise, translate, boilerplate, classify, triage) to DeepSeek on the TEIBTO cloud endpoint (paid, data leaves) — haiku forwarder over `ask_cheap.py`, reports tokens + USD; the local `local-llm` (Ollama) stays the default, this is used when named or when local is unavailable; refuses secrets, and customer data unless explicitly OK'd |
+| **teibto-agent** | handing ONE well-scoped edit in a git repo to the machine's coding-agent CLI (OpenCode/Cline on the company DeepSeek key) via `agent_run.py` — edits an isolated worktree, returns a patch marked NOT REVIEWED; Claude reviews and applies. Not for browser, production, deploy, secrets or customer data (haiku runner; needs `setup-coding-agent` first) |
 | **verified-decision-brief** | turning an informal requirement into a stakeholder decision doc grounded in verified as-is (code + live), incl. redaction for sharing |
 
 ## Structure
