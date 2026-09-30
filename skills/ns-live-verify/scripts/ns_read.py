@@ -367,6 +367,17 @@ def emit(account, environment, result, max_chars):
     print(json.dumps(out, ensure_ascii=False))
 
 
+class _Once(argparse.Action):
+    """Store the value, but refuse a second occurrence (argparse would let the last one silently win)."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        seen = namespace.__dict__.setdefault("_once_seen", set())
+        if self.dest in seen:
+            parser.error("%s was given more than once" % option_string)
+        seen.add(self.dest)
+        setattr(namespace, self.dest, values)
+
+
 # ---- CLI -----------------------------------------------------------------------
 def _global_flags():
     # SUPPRESS so that a subparser (which re-parses into a fresh namespace and copies it back)
@@ -390,7 +401,7 @@ def build_parser():
 
     def add(name, help_, bridge=True, maxc=True):
         p = sub.add_parser(name, parents=[g], help=help_)
-        p.add_argument("--account", required=True, help="e.g. 4089685_SB2 or 4089685")
+        p.add_argument("--account", required=True, action=_Once, help="e.g. 4089685_SB2 or 4089685")
         if bridge:
             p.add_argument("--bridge-path", default=None,
                            help="Dev Bridge scriptlet URL (config, then the README's default ids)")

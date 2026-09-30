@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_07`**
+**Skill version: `202609_08`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -37,7 +37,7 @@ file access; this one reads, edits and runs commands — and is what the **`teib
 - **Cline's default is auto-approve ON** (`--auto-approve true`): the agent can run shell commands
   and edit files without asking. The worktree isolates **edits to the repo**, not the machine.
   The guardrail preamble in `agent_run.py` is advice to the model, **not enforcement**. So: never
-  give it a task that involves secrets, production, or customer data without the user's explicit OK
+  give it a task that involves secrets — ever — or production/customer data unless the user OK'd it (for the `ns-reader` profile the OK is the per-account confirmation below)
   (it goes to an external provider), and never point it at a repo you can't afford to have it
   read.
 - **Never apply without reading every changed line.** `agent_run.py` saves `changes.patch` and
@@ -201,25 +201,53 @@ below. It refuses to run without `agent.json` (it never guesses a provider or mo
 through the Agent tool** — the file was written and the command path it uses was run by hand; a subagent
 is only loaded at session start, so the first real call needs a fresh session after the plugin update.
 
-## Profile `ns-reader` — let the agent READ a NetSuite sandbox, nothing else (OpenCode only)
+## Profile `ns-reader` — let the agent READ NetSuite (sandbox, plus accounts the user confirmed), nothing else (OpenCode only)
 
 `agent_run.py --profile ns-reader --task-file ask.md --model <provider>/<model>` runs the agent in an
 EMPTY scratch folder (no repo, no patch) with a permission list that **OpenCode itself enforces**:
 the only shell commands allowed are `ns_read.py whoami|ping|query|record|lookup|feature|search` (from `ns-live-verify`); every
 other command, all file edits, web fetch/search, and the flags `--allow-prod-read`, `--bridge-path`
-and `--config` are denied. So it can read a SANDBOX account through the Dev Bridge and can neither
-click, write, log in, run raw `bsk`/`cdp.py`, nor reach production. The Dev Bridge endpoint is the README's default script/deploy ids unless the local `browser.json` has
+and `--config` are denied. So it can read a SANDBOX account through the Dev Bridge and every account listed in
+`agent.json` → `read_accounts` (see below), and can neither click, write, log in, nor run raw `bsk`/`cdp.py`. The Dev Bridge endpoint is the README's default script/deploy ids unless the local `browser.json` has
 `dev_bridge.endpoints["<account>"].path`; the agent cannot pass its own (`--bridge-path` is denied).
-Production reads stay with Claude, who runs `ns_read.py --allow-prod-read` itself after the user's OK.
+A non-sandbox account NOT in that list stays out of the agent's reach; Claude can still run
+`ns_read.py --allow-prod-read` itself after the user's OK for that one read.
 
 | Claim | Status |
 |---|---|
 | OpenCode's per-command `bash` permission (`allow`/`deny` globs, last match wins) is enforced | **verified**: `echo *` allowed, `ls` denied; `echo A && ls`, `echo B; ls` and `echo $(ls)` also denied |
 | With the profile: `whoami` and `query` run, `--allow-prod-read`, `--bridge-path`, raw `bsk`, `ns_write.py` are denied | **verified live** on a sandbox (2 allowed, 4 denied) |
 | `NS_READ_CONFIG` reaches the command the agent runs | verified (the query used the config's endpoint) |
+| Listed non-sandbox account: `--allow-prod-read query --account <listed>` runs; an unlisted account, `--account <listed>x`, `--account <other> --allow-prod-read`, and a listed account with `--config` / `--bridge-path` are all denied | **verified live** with OpenCode's real matcher on the exact generated rules (a stub `ns_read.py` that only echoes; 2 allowed, 5 denied) |
+| A later rule overrides an earlier one (last match wins) | **verified live**: an allow after a broader deny runs; the same allow before it is denied |
+| Repeating `--account` (so a later one could replace the listed one) | `ns_read.py` refuses it (offline test); the permission glob alone would not |
+| A read against a real non-sandbox account through the agent | see the status line at the bottom of this section |
 | Env-prefixed commands (`VAR=x python3 …`) and other quoting tricks are denied | reasoned from the glob rule, **not tested** |
 | Cline equivalent | none — the profile refuses `--agent cline` |
 | `cdp` engine | not implemented in `ns_read.py` |
+
+### Confirming a non-sandbox account (production not yet live, customer data)
+
+The DeepSeek key of the TEIBTO endpoint is the user's trusted provider (their statement: enterprise terms,
+no training on the data — **not verified by this skill**). Customer data read through the `ns-reader`
+profile goes to that provider. So each non-sandbox account is opened **one at a time, by the user**:
+
+1. A task needs account `A`, it is not a sandbox and not in `read_accounts` → **ask the user** (bullets
+   then a picker, per *How to ask*): what leaves (query results and record data go to the model
+   provider), what stays off (writes, clicks, login, every other account), that it is revocable.
+   Options: **Yes, allow reading `A`** / **Not now**.
+2. Only after a yes **in this conversation**, run — do not hand-edit the JSON:
+   ```bash
+   python3 "$S" --grant-read-account A --session-id "<id>" --session-name "<title>" --note "<what the user said>"
+   ```
+   `<id>` and `<title>` come from `get_session` with `"self"` when that tool is available (its `sessionId`
+   and `title`), else the session folder in the scratchpad path. The entry stores the account, the local
+   time and UTC time of the confirmation, the session id and name, and the note. It refuses without an id.
+   The file is backed up, then written atomically (chmod 600).
+3. From then on the agent may run exactly `python3 <reader> --allow-prod-read <sub> --account A ...`; do not ask
+   again for `A`. A yes for `A` says nothing about any other account.
+4. To take it back: `--revoke-read-account A`.
+
 
 Things to know: whatever the agent reads goes to the model provider; its summary is a claim, so
 `agent_run.py` prints the list of commands it actually tried — compare them. The `--standalone`

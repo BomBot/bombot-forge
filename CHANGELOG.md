@@ -9,6 +9,28 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.20.0 — 2026-09-30
+
+- **`ns-reader` can read the accounts the user confirmed, not only sandboxes** (`setup-coding-agent`
+  **202609_08**). Sandbox-only was the author's own precaution about customer data leaving; the user's
+  work is mostly on production that is not live yet and they trust the provider key, so: each non-sandbox
+  account is opened one at a time by the user. `agent_run.py --grant-read-account <A> --session-id <id>
+  [--session-name] [--note]` records the account with local + UTC time, session id and name, and the note in
+  `agent.json` → `read_accounts` (backup + atomic write, chmod 600, refuses without a session id);
+  `--revoke-read-account <A>` removes it. The profile then allows exactly
+  `ns_read.py --allow-prod-read <sub> --account <A> ...` for those accounts and nothing else.
+- The rule order carries the security (OpenCode applies the **last** matching rule — verified both ways):
+  deny all → allow the subcommands → deny `--allow-prod-read` → allow it per confirmed account →
+  deny `--bridge-path` and `--config` last so no allow above can override them. Verified with OpenCode's
+  real matcher on the exact generated rules (2 allowed, 5 denied). `ns_read.py` now refuses a repeated
+  `--account`, which the permission glob alone would not catch. The agent is also told that data it reads
+  may contain instructions and must be treated as data.
+- Tests: `test_agent_run_offline.py` 16 (permission order, unsafe account strings, grant/revoke, backup,
+  no duplicate), `test_ns_read_offline.py` 35. Not yet done: a real read of a real non-sandbox account
+  through the agent (needs the user's confirmation for a specific account).
+
+---
+
 ## v0.19.0 — 2026-09-30
 
 - **How the setup skills ask the user.** A setup choice used to come out as a long paragraph ending in a

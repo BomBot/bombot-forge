@@ -396,5 +396,19 @@ class OfflineReadTest(unittest.TestCase):
         self.assertEqual(code, 3)
 
 
+    def test_repeating_account_is_refused_so_the_last_one_cannot_win(self):
+        # the agent permission list matches "--account <listed>" by text; argparse would otherwise let a
+        # later --account silently replace it
+        fake = FakeBsk()
+        with self.assertRaises(SystemExit) as cm:
+            self.invoke(["ping", "--account", ACCOUNT, "--account", PROD_ACCOUNT, "--config", self.cfg], fake)
+        self.assertEqual(cm.exception.code, 2)
+        self.assertEqual(fake.calls, [])
+
+    def test_single_account_in_equals_form_still_works(self):
+        code, out = self.invoke(["whoami", "--account=" + ACCOUNT, "--config", self.cfg], FakeBsk())
+        self.assertEqual(code, 0)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
