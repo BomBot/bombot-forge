@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (engine choice, install, Dev Bridge, login consent)
 
-**Skill version: `202609_01`**
+**Skill version: `202609_02`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -134,6 +134,29 @@ secrets):
 Finish with a short table: what is installed and tested, the lane priority, what the user can
 still do later (`/setup-browser` again to change anything), and the one rule to remember —
 **no data-changing clicks on production through bsk**.
+
+## If auto mode blocks a step
+
+Auto mode's classifier can refuse a step here (installing a downloaded script, writing under
+`~/.config`, editing `settings.json`, or a guardrail change such as `--allow-bsk-prod`). A denial
+covers the **outcome**: don't retry it in smaller pieces, with other tools, or with different
+quoting. Finish everything that doesn't depend on it, then **stop, say what you were trying to do
+and why, and offer these three options** (the user decides — never pick for them):
+
+1. **You add the allow rule yourself** — you edit `permissions.allow` in your own settings
+   (`~/.claude/settings.json`, or the project's `.claude/settings.json`). Give the exact line(s)
+   needed for the blocked command, and say which file they belong in. Nothing else changes.
+2. **Switch to Manual or Accept-edits mode** — you change the mode yourself (in the app's mode
+   picker); auto mode's classifier is then out of the loop and you approve prompts by hand
+   (Accept-edits approves file edits automatically; shell commands may still ask).
+3. **Switch to Manual/Accept-edits, then have me edit the allow rules** — after you change the
+   mode, tell me; I show the exact `permissions.allow` diff first, back up the settings file, write
+   it only after your OK, and tell you to reload if needed.
+
+Whichever they pick: never change the permission mode or the allow rules on your own, keep every
+allow rule as narrow as possible (one command pattern, not a whole tool), and remember that
+switching mode does not make a guardrail change (like `--allow-bsk-prod`) automatically fine — it
+still needs the user's explicit OK.
 
 ## Gotchas
 

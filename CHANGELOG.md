@@ -9,6 +9,15 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.14.1 — 2026-09-30
+
+- `setup-browser` **202609_02** — new "If auto mode blocks a step" section: stop, explain, and offer
+  three choices (user adds the allow rule; user switches to Manual/Accept-edits; user switches mode
+  and Claude edits the allow rules after showing the diff and a backup). Never change the mode or
+  rules unasked, keep rules narrow, and a mode switch doesn't pre-approve a guardrail change.
+
+---
+
 ## v0.14.0 — 2026-09-30
 
 - `ns-record-write` **202609_07** + `ns_write.py` — new `--allow-bsk-prod`: `--confirm` through `bsk`
