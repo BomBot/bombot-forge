@@ -152,6 +152,16 @@ session (navigate → guard → identity gate → per-session marker check): **2
 max 1.71 s; `session_count` back to 0 after `session stop`. Not covered: more than 3 sessions,
 sessions longer than 30 minutes, writes during contention, other OSes.
 
+### Concurrency soak (2026-09-30, this Mac, bsk 0.3.1, read-only, sandbox)
+
+3 sessions in parallel, each with its own pinned tab, looping every ~20 s for 30 min: navigate to a
+record page → install the guard → read `getCompany()`/`getEnvironment()` and a per-worker marker.
+**273 iterations, 0 failures**: navigate p50 0.93 s / p95 1.47 s / max 1.82 s, evaluate p50 0.19 s /
+p95 0.5 s / max 1.71 s, first-half vs second-half medians unchanged (0.925 vs 0.94 s), no tab
+cross-talk (every worker read back its own marker), no dialog, `session_count` 0 afterwards.
+Not covered: a write workload, more than 3 sessions, another OS, the daemon's ~30-min auto-update
+landing mid-run (none occurred).
+
 ### Known limits (Teibto's tests, mostly Windows — recheck on this Mac before relying)
 
 - `fill` fails or is silently dropped on `<input type=date>`, React-controlled inputs and Quill
