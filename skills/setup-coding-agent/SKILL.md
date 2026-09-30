@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_11`**
+**Skill version: `202609_12`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -272,6 +272,15 @@ it was **not tested**.
    with the specific defect (don't just re-run).
 6. **Apply** with `git apply`, **commit per the repo's rules**, then **remove the worktree**.
 7. **Say what it cost and what you changed from the agent's output.**
+
+## Subagents that do NOT edit (audit, survey, read, search)
+
+`default_delegate` covers edits only. A subagent started with the Agent tool and **no `model`** runs on the
+same model as the main session (seen: a run of "Audit …" agents, each 80–160k tokens, all on Opus 5.5).
+So for non-edit subagents **always pass `model`**: `haiku` for sweeping/grep-style lookups, `sonnet` for an
+audit that needs judgement; keep Opus (or inherit) only for the final synthesis / root-cause call the user will
+rely on. This stays inside Anthropic, so it is not the "send it to a DeepSeek provider" step — customer code
+still needs no extra consent here.
 
 ## Gotchas
 

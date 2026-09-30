@@ -9,6 +9,17 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.22.7 — 2026-09-30
+
+- **Non-edit subagents must set `model`.** A session with `default_delegate` on still ran a batch of "Audit …" Agent
+  subagents on Opus 5.5 (80–160k tokens each): the delegate protocol covers edits only, and an Agent call with no
+  `model` inherits the main session's. New section in `setup-coding-agent` **202609_12** and a line in the user's
+  global `CLAUDE.md`: `haiku` for sweeps, `sonnet` for audits needing judgement, Opus only for the final call.
+  `setup-global-instructions` **202609_11**: the snapshot now carries the "Coding agent" section too (it was missing).
+  Not measured: whether the model rule actually cuts cost — it was not run on a real audit.
+
+---
+
 ## v0.22.6 — 2026-09-30
 
 - The `bsk` Login click re-tested on a **truly expired session** (the user logged out of SB2 first): `ns_read.py whoami`

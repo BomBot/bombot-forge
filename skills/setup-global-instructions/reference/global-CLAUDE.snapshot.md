@@ -205,3 +205,8 @@ helper เดินทะลุ `shadowRoot` เอง · **synthetic event (`el
 ให้แล้ว ถ้าต่อ websocket เองจะโดน 403 origin check)
 
 ⚠️ Chrome 136+ **เมิน `--remote-debugging-port` ถ้าใช้ default profile** ⇒ ต้องมี `--user-data-dir` เสมอ
+
+# Coding agent (delegate edits)
+- แก้โค้ด/ข้อความที่ขอบเขตชัดและมี acceptance test → ส่งให้ coding agent ผ่าน `agent_run.py` (skill `setup-coding-agent`); Claude เขียน brief และ review ทุกบรรทัดก่อน apply
+- ห้าม delegate: งาน browser, production, deploy, secrets, ข้อมูลลูกค้า (โค้ด/ข้อมูลที่ส่งไปอยู่กับ provider ภายนอก)
+- subagent ที่ไม่ใช่การแก้โค้ด (สำรวจ/audit/อ่านโค้ด/ค้นหา) **ต้องระบุ `model` ทุกครั้ง** — ไม่ระบุ = ใช้ model เดียวกับ session หลัก (เช่น Opus 5.5) ทุกตัว: งานค้น/ไล่ไฟล์ → `haiku` · audit ที่ต้องใช้วิจารณญาณ → `sonnet` · ใช้ Opus เฉพาะขั้นสรุป/ตัดสินใจ root cause ที่ผู้ใช้ต้องพึ่ง
