@@ -9,6 +9,17 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.21.1 — 2026-09-30
+
+- **Fix: the skills told the agent to confirm "`session_count` is 0" after stopping its session** — wrong when
+  another Claude session shares the `bsk` daemon, and it pushed a run into `bsk session stop --all`, which
+  stopped that other session's work. `cdp-browser` **202609_08**, `setup-browser` **202609_07** and the global
+  instructions snapshot (`setup-global-instructions` **202609_06**) now say: stop only your own id, never
+  `--all`, confirm the id is gone from `bsk session list`, and do not expect the count to be 0. (`ns_read.py`
+  already stopped only its own session id.)
+
+---
+
 ## v0.21.0 — 2026-09-30
 
 - **Issue: sessions that hit the NetSuite login page saw an empty email, so the auto-login stopped.** The

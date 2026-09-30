@@ -12,7 +12,7 @@ description: >-
 
 # Browser driving: bsk for read/QA, cdp for the rest
 
-**Skill version: `202609_07`**
+**Skill version: `202609_08`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -97,7 +97,7 @@ end-to-end time — the win is per-command overhead and not needing a second log
    the user's everyday window. `--no-focus` / `--no-active` (below) keep it from stealing focus — that is the
    least intrusive `bsk` can be. If the user must SEE the page or log in, use a real tab instead (step 5).
 1. **Own session, always stopped:** `bsk session start --no-focus --name <job> --json` → `session_id`.
-   `bsk session stop <id>` at the end **even on failure**; confirm `bsk status` shows 0 sessions.
+   `bsk session stop <id>` at the end **even on failure**. **Never `bsk session stop --all`, and never expect `session_count` to be 0.** The daemon is shared: another Claude session of the same person may be using `bsk` right now, and `--all` would kill its run (this happened once). Stop only YOUR id; confirm with `bsk session list` that your id is gone and leave every other session alone.
 2. **Own tab, pinned:** `bsk tab create --no-active --url about:blank --session <id> --json` →
    `tab_id`; pass `--tab-id` on every command. Without it a command follows the active tab, which a
    peer can move. One command per session at a time (a second is refused with `session_busy`).
@@ -155,14 +155,14 @@ sandbox NetSuite page:
 What follows: the guard must be reinstalled after **every** navigation and does not reach iframes
 or popups, so `bsk` still must not *click* data-changing UI on production. `ns_write.py` is not
 affected (it calls `N/record`, clicks nothing). If a hung dialog blocks the session, dismiss it by
-hand, then `bsk session stop <id>` again and confirm `session_count` is 0.
+hand, then `bsk session stop <id>` again (your id only) and confirm it is gone from `bsk session list`.
 
 ### Concurrency soak (2026-09-30, one Mac, read-only, sandbox)
 
 3 bsk sessions in parallel, each with its own pinned tab, 30 minutes, one cycle every ~20 s per
 session (navigate → guard → identity gate → per-session marker check): **273 cycles, 0 failures,
 0 cross-talk between tabs, 0 stray dialogs**; navigate p50 0.93 s / max 1.82 s, evaluate p50 0.19 s /
-max 1.71 s; `session_count` back to 0 after `session stop`. Not covered: more than 3 sessions,
+max 1.71 s; the session was gone from `bsk session list` after `session stop` (on a machine with no other sessions the count was back to 0). Not covered: more than 3 sessions,
 sessions longer than 30 minutes, writes during contention, other OSes.
 
 ### Known limits (Teibto's tests, mostly Windows — recheck on this Mac before relying)
