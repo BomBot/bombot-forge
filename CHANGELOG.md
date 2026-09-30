@@ -9,6 +9,14 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.23.1 — 2026-09-30
+
+- README only (no skill body changed): the `setup-coding-agent` row now mentions the `analyze` and `ns-reader` profiles,
+  the delegation log (`~/.config/bombot-forge/delegations.jsonl`) and the untested-on-Windows note; the `teibto-agent` row
+  mentions `--profile analyze`; the Structure block lists `plugins.json`. These were missing from 0.22.8 – 0.23.0.
+
+---
+
 ## v0.23.0 — 2026-09-30
 
 - **New skill `setup-plugins` (202609_01)**: installs the team's Claude Code plugins from their **GitHub source**, only

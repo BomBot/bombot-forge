@@ -15,7 +15,7 @@ on a re-run instead of overwriting (they back up / merge / ask per key).
 |---|---|---|
 | **setup-global-instructions** | setting up or syncing a machine's global `~/.claude/CLAUDE.md` to the canonical NetSuite-dev instructions — compares a bundled redacted snapshot against the machine's file and proposes a section-by-section merge (never blind-overwrite); real customer/email/path values filled per-machine | `~/.claude/CLAUDE.md` — compared with the bundled redacted snapshot, merged section by section, backed up first |
 | **setup-browser** | first-time or changed browser setup on a machine — choose `bsk` or `cdp` with trade-offs, install, optional Claude in Chrome, Dev Bridge trial, login-click consent (never reads the password); saves a local no-secrets prefs file | `~/.config/bombot-forge/browser.json` (engine choice, Dev Bridge endpoint, login-click consent; no secrets); installs `bsk` or Chrome for Testing |
-| **setup-coding-agent** | making Cline (or OpenCode) the worker for code/text edits on the company DeepSeek key — detect, point at the TEIBTO endpoint, privacy check, smoke test, worktree-isolated `agent_run.py`, and the review-then-apply protocol (Claude briefs and reviews; browser/production/deploy/secrets never delegated) | the company key in `~/.config/teibto/api.env`; `~/.config/bombot-forge/agent.json` (agent + model) only if you opt in to delegating edits; points OpenCode/Cline at the TEIBTO DeepSeek endpoint |
+| **setup-coding-agent** | making Cline (or OpenCode) the worker for code/text edits on the company DeepSeek key — detect, point at the TEIBTO endpoint, privacy check, smoke test, worktree-isolated `agent_run.py`, and the review-then-apply protocol (Claude briefs and reviews; browser/production/deploy/secrets never delegated). Also read-only profiles on OpenCode: `analyze` (DeepSeek hunts a bug in existing code, Claude verifies the cited lines) and `ns-reader` (NetSuite lookups). A delegation log records tokens and your accept/fix/reject verdicts so the setup can be measured. Prepared for Windows, never run there | the company key in `~/.config/teibto/api.env`; `~/.config/bombot-forge/agent.json` (agent + model) only if you opt in to delegating edits; `~/.config/bombot-forge/delegations.jsonl` (numbers and ids only, no task text or code); points OpenCode/Cline at the TEIBTO DeepSeek endpoint |
 | **setup-plugins** | installing the team's Claude Code plugins from their GitHub source on a new machine — shows what is already present (including copies under another marketplace, e.g. `@synced`), you pick which to install, then `marketplace add` + `install` at user scope; copies nothing, never logs in | plugins you pick from `plugins.json` (teibto-netsuite-toolkit, superpowers, impeccable, mattpocock-skills, andrej-karpathy-skills, ui-ux-pro-max), installed from GitHub |
 | **setup-local-llm** | setting up / checking the default `local-llm` worker (free, private — Ollama on `bombot-gaming` over Tailscale via the `ollama` MCP) — installs the MCP script + agent from canonical copies, registers the MCP, PASS/FAIL checker, re-snapshot flow | the `ollama` MCP and the `local-llm` agent, registered on this machine |
 
@@ -59,7 +59,7 @@ Subagents shipped in `agents/` (auto-installed with the plugin):
 
 | Agent | Use when |
 |---|---|
-| **teibto-agent** | handing ONE well-scoped edit in a git repo to the machine's coding-agent CLI (OpenCode/Cline on the company DeepSeek key) via `agent_run.py` — edits an isolated worktree, returns a patch marked NOT REVIEWED; Claude reviews and applies. Not for browser, production, deploy, secrets or customer data (haiku runner; needs `setup-coding-agent` first) |
+| **teibto-agent** | handing ONE well-scoped edit in a git repo to the machine's coding-agent CLI (OpenCode/Cline on the company DeepSeek key) via `agent_run.py` — edits an isolated worktree, returns a patch marked NOT REVIEWED; Claude reviews and applies. Also runs `--profile analyze` for a read-only bug hunt (a report, no patch). Not for browser, production, deploy, secrets or customer data (haiku runner; needs `setup-coding-agent` first) |
 
 The `local-llm` agent is not shipped here: `setup-local-llm` installs it (with its `ollama` MCP) on each machine.
 
@@ -69,6 +69,7 @@ The `local-llm` agent is not shipped here: `setup-local-llm` installs it (with i
 bombot-forge/
   .claude-plugin/plugin.json     # plugin manifest
   skills/<name>/SKILL.md         # one folder per skill
+  skills/setup-plugins/plugins.json   # the GitHub-sourced plugin list that skill installs from
   agents/<name>.md               # plugin subagents
   README.md
 ```
