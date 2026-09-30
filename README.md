@@ -9,7 +9,7 @@ fan-out fix).
 | Skill | Use when |
 |---|---|
 | **ns-sdf-prod-deploy** | deploying SDF changes to a live/prod account; import-compare before deploy; per-round prod deploy (temp-authid trap, scoped deploy, smoke-test) |
-| **ns-live-verify** | reading/verifying live NetSuite state read-only via Dev Bridge / dbgQuery (accounts, GL, fields, script deployment; driven through `bsk` by default, `cdp.py` as the alternative) — confirm real state, don't assume |
+| **ns-live-verify** | reading/verifying live NetSuite state read-only via the TEIBTO Dev Bridge (`ping` / `query` / `record` / `lookup` / `feature` / `search`; accounts, GL, fields, script deployment; driven through `bsk` by default, `cdp.py` as the alternative) — confirm real state, don't assume |
 | **ns-record-write** | writing a field to a live record from a logged-in browser session (`bsk` on sandbox, or on production only with an explicit `--allow-bsk-prod`; `cdp` anywhere; transport failure mid-write = outcome unknown, exit 3) — scoped `submitFields` / load-save helper (structured args, account guard, dry-run), the `permissions.allow` line, and a per-machine setup validator |
 | **ns-bundle-to-sdf-repo** | turning an account-owned NetSuite bundle into a version-controlled SDF repo — "Convert to SDF Project" flow, cleaning up legacy auto-generated scriptids via Change ID, and the path-fidelity rules that keep a future deploy landing on the bundle's real live location |
 | **video-transcribe** | transcribing a video/audio file to SRT/TXT/MD via the homelab `bombot` MCP (Tailscale bridge to a Windows GPU box with ffmpeg + faster-whisper) — prereq check, scp-to-inbox + size verify, the sync `transcribe_video` wait, scp-results-back, and the SSH job-object gotcha |

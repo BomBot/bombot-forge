@@ -2,7 +2,7 @@
 name: cdp-browser
 description: >-
   Use when driving a browser: BrowserSkill (`bsk`) is the default for read-only checks, QA,
-  screenshots and dbgQuery reads in the browser you're already logged in to; the cdp lane
+  screenshots and Dev Bridge reads in the browser you're already logged in to; the cdp lane
   (Chrome for Testing + `cdp.py`, port 9333) is for writes, anything where a native dialog matters,
   and `lens`/`netlog`/`stub`/`diff`. Covers which engine to pick (with measured numbers), the bsk
   safety recipes verified on a Mac (own session + pinned tab, dialog guard, NetSuite identity gate,
@@ -23,7 +23,7 @@ This skill is the policy + verified recipes. Command reference for `bsk` comes f
 
 | Task | Engine | Why |
 |---|---|---|
-| Read a page, smoke/QA, screenshots, dbgQuery / SuiteQL reads | **bsk** | Uses the browser you're already logged in to; no separate profile or login |
+| Read a page, smoke/QA, screenshots, Dev Bridge / SuiteQL reads | **bsk** | Uses the browser you're already logged in to; no separate profile or login |
 | Record write through the scoped `ns_write.py` (no clicks, no dialogs) | **bsk** (production needs `--allow-bsk-prod` + approval) or cdp | The helper adds its own guards: dialog guard, explicit opt-in for non-sandbox on bsk, stop on unknown outcome |
 | Any **UI-driven** write (clicking Save, filling forms, buttons) or anything a dialog could touch | **cdp** | `bsk` **auto-accepts every native dialog** (`alert`/`confirm`/`prompt`/`beforeunload`) and can't be told not to (verified below) |
 | `lens` / `netlog` / `stub` / `diff`, shadow-DOM piercing (`a11y`), coordinate work | **cdp** | Not in `bsk` |
@@ -64,7 +64,7 @@ When in doubt, use cdp. NetSuite record-form QA belongs to a dedicated skill, no
 | `eval 1+1`, one process per command, n=10 (median, min–max) | **18 ms** (15–33) | 409 ms (256–1401) |
 | Screenshot to file, n=3 | 210 ms | 709 ms (different browsers — not the same pixels) |
 | `navigate` example.com, n=5 | 352 ms | 3,688 ms — cdp looks like a built-in wait; **not comparable** |
-| `evaluate` awaiting a `fetch()` (dbgQuery `whoami`) | one command, 1.2 s | needs the two-call `window.__r` pattern |
+| `evaluate` awaiting a `fetch()` (Dev Bridge `ping`) | one command, 1.2 s | needs the two-call `window.__r` pattern |
 
 Read these with the caveats: cdp side ran as a throwaway headless Chrome for Testing (the shared
 browser's coordinator refuses tab creation), one process per command (how these skills call it —

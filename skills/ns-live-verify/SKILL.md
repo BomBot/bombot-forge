@@ -7,92 +7,117 @@ description: >-
   of assuming.
 ---
 
-# NetSuite Live Verify (read-only via dbgQuery)
+# NetSuite Live Verify (read-only via the TEIBTO Dev Bridge)
 
-**Skill version: `202609_06`**
+**Skill version: `202609_07`**
 
-Run SuiteQL / `record.toJSON` against a live account through a logged-in Chrome tab, so you
-verify against **real state** instead of guessing. Read-only, SELECT-only. Pairs with
+Run SuiteQL / `record.load().toJSON()` / searches against a live account through a logged-in Chrome
+tab, so you verify against **real state** instead of guessing. Read-only. Pairs with
 `ns-sdf-prod-deploy` (verify before/after deploy) and browser session handling.
 
-## Endpoints (TEIBTO)
+**Reference for the endpoint = the Dev Bridge repo** (`Teibto/TEIBTO-Dev-Bridge`, private; the README
+beside `TEIBTO - Dev Bridge.js` has the full action reference). Where this file and the script
+disagree, the script wins. This skill was once written against a different, older "tester" Suitelet
+(`action=dbgQuery` in the query string / `step=DEBUG_QUERY`); that shape is **not** the Dev Bridge.
 
-| Account | Endpoint | Auth |
+## The endpoint
+
+One Suitelet, addressed by script + deploy id; the action travels in the **POST body**:
+
+```
+POST /app/site/hosting/scriptlet.nl?script=customscript_teibto_dev_bridge&deploy=customdeploy_teibto_dev_bridge
+Content-Type: application/json      {"action": "...", ...}
+```
+
+The two ids are the README's *recommended* ones (verified to exist on the sandbox this was tested on);
+another account may deploy it under different ids — check the script record, and keep the real ones for
+each account in your private notes (`notes.private.md`, gitignored) or in `browser.json`
+(`dev_bridge.endpoints["<account>"].path`). Never commit a production account id into this tracked file.
+
+Needs a logged-in `*.app.netsuite.com` tab as **Administrator** (the session cookie authenticates;
+no "Available Without Login"). Every reply is `{ok:true, action, ...}` or `{ok:false, error, code}` — check
+`ok` first. Body cap 500 KB; `query`/`search` return at most 1000 rows.
+
+| action | request body | reply |
 |---|---|---|
-| SB2 (4089685) | `script=3171&deploy=1&compid=4089685_SB2&step=DEBUG_QUERY` | Admin session |
-| *(any other account)* | `script=<SCRIPT_ID>&deploy=1&compid=<ACCOUNT_ID>&action=dbgQuery&debug=1` | Admin session |
+| `ping` (GET `?action=ping` also works) | `{}` | `account`, `envType`, `version`, `user{id,role,roleId,isAdmin}`, `serverTime` |
+| `help` (GET ok) | `{}` | the action list |
+| `query` | `{q:"SELECT …", params:[]}` | `rows[]`, `count`, `truncated` — **SELECT only** |
+| `record` | `{type, id, fields?:[…], meta?:true, dynamic?:true}` | `record` (full toJSON with sublists) or `fields{f:{value,text}}`; `meta` adds field + sublist ids |
+| `lookup` | `{type, id, columns:[…]}` | `values{…}` (fast single-record read) |
+| `feature` | `{names:[…]}` | `features{name:bool}` |
+| `search` | `{searchId}` or `{type, filters, columns, limit}` | `results[]`, `count`, `capped` |
 
-Add a row per real account to `notes.private.md` (gitignored, not in this repo) as you set
-each one up — never commit a production account id / script id into this tracked file.
+`query` details from the script: it must **start with `SELECT`** (so `WITH …` is rejected), contain no
+`;`, and none of `insert|update|delete|merge|create|drop|alter|truncate|grant|revoke` as a word — even
+inside a string literal. Result keys are always **lowercase** (`AS my_id` → `row.my_id`). The platform
+caps non-paged SuiteQL at 5000 rows and the bridge cuts to 1000, so `truncated:true` only means "more
+than 1000": count with `SELECT COUNT(*)`, never with `rows.length`. `OFFSET` is silently ignored — page with
+the `ROWNUM` double-subquery. Every call is written to the script's Execution Log (who + what).
 
-Both are POST, same-origin `fetch` from a logged-in `*.app.netsuite.com` Admin tab. Two ways to
-drive that tab — **bsk is the default for these reads** (see `cdp-browser` for the engine choice):
+Two ways to drive the tab — **bsk is the default** (see `cdp-browser` for the engine choice):
 
-### Option A — via bsk (verified on a Mac, 2026-09-29; `evaluate` awaits the promise, one call)
+### Option A — raw `bsk` (verified live on a sandbox; `evaluate` awaits the promise, one call)
 
 ```bash
 export BSK_AUTO_START=0
 bsk session start --no-focus --name lv --json > s.json          # note session_id
 bsk tab create --no-active --url about:blank --session <sid> --json > t.json   # note tab_id
 # open a CLASSIC NetSuite page first — fetch from about:blank fails
-bsk navigate "https://<host>/app/center/card.nl?sc=-29&whence=" --wait-until domcontentloaded --session <sid> --tab-id <tab>
+bsk navigate "https://<host>/app/center/card.nl?sc=-29&whence=" --wait-until domcontentloaded --session <sid> --tab-id <tab> --json
 # guards from cdp-browser: dialog guard + identity gate (company + SANDBOX), then:
-bsk evaluate "fetch('/app/site/hosting/scriptlet.nl?script=<SCRIPT_ID>&deploy=1&compid=<ACCOUNT_ID>&action=dbgQuery&debug=1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:'<SELECT ...>'})}).then(r=>r.text())" --session <sid> --tab-id <tab> --json
+bsk evaluate "fetch('/app/site/hosting/scriptlet.nl?script=customscript_teibto_dev_bridge&deploy=customdeploy_teibto_dev_bridge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'query',q:'<SELECT ...>',params:[]})}).then(r=>r.text())" --session <sid> --tab-id <tab> --json
 bsk session stop <sid>                                            # always, even on failure
 ```
 
-Return only what you need from the response (`.then(t=>JSON.parse(t).data...)`) — a `whoami`
-call answered in 1.2 s. Read-only: never run writes through this path.
+Return only what you need from the reply — some browser-automation bridges block strings that look like
+URLs / query strings, so never print the endpoint and pick out fields instead of dumping a whole `toJSON()`.
+Read-only: never run writes through this path.
 
-### Option B — via cdp.py (needs a registered NetSuite lane / claimed tab; pin `TGT_ID`)
+### Option B — `cdp.py` (needs a registered NetSuite lane / claimed tab; pin `TGT_ID`)
 
-Fire the fetch to a `window.__r` var, read it back in a **separate** call (fetch is async).
+Fire the fetch into a `window` variable, read it back in a **separate** call (the console does not await):
 
 ```bash
-# Chrome for Testing, port 9333; pin the tab with TGT_ID
 export CDP_PORT=9333; export TGT_ID=<target-tab-id>
-python3 cdp.py eval 'window.__r=null; fetch("/app/site/hosting/scriptlet.nl?script=<SCRIPT_ID>&deploy=1&compid=<ACCOUNT_ID>&action=dbgQuery&debug=1",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({q:"<SELECT ...>"})}).then(r=>r.text()).then(t=>window.__r=t.slice(0,900)); "fired"'
+python3 cdp.py eval 'window.__r=null; fetch("/app/site/hosting/scriptlet.nl?script=customscript_teibto_dev_bridge&deploy=customdeploy_teibto_dev_bridge",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"query",q:"<SELECT ...>",params:[]})}).then(r=>r.json()).then(j=>window.__r=JSON.stringify(j).slice(0,900)); "fired"'
 sleep 3
 python3 cdp.py eval 'window.__r'
 ```
 
-- SB2 tester body: `{qtype:"sql", sql:"..."}` (also `qtype:"whoami"`, `qtype:"load",recordType,id`).
-- `action=dbgQuery` body: `{q:"<SELECT>", params?:[]}` → `{rows,count,truncated}`;
-  `action=dbgRecord` body `{type,id}` → `record.toJSON()` (fields nested under `.record.fields`).
-
 ### Option C — the scoped helper `scripts/ns_read.py` (for agents that must not run raw `bsk`)
 
 The read-side sibling of `ns_write.py`: one command, no free-form JS, its own `bsk` session that it
-always stops. `python3 scripts/ns_read.py whoami|query|record --account <ACCOUNT> …`
+always stops. `python3 scripts/ns_read.py <whoami|ping|query|record|lookup|feature|search> --account <ACCOUNT> …`
 
-- **Identity gate every run** (company from `nlapiGetContext()` must equal `--account`); a login or
-  "Notice" page is a hard stop (exit 3) — it never logs in, clicks or types.
-- **Sandbox freely; anything else needs `--allow-prod-read`** (the data goes to whichever model runs
-  the script — say so to the user first).
-- `query` accepts one `SELECT`/`WITH` only (comments stripped, string literals ignored, no `;`, no
-  INSERT/UPDATE/DELETE/…, ≤ 5000 chars), checked **before** any browser call.
-- POSTs only to a Dev Bridge endpoint (`action=dbgQuery|dbgRecord` or `step=DEBUG_QUERY`) — never
-  another Suitelet. Endpoint and body style come from `--bridge-path`/`--body-style` or the local
-  `browser.json` (`dev_bridge.endpoints["<account>"] = {"path": …, "body_style": "q"|"sql"}`).
-- Exit codes: `0` ok · `1` the bridge answered with an error (including `{"success": false}`) ·
-  `2` refused by a guard · `3` session/transport/dialog problem.
-- Engine `bsk` only. `cdp` prints "not implemented" (exit 2) — no lane is bound on the machine it
-  was written on, so it could not be tested.
-- Verified live on a sandbox: `whoami`, and a `COUNT(*)` through the SB2 tester body style; refusal
-  of a stacked/`DROP` query and of a non-bridge Suitelet; a bad column comes back as exit 1.
-  **Not verified live:** `record` (the SB2 tester has no `dbgRecord` action), a non-sandbox read.
-- 31 offline tests: `python3 scripts/test_ns_read_offline.py`. Bugs live testing found that the
-  stubs had hidden (numeric tab id, `bsk navigate` needs `--json`, `success:false`) are now tests.
+- **Identity gate every run** (company from `nlapiGetContext()` must equal `--account`), and the request
+  goes out only after the endpoint answers the bridge's own `ping` in the expected shape *and* reports the
+  same account. A login or "Notice" page is a hard stop (exit 3) — it never logs in, clicks or types.
+- **Sandbox freely; anything else needs `--allow-prod-read`** (the data goes to whichever model runs the
+  script — say so to the user first).
+- `query` takes one `SELECT` (validated before any browser call, mirroring the bridge: no `WITH`, no `;`,
+  no DML words). Other subcommands validate every argument (ids, comma lists, JSON filters ≤ 5000 chars,
+  `--limit` 1–1000).
+- The path is only `…scriptlet.nl?script=<id>&deploy=<id>` — from `--bridge-path`, else config
+  `dev_bridge.endpoints["<account>"].path`, else the README's default ids. Nothing else can ride along.
+- Exit codes: `0` ok · `1` the bridge answered `ok:false` · `2` refused by a guard · `3` session/transport/dialog.
+- Engine `bsk` only. `cdp` prints "not implemented" (exit 2) — no lane is bound on the machine it was
+  written on, so it could not be tested.
+- **Verified live on a sandbox** with the default ids: `ping`, `query` (a `COUNT(*)`), `record` (a field
+  subset and a full dump, cut by `--max-chars`), `lookup`, `feature`, `search` (ad-hoc), a bad column
+  (bridge `ok:false` → exit 1), and the local refusals. **Not verified live:** a saved search
+  (`--search-id`), `--meta`, `--filters-json` with a real filter, any non-sandbox read.
+- 33 offline tests: `python3 scripts/test_ns_read_offline.py`.
 
 ## SuiteQL gotchas (cost real time)
 
 - **`acctnumber` is a STRING** → `WHERE acctnumber = '113006'` (quotes). Numeric compare errors.
 - **`LIKE` needs quoted pattern** → `WHERE fullname LIKE '%Variance%'` (bare `%...%` = parse error).
 - **account name columns**: `name`/`displayname` are invalid identifiers; use `fullname`, or
-  `dbgRecord` (`accountsearchdisplayname` under `.fields`). `acctnumber` may itself hold a name
+  `record` (`accountsearchdisplayname` under `.fields`). `acctnumber` may itself hold a name
   for placeholder accounts.
 - **checkbox fields** return `'T'`/`'F'`/`null` (string), not boolean.
-- **multiselect** via SuiteQL returns `null` even when set → use `dbgRecord`.
+- **multiselect** via SuiteQL returns `null` even when set → use the `record` action.
 - Big `ORDER BY DESC` over a huge table can throw "unexpected SuiteScript error" → bound by
   date or id range.
 - A response that is an HTML "Notice / connection timed out" page = **session expired**, not a

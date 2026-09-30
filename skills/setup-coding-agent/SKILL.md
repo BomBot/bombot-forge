@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_04`**
+**Skill version: `202609_05`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -124,11 +124,11 @@ is only loaded at session start, so the first real call needs a fresh session af
 
 `agent_run.py --profile ns-reader --task-file ask.md --model <provider>/<model>` runs the agent in an
 EMPTY scratch folder (no repo, no patch) with a permission list that **OpenCode itself enforces**:
-the only shell commands allowed are `ns_read.py whoami|query|record` (from `ns-live-verify`); every
+the only shell commands allowed are `ns_read.py whoami|ping|query|record|lookup|feature|search` (from `ns-live-verify`); every
 other command, all file edits, web fetch/search, and the flags `--allow-prod-read`, `--bridge-path`
 and `--config` are denied. So it can read a SANDBOX account through the Dev Bridge and can neither
-click, write, log in, run raw `bsk`/`cdp.py`, nor reach production. The bridge endpoint comes from the
-local `browser.json` (`dev_bridge.endpoints`); with none configured the agent can only `whoami`.
+click, write, log in, run raw `bsk`/`cdp.py`, nor reach production. The Dev Bridge endpoint is the README's default script/deploy ids unless the local `browser.json` has
+`dev_bridge.endpoints["<account>"].path`; the agent cannot pass its own (`--bridge-path` is denied).
 Production reads stay with Claude, who runs `ns_read.py --allow-prod-read` itself after the user's OK.
 
 | Claim | Status |

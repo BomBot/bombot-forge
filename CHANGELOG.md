@@ -9,6 +9,27 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.17.1 — 2026-09-30
+
+- **Fix: `ns_read.py` / `ns-live-verify` pointed at the wrong endpoint.** They were written against an
+  older tester Suitelet (`action=dbgQuery` in the URL, `step=DEBUG_QUERY`, body `{qtype:"sql"}`), not the
+  TEIBTO Dev Bridge (`Teibto/TEIBTO-Dev-Bridge`, read from its README and script). The real bridge is one
+  Suitelet addressed by script + deploy id with the action in the POST body (`ping`, `query`, `record`,
+  `lookup`, `feature`, `search`, `help`). So the earlier note "`record` not verified — the SB2 tester has
+  no `dbgRecord`" was a symptom of the wrong endpoint, not a limit of the bridge: `record` works.
+- `ns-live-verify` **202609_07** — rewritten around the real API (endpoint, action table, `query` rules from
+  the script: must start with SELECT so no `WITH`, no `;`, DML words rejected even in literals, lowercase
+  keys, the 5000/1000 row caps, `OFFSET` ignored). `ns_read.py` now has `whoami`, `ping`, `query`,
+  `record`, `lookup`, `feature`, `search`; before the real request it verifies the endpoint answers `ping`
+  in the bridge's shape and reports the same account; the path can only be `scriptlet.nl?script=&deploy=`;
+  default ids are the README's. Verified live on a sandbox (all but a saved search, `--meta`, a real
+  `--filters-json`). 33 offline tests; each guard mutation-checked.
+- `setup-coding-agent` **202609_05**: the `ns-reader` allow-list now covers all seven subcommands (config
+  written and read back; not re-run live through the agent). `setup-browser` **202609_04**: Dev Bridge step
+  uses the default ids and `ns_read.py ping`.
+
+---
+
 ## v0.17.0 — 2026-09-30
 
 **Breaking.**

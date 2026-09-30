@@ -1,34 +1,48 @@
 #!/usr/bin/env python3
 """
-ns_read.py — scoped, READ-ONLY NetSuite reader (Dev Bridge SuiteQL + record.toJSON).
+ns_read.py — scoped, READ-ONLY NetSuite reader for the TEIBTO Dev Bridge Suitelet
+(github.com/Teibto/TEIBTO-Dev-Bridge; its README beside the script is the reference).
 
 The read-side sibling of ns-record-write/scripts/ns_write.py. A cheap agent may be allowed to run
 ONLY this script instead of raw `bsk`, so this file IS the safety boundary:
 
-  * it takes no free-form JS — only --account plus a SELECT/WITH query, or a --type/--id pair
+  * it takes no free-form JS — only --account plus a fixed action and validated arguments
   * it never clicks or types, and it never tries to log in (a login page is a hard stop)
-  * account identity is proven in-page (nlapiGetContext) before anything is read
+  * account identity is proven in-page (nlapiGetContext) AND by the bridge's own `ping`
   * non-sandbox accounts are refused unless --allow-prod-read is passed explicitly
+
+The Dev Bridge is ONE Suitelet: POST JSON {action, ...} to
+/app/site/hosting/scriptlet.nl?script=<script id>&deploy=<deploy id>. Its actions (all read-only):
+ping · query (SuiteQL, SELECT-only) · record (record.load().toJSON()) · lookup (search.lookupFields)
+· feature (runtime.isFeatureInEffect) · search (saved or ad-hoc). Envelope: {ok:true,...} or
+{ok:false,error,code}. The default script/deploy ids are the README's recommended ones
+(customscript_teibto_dev_bridge / customdeploy_teibto_dev_bridge); another account may use others
+(--bridge-path or config dev_bridge.endpoints["<account>"].path).
 
 It drives ONE bsk session it starts and stops itself (engine bsk only, today). Every bsk command
 is scoped with --session and --tab-id; the session is stopped in a `finally`, even on error.
 
 Usage:
-  python3 ns_read.py whoami --account 4089685_SB2
-  python3 ns_read.py query  --account 4089685_SB2 "SELECT id FROM account"
-  python3 ns_read.py query  --account 4089685_SB2 --body-style sql "SELECT 1 FROM dual"
-  python3 ns_read.py record --account 4089685_SB2 --type salesorder --id 12345
+  python3 ns_read.py whoami  --account 4089685_SB2
+  python3 ns_read.py ping    --account 4089685_SB2
+  python3 ns_read.py query   --account 4089685_SB2 "SELECT id, acctnumber FROM account WHERE isinactive = 'F'"
+  python3 ns_read.py record  --account 4089685_SB2 --type salesorder --id 12345 [--fields tranid,status] [--meta]
+  python3 ns_read.py lookup  --account 4089685_SB2 --type item --id 12345 --columns itemid,displayname
+  python3 ns_read.py feature --account 4089685_SB2 --names binmanagement,subsidiaries
+  python3 ns_read.py search  --account 4089685_SB2 --search-id customsearch_x [--limit 50]
+  python3 ns_read.py search  --account 4089685_SB2 --type transaction --filters-json '[["type","anyof","SalesOrd"]]' --columns tranid,entity
 
 Global flags (before or after the subcommand):
   --allow-prod-read   allow reading a non-sandbox account (prints a WARNING)
   --engine bsk|cdp    default: the `engine` key in the config file (bsk)
   --config PATH       default ~/.config/bombot-forge/browser.json; env NS_READ_CONFIG overrides
 
-Output: one JSON object on stdout — {"account", "environment", "result"} for query/record,
-{"account", "environment"} for whoami. The serialized result is cut at --max-chars (default
-20000) and "truncated": true is added when it was cut.
+Output: one JSON object on stdout — {"account", "environment", "result"} where result is the bridge's
+whole answer ({ok, action, rows|record|values|features|results, ...}); {"account","environment"} for
+whoami. The serialized result is cut at --max-chars (default 20000) and "truncated": true is added
+when it was cut (that flag is about OUR cut; the bridge has its own row cap and its own `truncated`).
 
-Exit codes: 0 ok · 1 the bridge returned an error · 2 guard/usage/validation refused ·
+Exit codes: 0 ok · 1 the bridge answered ok:false · 2 guard/usage/validation refused ·
 3 session/transport/dialog problem.
 """
 import os, sys, re, json, argparse, subprocess
@@ -36,13 +50,16 @@ import os, sys, re, json, argparse, subprocess
 DEFAULT_CONFIG = "~/.config/bombot-forge/browser.json"
 
 ACCOUNT_RE = re.compile(r"^[0-9]+(_[A-Za-z0-9]+)?$")
-RECORD_TYPE_RE = re.compile(r"^[A-Za-z0-9_]+$")
 RECORD_ID_RE = re.compile(r"^[0-9]+$")
-# Only the Dev Bridge Suitelet, with a query string of safe characters.
-BRIDGE_PATH_RE = re.compile(r"^/app/site/hosting/scriptlet\.nl\?[A-Za-z0-9_=&.%-]+$")
-
-# A POST goes to a Suitelet, so the path must be the read-only Dev Bridge, not any Suitelet.
-BRIDGE_MARKERS = ("action=dbgQuery", "action=dbgRecord", "step=DEBUG_QUERY")
+# The Dev Bridge Suitelet is addressed by script + deploy id ONLY (the action travels in the POST body),
+# so nothing else may ride in the query string. Ids may be script ids (customscript_x) or numbers.
+BRIDGE_PATH_RE = re.compile(
+    r"^/app/site/hosting/scriptlet\.nl\?script=[A-Za-z0-9_]+&deploy=[A-Za-z0-9_]+$")
+DEFAULT_BRIDGE_PATH = ("/app/site/hosting/scriptlet.nl?script=customscript_teibto_dev_bridge"
+                       "&deploy=customdeploy_teibto_dev_bridge")
+ID_RE = re.compile(r"^[A-Za-z0-9_]+$")                 # record type, search id, feature name
+FIELD_RE = re.compile(r"^[A-Za-z0-9_.:]+$")            # field / column id (joins use '.')
+MAX_JSON_ARG = 5000
 
 MAX_SQL_LEN = 5000
 FORBIDDEN_RE = re.compile(
@@ -136,7 +153,7 @@ def _sanitize_sql(sql):
 
 
 def validate_sql(sql):
-    """Return an error string, or None when the statement is a single read-only SELECT/WITH."""
+    """Return an error string, or None when the statement is a single read-only SELECT."""
     if sql is None:
         return "SQL is empty"
     if len(sql) > MAX_SQL_LEN:
@@ -148,8 +165,8 @@ def validate_sql(sql):
         return "SQL must be a single statement (contains ';')"
     m = FIRST_WORD_RE.match(sig)
     word = m.group(1) if m else ""
-    if word.upper() not in ("SELECT", "WITH"):
-        return "SQL must start with SELECT or WITH (got %r)" % (word or sig[:20])
+    if word.upper() != "SELECT":
+        return "SQL must start with SELECT (the Dev Bridge rejects everything else, WITH included; got %r)" % (word or sig[:20])
     bad = FORBIDDEN_RE.search(sig)
     if bad:
         return "SQL contains a forbidden keyword: %s" % bad.group(1).upper()
@@ -158,13 +175,95 @@ def validate_sql(sql):
 
 def validate_bridge_path(path):
     if not path:
-        return "missing bridge path (pass --bridge-path or set dev_bridge.endpoints in the config)"
+        return "missing bridge path"
     if not BRIDGE_PATH_RE.match(path):
-        return "bridge path not allowed: %r" % path
-    if not any(m in path for m in BRIDGE_MARKERS):
-        return ("bridge path is not a Dev Bridge endpoint (needs action=dbgQuery, action=dbgRecord "
-                "or step=DEBUG_QUERY): %r" % path)
+        return ("bridge path not allowed: %r (only /app/site/hosting/scriptlet.nl?script=<id>&deploy=<id>)"
+                % path)
     return None
+
+
+def _csv_ids(text, what, regex):
+    """'a,b,c' -> ['a','b','c'], every item checked; returns (list, error)."""
+    items = [x.strip() for x in str(text or "").split(",") if x.strip()]
+    if not items:
+        return None, "%s: give at least one" % what
+    for x in items:
+        if not regex.match(x):
+            return None, "%s: %r has characters that are not allowed" % (what, x)
+    return items, None
+
+
+def _json_list(text, what):
+    if len(text) > MAX_JSON_ARG:
+        return None, "%s is too long (%d > %d chars)" % (what, len(text), MAX_JSON_ARG)
+    try:
+        v = json.loads(text)
+    except ValueError as e:
+        return None, "%s is not valid JSON: %s" % (what, e)
+    if not isinstance(v, list):
+        return None, "%s must be a JSON array" % what
+    return v, None
+
+
+def build_request(args):
+    """(body dict, error) for the chosen subcommand. Pure validation — no browser."""
+    c = args.cmd
+    if c == "ping":
+        return {"action": "ping"}, None
+    if c == "query":
+        err = validate_sql(args.sql)
+        return ({"action": "query", "q": args.sql, "params": []}, None) if not err else (None, err)
+    if c == "record":
+        if not ID_RE.match(args.type):
+            return None, "--type must be [A-Za-z0-9_]+ (got %r)" % args.type
+        if not RECORD_ID_RE.match(args.id):
+            return None, "--id must be digits (got %r)" % args.id
+        body = {"action": "record", "type": args.type, "id": int(args.id)}
+        if args.fields:
+            fl, err = _csv_ids(args.fields, "--fields", FIELD_RE)
+            if err:
+                return None, err
+            body["fields"] = fl
+        if args.meta:
+            body["meta"] = True
+        return body, None
+    if c == "lookup":
+        if not ID_RE.match(args.type):
+            return None, "--type must be [A-Za-z0-9_]+ (got %r)" % args.type
+        if not RECORD_ID_RE.match(args.id):
+            return None, "--id must be digits (got %r)" % args.id
+        cols, err = _csv_ids(args.columns, "--columns", FIELD_RE)
+        if err:
+            return None, err
+        return {"action": "lookup", "type": args.type, "id": int(args.id), "columns": cols}, None
+    if c == "feature":
+        names, err = _csv_ids(args.names, "--names", ID_RE)
+        return ({"action": "feature", "names": names}, None) if not err else (None, err)
+    if c == "search":
+        if bool(args.search_id) == bool(args.type):
+            return None, "give exactly one of --search-id or --type"
+        limit = args.limit
+        if not (isinstance(limit, int) and 1 <= limit <= 1000):
+            return None, "--limit must be 1..1000"
+        if args.search_id:
+            if not ID_RE.match(args.search_id):
+                return None, "--search-id must be [A-Za-z0-9_]+ (got %r)" % args.search_id
+            return {"action": "search", "searchId": args.search_id, "limit": limit}, None
+        if not ID_RE.match(args.type):
+            return None, "--type must be [A-Za-z0-9_]+ (got %r)" % args.type
+        body = {"action": "search", "type": args.type, "limit": limit}
+        if args.filters_json:
+            f, err = _json_list(args.filters_json, "--filters-json")
+            if err:
+                return None, err
+            body["filters"] = f
+        if args.columns:
+            cl, err = _csv_ids(args.columns, "--columns", FIELD_RE)
+            if err:
+                return None, err
+            body["columns"] = cl
+        return body, None
+    return None, "unknown subcommand"
 
 
 # ---- bsk plumbing --------------------------------------------------------------
@@ -233,7 +332,7 @@ def _fetch_js(path, body_obj):
 
 
 def _read_response(raw):
-    """Turn the bridge text into (exit_code, result). 0 = ok, 1 = bridge error, 3 = session gone."""
+    """Turn the bridge text into (exit_code, result). 0 = ok, 1 = bridge said no, 3 = session gone."""
     if not isinstance(raw, str):
         raw = json.dumps(raw)
     try:
@@ -244,11 +343,17 @@ def _read_response(raw):
             return 3, None
         print("bridge returned an unparseable response:", raw[:200])
         return 1, None
-    # the SB2 tester answers {"success": false, "message": ...} (no "error" key) — still a failure
-    if isinstance(data, dict) and ("error" in data or data.get("success") is False):
+    # the bridge's envelope is {ok:false,error,code}; older testers answered {success:false} or {error}
+    if isinstance(data, dict) and (data.get("ok") is False or data.get("success") is False
+                                   or "error" in data):
         print(json.dumps(data, ensure_ascii=False))
         return 1, None
     return 0, data
+
+
+def _call_bridge(path, body):
+    """One POST to the bridge from the pinned tab. Returns (exit_code, data)."""
+    return _read_response(_bsk_eval(_fetch_js(path, body)))
 
 
 def emit(account, environment, result, max_chars):
@@ -279,28 +384,41 @@ def _global_flags():
 
 def build_parser():
     g = _global_flags()
-    ap = argparse.ArgumentParser(description="Scoped, read-only NetSuite reader (Dev Bridge).",
+    ap = argparse.ArgumentParser(description="Scoped, read-only NetSuite reader (TEIBTO Dev Bridge).",
                                  parents=[g])
     sub = ap.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("whoami", parents=[g], help="prove account identity, read nothing else")
-    p.add_argument("--account", required=True, help="e.g. 4089685_SB2 or 4089685")
+    def add(name, help_, bridge=True, maxc=True):
+        p = sub.add_parser(name, parents=[g], help=help_)
+        p.add_argument("--account", required=True, help="e.g. 4089685_SB2 or 4089685")
+        if bridge:
+            p.add_argument("--bridge-path", default=None,
+                           help="Dev Bridge scriptlet URL (config, then the README's default ids)")
+        if maxc:
+            p.add_argument("--max-chars", type=int, default=20000, help="cut the serialized result here")
+        return p
 
-    p = sub.add_parser("query", parents=[g], help="run one SELECT/WITH via the Dev Bridge")
-    p.add_argument("--account", required=True, help="e.g. 4089685_SB2 or 4089685")
-    p.add_argument("--bridge-path", default=None, help="Dev Bridge scriptlet URL (config fallback)")
-    p.add_argument("--body-style", choices=["q", "sql"], default=None,
-                   help="'q' -> {q} (default); 'sql' -> {qtype,sql}")
-    p.add_argument("--max-chars", type=int, default=20000, help="cut the serialized result here")
-    p.add_argument("sql", help="a single SELECT/WITH statement")
-
-    p = sub.add_parser("record", parents=[g], help="read one record via action=dbgRecord")
-    p.add_argument("--account", required=True, help="e.g. 4089685_SB2 or 4089685")
-    p.add_argument("--bridge-path", default=None, help="Dev Bridge scriptlet URL (config fallback)")
-    p.add_argument("--type", required=True, help="record type id (e.g. salesorder)")
+    add("whoami", "prove account identity, read nothing else", bridge=False, maxc=False)
+    add("ping", "the bridge's own ping: account, envType, user, role")
+    p = add("query", "one SuiteQL SELECT via the Dev Bridge")
+    p.add_argument("sql", help="a single SELECT statement")
+    p = add("record", "record.load(type,id).toJSON(), or a field subset")
+    p.add_argument("--type", required=True, help="record type id (e.g. salesorder, customrecord_x)")
     p.add_argument("--id", required=True, help="record internal id")
-    p.add_argument("--max-chars", type=int, default=20000, help="cut the serialized result here")
-
+    p.add_argument("--fields", default=None, help="comma list: return only these body fields")
+    p.add_argument("--meta", action="store_true", help="also list body-field and sublist ids")
+    p = add("lookup", "search.lookupFields for one record")
+    p.add_argument("--type", required=True)
+    p.add_argument("--id", required=True)
+    p.add_argument("--columns", required=True, help="comma list of field ids")
+    p = add("feature", "runtime.isFeatureInEffect for feature names")
+    p.add_argument("--names", required=True, help="comma list, e.g. binmanagement,subsidiaries")
+    p = add("search", "a saved search (--search-id) or an ad-hoc one (--type ...)")
+    p.add_argument("--search-id", default=None)
+    p.add_argument("--type", default=None)
+    p.add_argument("--filters-json", default=None, help='JSON array, e.g. [["type","anyof","SalesOrd"]]')
+    p.add_argument("--columns", default=None, help="comma list of column ids")
+    p.add_argument("--limit", type=int, default=200)
     return ap
 
 
@@ -326,37 +444,20 @@ def main(argv=None):
 
     # ---- validation BEFORE any browser call ------------------------------------
     path = None
-    body_style = "q"
-    if args.cmd in ("query", "record"):
-        path = args.bridge_path
+    body = None
+    if args.cmd != "whoami":
+        path = getattr(args, "bridge_path", None)
         if not path:
             endpoints = (cfg.get("dev_bridge") or {}).get("endpoints") or {}
-            entry = endpoints.get(account) or {}
-            path = entry.get("path")
-            body_style = entry.get("body_style") or "q"
-        if args.cmd == "record" and path:
-            path = path.replace("dbgQuery", "dbgRecord")
+            path = (endpoints.get(account) or {}).get("path") or DEFAULT_BRIDGE_PATH
         err = validate_bridge_path(path)
         if err:
             print("refused:", err)
             return 2
-        if getattr(args, "body_style", None):
-            body_style = args.body_style
-        if body_style not in ("q", "sql"):
-            print("refused: unknown body_style %r (want q or sql)" % body_style)
+        body, err = build_request(args)
+        if err:
+            print("refused:", err)
             return 2
-        if args.cmd == "query":
-            err = validate_sql(args.sql)
-            if err:
-                print("refused:", err)
-                return 2
-        else:
-            if not RECORD_TYPE_RE.match(args.type):
-                print("refused: --type must be [A-Za-z0-9_]+ (got %r)" % args.type)
-                return 2
-            if not RECORD_ID_RE.match(args.id):
-                print("refused: --id must be digits (got %r)" % args.id)
-                return 2
 
     # ---- browser: own session, always stopped ----------------------------------
     ST["session"] = None
@@ -416,16 +517,26 @@ def main(argv=None):
             print(json.dumps({"account": account, "environment": env}, ensure_ascii=False))
             return 0
 
-        if args.cmd == "query":
-            body_obj = {"q": args.sql} if body_style == "q" else {"qtype": "sql", "sql": args.sql}
-        else:
-            body_obj = {"type": args.type, "id": args.id}
-
-        raw = _bsk_eval(_fetch_js(path, body_obj))
-        code, result = _read_response(raw)
+        # prove this endpoint really is the Dev Bridge, and that it is talking about the account we mean,
+        # before sending the real request (a look-alike Suitelet would not answer ping like this)
+        code, ping = _call_bridge(path, {"action": "ping"})
         if code != 0:
             return code
-        emit(account, env, result, args.max_chars)
+        if (not isinstance(ping, dict) or ping.get("action") != "ping" or "envType" not in ping
+                or "version" not in ping):
+            print("refused: that endpoint did not answer like the Dev Bridge (no ping envelope)")
+            return 2
+        if str(ping.get("account")) != account:
+            print("refused: the bridge reports account %r but --account is %r" % (ping.get("account"), account))
+            return 2
+
+        if args.cmd == "ping":
+            result = ping
+        else:
+            code, result = _call_bridge(path, body)
+            if code != 0:
+                return code
+        emit(account, env, result, getattr(args, "max_chars", 20000))
         return 0
     except SessionProblem as e:
         print("SESSION/TRANSPORT problem:", e)

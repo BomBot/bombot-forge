@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (engine choice, install, Dev Bridge, login consent)
 
-**Skill version: `202609_03`**
+**Skill version: `202609_04`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -84,20 +84,23 @@ screen** (the last resort, and the only choice for a data-changing click a dialo
 
 ## Step 4 — offer a Dev Bridge trial
 
-Explain: *Dev Bridge is a read-only Suitelet in your NetSuite account. Through the logged-in
-browser tab it runs SELECT-only SuiteQL and `record.toJSON`, so Claude can check the real state
-of records, GL and script deployments instead of guessing — nothing is written.* Ask whether to
-try it.
+Explain: *Dev Bridge (`Teibto/TEIBTO-Dev-Bridge`) is a read-only Suitelet in your NetSuite account.
+Through the logged-in browser tab it runs SELECT-only SuiteQL, loads a record as JSON, looks up fields,
+checks features and runs searches, so Claude can check the real state of records, GL and script
+deployments instead of guessing — nothing is written. Administrator role only.* Ask whether to try it.
 
 If yes:
 1. Ask the user to **copy the URL of the Home page of the account they work in** and paste it.
    Derive the host and account id from it (`<ACCOUNT>` / `<ACCOUNT>-sb2` style) — don't guess.
-2. Ask for the Dev Bridge **script id** from their own private notes. If they don't have one or it
-   isn't deployed in that account, say so and stop — deploying it is a separate decision.
-3. Test through the chosen lane using the `ns-live-verify` recipe (the `whoami`/identity call).
-   Show the result; confirm `company` and `environment` match what they expect.
-4. Save under `dev_bridge` in the prefs file (`enabled`, `host`, `account`; put the script id there
-   only if they want it remembered on this machine).
+2. The bridge is addressed by a script id + deploy id. The repo's README recommends
+   `customscript_teibto_dev_bridge` / `customdeploy_teibto_dev_bridge`, and `ns_read.py` tries those. If the
+   account uses other ids, ask the user for them (from the script record). If the bridge isn't deployed in
+   that account, say so and stop — deploying it is a separate decision.
+3. Test it: `python3 <plugin>/skills/ns-live-verify/scripts/ns_read.py ping --account <ACCOUNT>` (bsk lane).
+   Confirm `account` and `envType` match what they expect and `user.isAdmin` is true. Non-sandbox
+   accounts need `--allow-prod-read` — say why (the data goes to the model provider) before adding it.
+4. Save under `dev_bridge` in the prefs file (`enabled`, `host`, `account`; and, only when the ids are not
+   the defaults, `endpoints["<account>"] = {"path": "/app/site/hosting/scriptlet.nl?script=<id>&deploy=<id>"}`).
 
 ## Step 5 — Login helper consent
 
