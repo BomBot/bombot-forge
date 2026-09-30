@@ -177,5 +177,63 @@ class GrantReadAccountTest(unittest.TestCase):
         self.assertEqual(self.mod.revoke_read_account("99999", path=self.path), "not-found")
 
 
+TOOLS_OFF = ("edit", "webfetch", "websearch", "external_directory", "execute", "subagent", "skill", "question")
+
+
+class LockdownTest(unittest.TestCase):
+    """Tools OpenCode offers beyond bash: each must be denied in every read-only profile (found by asking the
+    model to list its tools; `execute` = Code Mode with browser.* tools). Mutation-checked."""
+
+    def setUp(self):
+        self.mod = load("agent_run")
+
+    def test_every_extra_tool_is_denied_in_both_profiles(self):
+        for name, perm in (("ns-reader", self.mod.ns_reader_permission(READER, [])),
+                           ("analyze", self.mod.analyze_permission())):
+            for tool in TOOLS_OFF:
+                with self.subTest(profile=name, tool=tool):
+                    self.assertEqual(perm.get(tool), "deny")
+
+    def test_ns_reader_refuses_redirects_that_leave_the_scratch_folder(self):
+        r = self.mod.ns_reader_permission(READER, ["4089685"])["bash"]
+        base = "python3 %s whoami --account 4089685_SB2" % READER
+        for tail in [" > /etc/x", " >/Users/x/.zshrc", " > ~/x", " >$HOME/x", " > ../x", " 2>/tmp/x"]:
+            with self.subTest(tail=tail):
+                self.assertEqual(decide(r, base + tail), "deny")
+
+    def test_ns_reader_still_allows_a_query_that_contains_a_greater_than_sign(self):
+        r = self.mod.ns_reader_permission(READER, [])["bash"]
+        cmd = 'python3 %s query --account 4089685_SB2 "SELECT id FROM employee WHERE id > 0"' % READER
+        self.assertEqual(decide(r, cmd), "allow")
+
+
+class AnalyzePermissionTest(unittest.TestCase):
+    def setUp(self):
+        self.perm = load("agent_run").analyze_permission()
+        self.r = self.perm["bash"]
+
+    def test_git_history_commands_are_allowed(self):
+        for cmd in ["git log", "git log --oneline -n 20 -- src/a.js", "git show HEAD~1:src/a.js",
+                    "git blame -L 1,20 src/a.js", "git diff HEAD~3 HEAD -- src"]:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(decide(self.r, cmd), "allow")
+
+    def test_everything_that_reads_or_writes_elsewhere_is_denied(self):
+        for cmd in ["cat calc.py", "ls /Users", "wc -c /etc/hosts", "python3 -c 1", "rm -rf x", "git -c core.pager=x log",
+                    "git log --oneline > z.txt", "git log >z.txt", "git log > /tmp/z", "git show --output=z HEAD",
+                    "git diff --no-index /etc/hosts /dev/null", "git blame --contents /etc/hosts a.js",
+                    "git diff --ext-diff HEAD", "git log --textconv", "git push origin x", "git checkout -b x",
+                    "git log < /etc/hosts"]:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(decide(self.r, cmd), "deny")
+
+    def test_secret_looking_files_cannot_be_read(self):
+        rd = self.perm["read"]
+        for path in ["/w/.env", "/w/app.env.local", "/w/id.pem", "/w/a.key", "/w/aws_credentials.json", "/w/my_secret.txt"]:
+            with self.subTest(path=path):
+                self.assertEqual(decide(rd, path), "deny")
+        self.assertEqual(decide(rd, "/w/src/calc.py"), "allow")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

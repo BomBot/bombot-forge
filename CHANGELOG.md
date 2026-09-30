@@ -9,6 +9,33 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.22.8 — 2026-09-30
+
+- **New `agent_run.py --profile analyze`** (OpenCode only): read-only bug hunt in an existing repo, run by DeepSeek.
+  Throw-away worktree of HEAD, OpenCode-enforced permissions (read/glob/grep + `git log|show|blame|diff` only), report
+  out (suspects with `file:line`, SEEN vs INFERRED), no patch. `setup-coding-agent` **202609_13**: the "Subagents that
+  do NOT edit" section became "Investigating existing code: DeepSeek finds, Claude checks" — DeepSeek finds; Claude
+  verifies the cited lines, using `haiku`/`sonnet` subagents with an explicit `model`, Opus only for the final root-cause
+  call. `teibto-agent` may pass `--profile analyze`. Global `CLAUDE.md` (+ snapshot, `setup-global-instructions`
+  **202609_12**) carries the two-step rule.
+- **Security fix to the existing `ns-reader` profile, found while testing `analyze`.** Two holes, both measured:
+  1. OpenCode 2.0.20 also gives the model `execute` (Code Mode with `browser.*` / `opencode.*` tools), `subagent`,
+     `skill` and `question`. `ns-reader` set no rule for them, so they were available (`execute` ran a `search()`).
+     Now all four are `deny` in both read-only profiles. Not tested: whether `browser.*` could really have reached the
+     web or read a local file.
+  2. `external_directory: deny` does **not** cover the shell, and a `>` redirect is not checked against the bash list
+     (`git log > /outside/file` wrote a file outside the folder). Through `ns_read.py query … > /any/file` the agent could
+     have overwritten a file the user owns. Redirects whose target contains `/`, `~`, `$` or `..` are now denied in both
+     profiles (`analyze` denies `>` and `<` outright). Verified live against the real configs: absolute, `>path`, `~/…`
+     denied; a relative redirect still writes, into the run's empty scratch folder only. A query containing both `>` and
+     `/` is now refused (fail-closed).
+  No known misuse happened; the earlier "everything else is denied" statement for `ns-reader` was too strong.
+- Tests: 22 in `test_agent_run_offline.py` (was 16); three mutations (drop `execute` deny, drop the `analyze` `>` deny,
+  drop the `ns-reader` redirect escapes) each made a test fail, then were restored. Live: `analyze` found a seeded
+  off-by-one and refused forced escapes; `ns-reader` still ran `whoami` and a `COUNT(*)` on SB2 (`id > 0` allowed).
+
+---
+
 ## v0.22.7 — 2026-09-30
 
 - **Non-edit subagents must set `model`.** A session with `default_delegate` on still ran a batch of "Audit …" Agent

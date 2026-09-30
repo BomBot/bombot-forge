@@ -1,6 +1,6 @@
 ---
 name: teibto-agent
-description: Hand ONE well-scoped code or text edit inside a git repo to the machine's coding-agent CLI (OpenCode or Cline, running on the company DeepSeek key) via the plugin's agent_run.py, and return the run report plus the path of the patch. The agent edits an isolated worktree, never the repo; the CALLER (Claude) reads every changed line, tests it, and applies it. Use when the user names teibto-agent, or when ~/.config/bombot-forge/agent.json has default_delegate true and the task is an edit with a checkable acceptance test. Do NOT use for browser work (bsk/cdp), anything on production, SDF deploys, Slack/email, secrets or credentials, or customer data unless the caller says the user OK'd sending it to an external provider. Read-only NetSuite lookups go through agent_run.py --profile ns-reader, not through this agent's own commands.
+description: Hand ONE well-scoped code or text edit inside a git repo to the machine's coding-agent CLI (OpenCode or Cline, running on the company DeepSeek key) via the plugin's agent_run.py, and return the run report plus the path of the patch. The agent edits an isolated worktree, never the repo; the CALLER (Claude) reads every changed line, tests it, and applies it. Use when the user names teibto-agent, or when ~/.config/bombot-forge/agent.json has default_delegate true and the task is an edit with a checkable acceptance test. Do NOT use for browser work (bsk/cdp), anything on production, SDF deploys, Slack/email, secrets or credentials, or customer data unless the caller says the user OK'd sending it to an external provider. Read-only NetSuite lookups go through agent_run.py --profile ns-reader, and read-only bug hunts in existing code through agent_run.py --profile analyze (report, no patch), not through this agent's own commands.
 tools: Bash, Read, Glob, Grep
 model: haiku
 maxTurns: 12
@@ -38,7 +38,7 @@ If the caller gave brief text, write it to a temp file **outside the repo** (`mk
 python3 "$S" --repo "<repo>" --task-file "<brief file>" --timeout 600
 ```
 
-`agent_run.py` takes agent and model from `agent.json`. Do not add flags the caller did not ask for.
+`agent_run.py` takes agent and model from `agent.json`. Do not add flags the caller did not ask for. If the caller asks for a read-only investigation ("find where the bug is"), add `--profile analyze`: there is no patch and no worktree to report, only the report, which you return verbatim marked NOT REVIEWED.
 It never applies anything and never deletes the worktree.
 
 ## 4. Report back (verbatim, no polish)

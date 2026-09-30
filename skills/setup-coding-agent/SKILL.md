@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_12`**
+**Skill version: `202609_13`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -223,6 +223,9 @@ A non-sandbox account NOT in that list stays out of the agent's reach; Claude ca
 | Repeating `--account` (so a later one could replace the listed one) | `ns_read.py` refuses it (offline test); the permission glob alone would not |
 | A read against a real non-sandbox account through the agent | **verified live** on a customer production account not yet live, after the user confirmed it: `whoami` and `ping` ran with the exact confirmed form; the same form on a different production account was refused by OpenCode; the same account without `--allow-prod-read` was refused by `ns_read.py`. Identity only — no record or query was read in that test |
 | Env-prefixed commands (`VAR=x python3 …`) and other quoting tricks are denied | reasoned from the glob rule, **not tested** |
+| OpenCode 2.0.20 also gives a headless run `execute` (Code Mode: `browser.*` / `opencode.*` tools), `subagent`, `skill`, `question`; with no rule for them they were available | **measured** (a model asked to list its tools; `execute` ran a `search()`). Since 0.22.8 all four are `deny` (**verified**: the tool list shrinks to `glob, grep, read, shell`). Until then `ns-reader` did **not** block them; whether `browser.*` could actually reach the web was **not tested** |
+| `external_directory: deny` also stops the shell from touching other folders | **no — measured**: it covers read/glob/grep only; `git log > /outside/file` wrote a file outside the folder |
+| A `>` redirect is checked against the bash list | **no — measured**: pipes, `&&`, `;`, `$(…)` are checked per command, `>` is not. Since 0.22.8 redirects whose target has `/`, `~`, `$` or `..` are denied (**verified live** with the real config: absolute, `>path`, `~/…` denied). A relative redirect (`> x.txt`) still works and only writes inside this run's empty scratch folder. Fail-closed side effect: a query containing both `>` and `/` is refused |
 | Cline equivalent | none — the profile refuses `--agent cline` |
 | `cdp` engine | not implemented in `ns_read.py` |
 
@@ -273,14 +276,26 @@ it was **not tested**.
 6. **Apply** with `git apply`, **commit per the repo's rules**, then **remove the worktree**.
 7. **Say what it cost and what you changed from the agent's output.**
 
-## Subagents that do NOT edit (audit, survey, read, search)
+## Investigating existing code (bug hunts, audits): DeepSeek finds, Claude checks
 
-`default_delegate` covers edits only. A subagent started with the Agent tool and **no `model`** runs on the
-same model as the main session (seen: a run of "Audit …" agents, each 80–160k tokens, all on Opus 5.5).
-So for non-edit subagents **always pass `model`**: `haiku` for sweeping/grep-style lookups, `sonnet` for an
-audit that needs judgement; keep Opus (or inherit) only for the final synthesis / root-cause call the user will
-rely on. This stays inside Anthropic, so it is not the "send it to a DeepSeek provider" step — customer code
-still needs no extra consent here.
+`default_delegate` covers edits. Investigation is two separate jobs, and they go to different places:
+
+1. **Find it — DeepSeek, `--profile analyze` (OpenCode only).**
+   `agent_run.py --profile analyze --repo . --task-file ask.md` gives the agent a throw-away worktree of HEAD
+   (committed files only — no `.env`, no untracked scraps) and a permission list OpenCode enforces: it can read and
+   search with its own read/glob/grep and run only `git log|show|blame|diff`. No edits, no other command, no web, no
+   path outside the folder, no `execute`/`subagent`/`skill`/`question` tools, no `>`/`<`, no `--output`,
+   `--ext-diff`, `--textconv`, `--no-index`, `--contents`; `.env`/`.pem`/`.key`/`*secret*`/`*credentials*` cannot be
+   read. Output is a report (suspects with `file:line`, each claim marked SEEN or INFERRED), not a patch. The worktree
+   is removed afterwards. **Verified live** (seeded off-by-one found at `calc.py:5`; forced attempts at `> file`
+   inside and outside the folder, `git diff --no-index`, `git blame --contents`, and a pipe were all denied; `git log`
+   and `git blame` ran). Code it reads goes to the model provider, as with edits.
+2. **Check it — Claude, cheap model.** What DeepSeek returns is a claim. Verify the cited `file:line` yourself, and if
+   the check itself is delegated to a subagent, **pass `model`** (an Agent call with none runs on the session's model —
+   seen: six "Audit …" agents, 80–160k tokens each, all on Opus 5.5): `haiku` for lookups, `sonnet` for judgement.
+   Keep Opus (or inherit) only for the final root-cause call the user will rely on.
+
+Not measured: how often the DeepSeek report is right on a large real repo, and the cost saving over an all-Claude audit.
 
 ## Gotchas
 
