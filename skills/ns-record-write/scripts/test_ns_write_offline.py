@@ -69,6 +69,13 @@ class OfflineWriteTest(unittest.TestCase):
     def bsk_args(self):
         return ["--engine", "bsk", "--bsk-session", "s", "--bsk-tab", "t"]
 
+    def confirmed_write(self, argv):
+        """Run argv with --confirm and return the single captured write JS string."""
+        code, _, err = self.run_main(argv)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(len(self.writes), 1)
+        return self.writes[0]
+
     # 1. dry-run (no --confirm): exit 0, no write, says DRY-RUN
     def test_dry_run_writes_nothing(self):
         code, out, _ = self.run_main(self.base_args())
@@ -130,6 +137,8 @@ class OfflineWriteTest(unittest.TestCase):
         code, out, _ = self.run_main(self.base_args(confirm=True))
         self.assertEqual(code, 3)
         self.assertIn("OUTCOME UNKNOWN", out)
+        # a failed attempt is still an attempt: the write stub was called exactly once
+        self.assertEqual(len(self.writes), 1)
 
     # 8. page-side rejection: exit 1, WRITE FAILED
     def test_page_rejection_fails(self):
@@ -137,6 +146,8 @@ class OfflineWriteTest(unittest.TestCase):
         code, out, _ = self.run_main(self.base_args(confirm=True))
         self.assertEqual(code, 1)
         self.assertIn("WRITE FAILED", out)
+        # a failed attempt is still an attempt: the write stub was called exactly once
+        self.assertEqual(len(self.writes), 1)
 
     # 9. no --set: argparse error, exit 2
     def test_no_set_is_argparse_error(self):
@@ -152,6 +163,65 @@ class OfflineWriteTest(unittest.TestCase):
              "--set", "memo"])
         self.assertEqual(code, 2)
         self.assertEqual(self.writes, [])
+
+    # 11. submit mode (default): submitFields with the exact type/id/values, no save
+    def test_submit_mode_js_payload(self):
+        js = self.confirmed_write(self.base_args(confirm=True))
+        self.assertIn("submitFields", js)
+        self.assertIn('type:"customrecord_x"', js)
+        self.assertIn('id:"1"', js)
+        self.assertIn('values:{"memo":"v"}', js)
+        self.assertNotIn("rec.save", js)
+
+    # 12. save mode: load -> setValue -> save with isDynamic:false, no submitFields
+    def test_save_mode_js_payload(self):
+        js = self.confirmed_write(
+            ["--mode", "save"] + self.base_args(confirm=True))
+        self.assertIn("record.load", js)
+        self.assertIn("rec.save", js)
+        self.assertIn("isDynamic:false", js)
+        self.assertIn('rec.setValue({fieldId:"memo", value:"v"})', js)
+        self.assertNotIn("submitFields", js)
+
+    # 13. save mode with --dynamic: the load is dynamic
+    def test_save_mode_dynamic_flag(self):
+        js = self.confirmed_write(
+            ["--mode", "save", "--dynamic"] + self.base_args(confirm=True))
+        self.assertIn("isDynamic:true", js)
+        self.assertNotIn("isDynamic:false", js)
+
+    # 14. two --set values both reach the payload (field id and value each)
+    def test_two_sets_both_reach_payload(self):
+        js = self.confirmed_write(
+            ["--account", self.account, "--type", "customrecord_x", "--id", "1",
+             "--set", "memo=a", "--set", "note=b", "--confirm"])
+        self.assertIn('"memo":"a"', js)
+        self.assertIn('"note":"b"', js)
+
+    # 15. quotes and backslashes in a value are JSON-escaped into the JS string
+    def test_value_is_json_escaped(self):
+        js = self.confirmed_write(
+            ["--account", self.account, "--type", "customrecord_x", "--id", "1",
+             "--set", 'memo=say "hi" \\ ok', "--confirm"])
+        self.assertIn('"memo":"say \\"hi\\" \\\\ ok"', js)
+
+    # 16. the write JS re-checks the account inside the page
+    def test_write_rechecks_account(self):
+        js = self.confirmed_write(self.base_args(confirm=True))
+        self.assertIn("account changed to", js)
+        self.assertIn('"4089685_SB2"', js)
+
+    # 18. cdp and bsk produce byte-identical write JS for the same arguments
+    def test_cdp_and_bsk_send_same_js(self):
+        bsk_js = self.confirmed_write(
+            self.bsk_args() + self.base_args(confirm=True))
+        self.writes = []
+        # main() keeps engine state in the module (a real run is a fresh process), so reset it
+        # or the second run would still think it is bsk
+        self.mod.ST = {"engine": "cdp", "session": None, "tab": None}
+        cdp_js = self.confirmed_write(
+            ["--engine", "cdp", "--tab", "T"] + self.base_args(confirm=True))
+        self.assertEqual(bsk_js, cdp_js)
 
 
 if __name__ == "__main__":

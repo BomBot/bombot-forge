@@ -9,6 +9,19 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.15.4 — 2026-09-30
+
+- `ns-record-write` **202609_11** — offline suite grows from 10 to 17 cases: it now checks what is
+  actually sent to the write (record type and id, values, submit vs save, `--dynamic`, JSON
+  escaping of a value with quotes and a backslash, the in-page account re-check, and that `bsk` and
+  `cdp` send byte-identical JS), and that a failed write still counts as one attempt. Drafted by the
+  coding agent (≈ US$0.008); I fixed one flaw in its test 18 (engine state leaked between the two
+  runs, so the cdp run was not really cdp — found because a mutant survived). Mutation check: seven
+  deliberate breaks of the helper (swapped type/id, dropped dynamic flag, ignored mode, dropped
+  second value, removed account re-check, no escaping, cdp/bsk divergence) are each caught.
+
+---
+
 ## v0.15.3 — 2026-09-30
 
 - `ns-record-write` **202609_10** — adds `scripts/test_ns_write_offline.py`: 10 offline cases (no

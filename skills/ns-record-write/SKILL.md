@@ -10,7 +10,7 @@ description: >-
 
 # NetSuite Record Write (scoped ns_write helper)
 
-**Skill version: `202609_10`**
+**Skill version: `202609_11`**
 
 Writing to a live NetSuite record from a logged-in browser tab. The **only** sanctioned
 write channel here is `scripts/qa/ns_write.py` — a helper that takes **structured args**
@@ -142,7 +142,7 @@ python3 scripts/qa/ns_write.py --engine bsk --bsk-session <SID> --bsk-tab <TAB> 
 
 ## Offline tests for the helper
 
-After changing `ns_write.py`, run `python3 scripts/test_ns_write_offline.py` (no browser, network, `bsk` or `cdp` needed; 10 cases: dry-run, account guard, the `bsk` production opt-in, exit codes 0/1/2/3, argument errors). It stubs the browser layer, so it proves the guards and exit codes, not that a page accepts a write — live behaviour is covered by the notes above.
+After changing `ns_write.py`, run `python3 scripts/test_ns_write_offline.py` (no browser, network, `bsk` or `cdp` needed; 17 cases: dry-run, account guard, the `bsk` production opt-in, exit codes 0/1/2/3, argument errors, and the exact write payload — type, id, values, submit vs save, `--dynamic`, value escaping, the in-page account re-check, and that `bsk` and `cdp` send identical JS). It stubs the browser layer, so it proves the guards, exit codes and payload, not that a page accepts a write — live behaviour is covered by the notes above.
 
 ## Validate the setup (run on EACH machine)
 
