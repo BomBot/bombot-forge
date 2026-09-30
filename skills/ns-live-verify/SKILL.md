@@ -9,7 +9,7 @@ description: >-
 
 # NetSuite Live Verify (read-only via the TEIBTO Dev Bridge)
 
-**Skill version: `202609_09`**
+**Skill version: `202609_10`**
 
 Run SuiteQL / `record.load().toJSON()` / searches against a live account through a logged-in Chrome
 tab, so you verify against **real state** instead of guessing. Read-only. Pairs with
@@ -156,12 +156,14 @@ custom button's `window.<fn>` is `undefined`), which is stronger than the deploy
 
 ## Session / login handling
 
-When a fetch returns the login/timeout page: **do not log in inside the `bsk` Agent Window** — there Chrome
-did not autofill (email at 0 characters after 10 s, focused or in the background; measured). Open the login
-page in a **real tab** instead (Claude in Chrome, or ask the user to open it), where Chrome fills email +
-password. Then: **click `#login-submit` only — never read the password field.** If the button is disabled,
-click the background outside the login box once (blur → enables), then click submit. Fields empty in a real
-tab → stop and ask. `ns_read.py` stops with exit 3 and says so; it never logs in.
+When a fetch returns the login/timeout page: navigate the tab to any account page → it bounces to
+`enterpriselogin.nl`. Check whether Chrome filled the form with **`:-webkit-autofill`** on the email field — **not the
+value length**: Chrome hides an autofilled value from scripts until the user interacts, so `value.length` is 0 even
+when it is filled (measured in a `bsk` Agent Window and a hidden tab). Then **click `#login-submit` only — never read the
+password field.** If the button is disabled, click the background outside the login box once (blur → enables), then
+click submit and check the URL left the login page. Flag not set → stop and ask. If the click does not log in (untested
+with `bsk` for the hidden values), open the login page in a real tab for the user (`browser-engines` step 5).
+`ns_read.py` stops with exit 3 on a login page and never logs in.
 
 ## Status
 

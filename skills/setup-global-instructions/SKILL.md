@@ -10,7 +10,7 @@ description: >-
 
 # Setup Global Instructions (compare + merge ~/.claude/CLAUDE.md)
 
-**Skill version: `202609_07`**
+**Skill version: `202609_08`**
 
 Bring a machine's **global** `~/.claude/CLAUDE.md` in line with the canonical NetSuite-dev
 operating instructions, kept here as a redacted snapshot at
@@ -123,6 +123,6 @@ in `/Users/bombot/...` paths is kept — it's BomBot's public handle, not a secr
 ## Status
 
 v0.1 draft — snapshot captured 2026-09-18 from BomBot's machine, redacted (customer names,
-emails); "Browser automation" section re-captured 2026-09-30 (bsk default, cdp fallback, `--allow-bsk-prod`, lane priority; say-it-every-time + no autofill in the Agent Window). Not yet pressure-tested per `superpowers:writing-skills`. Likely to need: a real
+emails); "Browser automation" section re-captured 2026-09-30 (bsk default, cdp fallback, `--allow-bsk-prod`, lane priority; say-it-every-time + autofill checked by :-webkit-autofill, not value length). Not yet pressure-tested per `superpowers:writing-skills`. Likely to need: a real
 second-machine merge to confirm the section-by-section flow handles a target that has genuinely
 diverged (not just an empty/fresh machine).

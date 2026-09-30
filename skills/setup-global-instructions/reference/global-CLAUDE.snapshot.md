@@ -146,14 +146,14 @@ Claude Code เก็บ session ที่อิง `cwd` ใน **2 ที่**
 - **bsk: มี tab ของตัวเอง + pin + ปิด session ทุกครั้ง** (`bsk session start --no-focus` → `tab create --no-active --url about:blank` → ใส่ `--tab-id` ทุกคำสั่ง → `bsk session stop`) · `observe` ใส่ `--max-tokens` เสมอ (ไม่ใส่ = หน้าเล็กๆ ก็ 18 KB) · รายละเอียดใน skill `browser-engines`
 - **บอกผู้ใช้ทุกครั้งที่ใช้ bsk** — 1 บรรทัดในแชทก่อนคำสั่ง `bsk` แรกของงาน: ทำอะไร · บัญชี/หน้าไหน · เป็น Agent Window เบื้องหลัง (ปิดเมื่อเสร็จ) · bsk เปิด tab ใน window ปกติของผู้ใช้ไม่ได้ (ทำงานใน Agent Window เสมอ)
 - **ห้าม `bsk session stop --all` และอย่าคาดว่า `session_count` ต้องเป็น 0** — daemon ใช้ร่วมกัน session Claude อื่นของผู้ใช้อาจกำลังใช้ bsk อยู่ (เคยเผลอปิดของเขาไปครั้งหนึ่ง) · ปิดเฉพาะ id ของตัวเอง แล้วเช็กว่า id นั้นหายจาก `bsk session list`
-- **bsk Agent Window ไม่ได้ autofill** (วัดแล้ว: email ว่าง 0 ตัวอักษรหลัง 10 วินาที ทั้ง focus/เบื้องหลัง) → ติดหน้า login ห้ามกดใน Agent Window · เปิดหน้า login ใน **tab จริง** (Claude in Chrome หรือให้ผู้ใช้เปิด) แล้วค่อยกด Login ตามกฎ auto-login
+- **เช็กว่า Chrome autofill แล้วหรือยังด้วย `:-webkit-autofill` (boolean) ห้ามดูจากความยาวค่า** — Chrome ซ่อนค่าที่ autofill จาก script จนกว่าผู้ใช้จะแตะหน้า (วัดแล้ว: `value.length` = 0 ทั้งที่ autofill ติดแล้ว ทั้งใน bsk Agent Window และ tab ที่ซ่อน) · flag ติด → กด Login ตามกฎด้านล่างได้ (ยังไม่ได้ยืนยันว่ากดผ่าน bsk แล้ว submit ค่าที่ซ่อนอยู่สำเร็จ) · ไม่ผ่าน → เปิดหน้า login ใน tab จริงให้ผู้ใช้กดเอง
 - ❌ อย่าใช้ 9333 (`<personal-gmail>`) เข้า Google Sheets ของ `<work-email>` = Access denied → ใช้ claude-in-chrome Browser 2
 
 **Auto-login (session หมด → เด้งหน้า login)** — Chrome ตั้ง autofill email/password ไว้แล้ว:
 1. ถ้าปุ่ม Login/เข้าสู่ระบบ **disable อยู่** → คลิกพื้นหลังนอกกรอบ login 1 ครั้ง (trigger blur → ปุ่ม enable)
 2. กดปุ่ม **Login / เข้าสู่ระบบ** (ได้ทั้ง `bsk click '#login-submit'`, cdp.py click และ claude-in-chrome)
 - 🔑 **ห้ามอ่าน/ดึงค่า field password** — แค่คลิก submit; credential เป็นของ Chrome ไม่ใช่ของ Claude
-- field ไม่ถูก autofill (ว่าง) → หยุด ถามก่อน **ห้ามพิมพ์ credential เอง**
+- `:-webkit-autofill` ไม่ติด → หยุด ถามก่อน **ห้ามพิมพ์ credential เอง** (ห้ามตัดสินจากความยาวค่า — ดูข้อด้านบน)
 - 2FA/trusted-device: profile เก็บ token ~30 วัน มักไม่ถาม TOTP
 
 ---

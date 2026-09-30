@@ -14,7 +14,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0 — the skill covers both engines now (bsk first), so the old name misled.
 
-**Skill version: `202609_12`**
+**Skill version: `202609_13`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -117,28 +117,28 @@ end-to-end time — the win is per-command overhead and not needing a second log
    Must match the account you mean and (for anything beyond reads) `SANDBOX`. A login page has no
    `nlapiGetContext`, so the gate also catches an expired session. Fetching `/app/...` from
    `about:blank` fails — open a classic NetSuite page first.
-5. **Expired session (redirected to the login page):** **do not try to log in inside the Agent Window.**
-   Measured on this Mac (Chrome 152, bsk 0.3.1): on the NetSuite login page the email field stayed at 0
-   characters for 10 s in an Agent Window — with the window in the background *and* with it focused — so
-   "Chrome was too slow" is not the explanation; an Agent Window simply did not get autofill. An empty email
-   there says nothing about whether the user saved credentials. Hand off to a **real tab**:
-   - **Claude in Chrome** (if installed; skill `setup-browser`) opens a new *tab* in the user's own window,
-     where autofill works — then follow the auto-login rule there (`#login-submit` enabled → click once;
-     never read or type a credential; stop on an MFA prompt).
-   - Otherwise open it for them: on macOS `open -a "Google Chrome" "<login url>"` **verified**: it opens a
-     new *tab* in the already-open Chrome window (a `bsk tab list --scope user` then showed it in a user
-     window, not an Agent Window). Tell the user which tab it is, and re-run the read after they say
-     they're in. You cannot close that tab yourself — say so.
-   - `bsk tab borrow <tab-id> --session <id>` moves a user's tab into the Agent Window; the user confirms in the
-     extension (setting: Automation settings, default on). **Verified on the second try:** with the user ready,
-     it was confirmed in about 2 s; Chrome had **autofilled both fields in that real tab** (email 20 characters;
-     both fields matched `:-webkit-autofill`; only the email length was read, never the password) and the
-     autofill **survived the borrow** for the 6 s watched. The first try timed out because the prompt shows for
-     only about a second — so **warn the user right before you send it** (a 10 s countdown worked), use
-     `--timeout 120`, and don't repeat a timed-out request (bsk's hint). Then click `#login-submit` per the
-     auto-login rule and `bsk tab return <id> --session <id>`. The click itself has **not** been tried. A
-     borrowed tab cannot be closed (`tab close` says call `tab return` first); `bsk session stop <your id>`
-     returns it to the user's window by itself — so a leftover test tab is the user's to close.
+5. **Expired session (redirected to the login page):** **Judge "did Chrome fill the form?" by `:-webkit-autofill` (a boolean) — NEVER by the value length.** Chrome hides an
+   autofilled value from page scripts until the user interacts with the page. Measured on this Mac (Chrome 152,
+   bsk 0.3.1): on the NetSuite login page, a `bsk` Agent Window (background *and* focused) and a hidden Claude in
+   Chrome tab all had both fields matching `:-webkit-autofill` while the email `value.length` was **0**. The one
+   time it read 20 was in a tab the user had just clicked (the borrow prompt) — consistent with the rule, not
+   proven. So "the email looks empty" from `value.length` says nothing, and an agent that stopped on it was
+   stopping for no reason. (An earlier version of this skill said the Agent Window "does not get autofill"; that
+   was wrong — it came from reading the length only.)
+   Then, with the user's consent (`auto_login_click`) and the flag on: click `#login-submit` once (never read or
+   type a credential; stop on an MFA prompt) and check that the URL left the login page. **Not yet tested:** that a
+   `bsk` click submits the hidden autofilled values. If it does not leave the login page, or there is no consent,
+   hand off to a **real tab** (the user's own Chrome, where they can see it and press Login):
+   - Open it for them: on macOS `open -a "Google Chrome" "<login url>"` **verified**: it opens a new *tab* in the
+     already-open Chrome window (`bsk tab list --scope user` then showed it in a user window). Tell the user which
+     tab it is, wait for the URL to leave the login page, then re-run the read. You cannot close that tab yourself.
+   - **Claude in Chrome** (connected on this Mac; skill `setup-browser`) works in normal tabs: it puts its tabs in a
+     Chrome **tab group** — the first use with no group creates one new window holding it (verified), later tabs
+     join the group. Its `javascript_tool` can read the same `:-webkit-autofill` flag (verified) and run `fetch`.
+   - `bsk tab borrow <tab-id> --session <id>` moves a user's tab into the Agent Window; the user must confirm in the
+     extension. It worked once with the user ready (confirmed in ~2 s, the prompt shows for about a second — warn
+     first, a 10 s countdown worked, use `--timeout 120`, and don't repeat a timed-out request). A borrowed tab
+     cannot be `tab close`d (`tab return` first); `bsk session stop <your id>` returns it to the user's window.
    A login counts in the account's "My login audit".
 6. **Read cheaply.** `bsk observe` on a one-paragraph page returned 18.6 KB (one node per
    character) — always cap it: `bsk observe --max-tokens 600 …` gave 2.6 KB on the NetSuite Home
@@ -186,7 +186,7 @@ sessions longer than 30 minutes, writes during contention, other OSes.
   investigated — may be because it was the window's only tab).
 - Closing the Agent Window mid-run kills the run — including after a Save. Tell the owner first.
 - Everything above was measured with a person's real Chrome: an Agent Window shares its logins and is
-  **not** a sandbox — but it does **not** get autofill (see step 5).
+  **not** a sandbox. Chrome autofills forms there too, but hides the filled value from scripts (see step 5).
 
 ## cdp lane (Chrome for Testing + cdp.py)
 

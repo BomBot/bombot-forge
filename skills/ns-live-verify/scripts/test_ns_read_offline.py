@@ -430,11 +430,11 @@ class OfflineReadTest(unittest.TestCase):
         code, out, fake = self.run_cmd(["ping"])
         json.loads(out)   # raises if the notice leaked into stdout
 
-    def test_expired_session_message_says_to_use_a_real_tab(self):
+    def test_expired_session_message_says_it_never_logs_in_and_how_to_check_autofill(self):
         code, out, fake = self.run_cmd(["whoami"], FakeBsk(identity=json.dumps({"ok": False, "reason": "no-context"})))
         self.assertEqual(code, 3)
-        self.assertIn("real Chrome tab", out)
-        self.assertIn("autofill", out)
+        self.assertIn("never logs in", out)
+        self.assertIn(":-webkit-autofill", out)
 
 
 if __name__ == "__main__":

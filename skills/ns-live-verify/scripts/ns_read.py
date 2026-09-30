@@ -511,9 +511,9 @@ def main(argv=None):
         _bsk_eval(DIALOG_GUARD_JS)
         ident = _identity()
         if ident is None:
-            print("SESSION EXPIRED or not logged in. Do not wait for Chrome to fill the email here: an Agent "
-                  "Window did not get autofill in a live test (0 characters after 10 s, focused or not). Log "
-                  "in in a real Chrome tab (yours, or Claude in Chrome), then run this again.")
+            print("SESSION EXPIRED or not logged in. This script never logs in: log in in your own Chrome tab "
+                  "(Chrome fills the form, press Login) and run it again. If you inspect the form, use the "
+                  ":-webkit-autofill state, not the value length: Chrome hides an autofilled value from scripts.")
             return 3
         company, env = ident
         if company != account:

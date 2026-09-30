@@ -9,6 +9,28 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.22.3 — 2026-09-30
+
+**Correction of my own earlier finding (0.21.0 – 0.22.2).**
+
+- Those releases said an `bsk` Agent Window "does not get autofill" (email 0 characters for 10 s). **That was wrong.**
+  Re-measured, this time reading the boolean `:-webkit-autofill` as well: in an Agent Window opened in the background
+  and one opened focused, and in a hidden Claude in Chrome tab, **both the email and the password fields matched
+  `:-webkit-autofill` while the email `value.length` was 0**. Chrome hides an autofilled value from page scripts until
+  the user interacts with the page; the earlier "20 characters" came from a tab the user had just clicked (the
+  borrow prompt). The real cause of the user's issue ("the email looked empty, so the agent stopped") was
+  **reading the length**, not the window.
+- Fixed in `browser-engines` **202609_13**, `setup-browser` **202609_11**, `ns-live-verify` **202609_10**, `ns_read.py`
+  (its expired-session message; 1 test reworded), `setup-global-instructions` **202609_08** and the user's global
+  `CLAUDE.md`: check autofill with `:-webkit-autofill`, never the value length; the rule "field empty → stop" in the
+  global instructions now reads "`:-webkit-autofill` not set → stop". The advice "never log in inside the Agent
+  Window" is withdrawn; hand-off to a real tab stays as the fallback.
+- New verified facts: Claude in Chrome is connected on this Mac and keeps its tabs in a Chrome **tab group** (the
+  first use with no group opened one new window holding it); its `javascript_tool` reads the same autofill flag.
+  **Not tested:** that a `bsk click '#login-submit'` submits the hidden autofilled values.
+
+---
+
 ## v0.22.2 — 2026-09-30
 
 - `browser-engines` **202609_12**, `setup-browser` **202609_10** — the real-tab hand-off, second try, with the user
