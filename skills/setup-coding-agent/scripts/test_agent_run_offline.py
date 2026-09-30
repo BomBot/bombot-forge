@@ -475,6 +475,23 @@ class LedgerTest(unittest.TestCase):
             self.assertTrue(title.endswith(" " + prof), title)
             self.assertNotIn("SECRET-CUSTOMER-TASK", title)
 
+    def test_the_worker_is_told_to_give_a_source_per_claim_and_say_not_verified(self):
+        core = self.mod.VERIFY_CORE
+        self.assertIn("needs a source", core)
+        self.assertIn("not verified", core)
+        for name in ("PREAMBLE", "NS_READER_PREAMBLE", "ANALYZE_PREAMBLE"):
+            self.assertIn(core, getattr(self.mod, name), name)
+        # the ns-reader text goes through str.format(): the added wording must not break it
+        self.assertIn(core, self.mod.NS_READER_PREAMBLE.format(py="python3", reader="/r/ns_read.py", prod=""))
+        repo = self.repo()
+        for prof, extra in [("analyze", []), ("code", ["--agent", "opencode"])]:
+            open(os.path.join(self.tmp, "argv.log"), "w").close()
+            r, _ = self.cli("--profile", prof, "--repo", repo, "--task-file", os.path.join(self.tmp, "ask.md"),
+                            "--model", "p/deepseek/deepseek-flash", *extra)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            argv = [json.loads(l) for l in open(os.path.join(self.tmp, "argv.log")) if '"run"' in l][0]
+            self.assertIn(core, argv[-1], prof)             # the prompt the agent really received
+
     def test_purge_still_works_on_a_database_without_a_title_column(self):
         import sqlite3
         home = os.path.join(self.tmp, "home_x"); os.makedirs(home)

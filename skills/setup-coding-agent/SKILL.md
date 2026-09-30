@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_17`**
+**Skill version: `202609_18`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -334,6 +334,19 @@ the code paths and checked by offline tests that fake the OS-specific failure, n
   `analyze` in a scratch repo, `git log --oneline > rel.txt`, the same with an absolute path outside the folder,
   `git diff --no-index <any file> NUL`, and `git log | head -1`. Every one must come back `Permission denied` and no file
   may appear. If one runs, stop using that profile there and report it.
+
+## Making the worker show its evidence
+
+A bare "check your answer again" does little: a model can re-read its own reply and say "yes, correct" without opening
+anything. So every prompt `agent_run.py` sends (`code`, `analyze`, `ns-reader`) carries the same demand — **every claim
+needs a source** (file:line, command output, or the query run), a claim without one must say *not verified*, and the reply
+ends with three lists (VERIFIED with its source / INFERRED / NOT LOOKED AT or NOT CHECKED). When you write a brief, keep that
+shape in mind: ask for the acceptance-test output, not "it works". The wording lives in `VERIFY_CORE` in `agent_run.py`.
+
+This makes the reply **easier to check, not correct**. It is still the agent's claim: open a sample of the cited
+`file:line`, re-run the query or the test, and treat anything without a source as unverified. **Not measured:** whether the
+wording raises the share of results accepted as-is — compare the `used as-is` rate in `--log-report` before and after
+(runs from before 0.25.0 have the old wording).
 
 ## OpenCode sessions (each run leaves one; we delete it)
 

@@ -9,6 +9,24 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.25.0 — 2026-09-30
+
+- **The worker must show a source for every claim.** A bare "check your answer again" lets a model answer "correct"
+  without opening anything, so the wording demands evidence: *every statement needs a source (file:line, command output,
+  or the query run); with no source, write "not verified"; end with VERIFIED / INFERRED / NOT LOOKED AT (NOT CHECKED for
+  code).* It is one shared constant (`VERIFY_CORE`) added to the prompts of all three profiles (`code`, `analyze`,
+  `ns-reader`), and a test asserts the prompt the agent actually receives contains it. A live `analyze` run followed the
+  format (its one runtime claim, `0 / -1` giving `-0.0`, was labelled INFERRED and checked true by hand).
+- The same rule, in Thai, in the **Accuracy** section of the global CLAUDE.md snapshot (so the dev and the non-dev skills both
+  carry it), plus a second line: another AI's reply is only a claim — open a sample of the sources it cites before trusting it.
+  `setup-global-instructions` **202609_15**, `setup-global-instructions-nondev` **202609_02** (built from that snapshot).
+- `setup-coding-agent` **202609_18**: new section "Making the worker show its evidence". Stated there: this makes replies
+  easier to check, **not** correct — the caller still spot-checks. **Not measured** whether it raises the accepted-as-is
+  rate; compare `--log-report` before and after (earlier runs used the old wording).
+- Tests: 46 (was 45); mutations (analyze prompt loses the core, code prompt loses it) each made a test fail, then were restored.
+
+---
+
 ## v0.24.3 — 2026-09-30
 
 - **Sessions are marked so an escaped one can be found.** Every `opencode run` that `agent_run.py` starts now passes
