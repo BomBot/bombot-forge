@@ -14,7 +14,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0 — the skill covers both engines now (bsk first), so the old name misled.
 
-**Skill version: `202609_14`**
+**Skill version: `202609_15`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -94,7 +94,7 @@ end-to-end time — the win is per-command overhead and not needing a second log
 
 ### Every run
 
-0. **Say it.** Tell the user **each time you start using `bsk`** — one line in the chat before the first `bsk` command of the job: what for, which account/page, and that it opens a *background Agent Window* (own session, closed when done). Not for every command inside the same job. It is a **notice, not a question**: do not wait for a reply and do not ask for approval — send it and keep working. (Approvals that DO exist come from elsewhere: a `bsk tab borrow` prompt in the extension, a non-sandbox account not yet confirmed, a production write, or Login clicking without consent.) `bsk` always works inside an **Agent Window** (a separate window that only the
+0. **Say it.** Tell the user **each time you start using `bsk`** — one line in the chat before the first `bsk` command of the job: what for, which account/page, and that it opens a *background Agent Window* (own session, closed when done). Not for every command inside the same job. It is a **notice, not a question**: do not wait for a reply and do not ask for approval — send it and keep working. (Approvals that DO exist come from elsewhere: a non-sandbox account not yet confirmed, a production write, or Login clicking without consent.) `bsk` always works inside an **Agent Window** (a separate window that only the
    session owns): `tab create` makes tabs *in that window* and there is no `bsk` mode that opens a tab in
    the user's everyday window. `--no-focus` / `--no-active` (below) keep it from stealing focus — that is the
    least intrusive `bsk` can be. If the user must SEE the page or log in, use a real tab instead (step 5).
@@ -121,13 +121,13 @@ end-to-end time — the win is per-command overhead and not needing a second log
    autofilled value from page scripts until the user interacts with the page. Measured on this Mac (Chrome 152,
    bsk 0.3.1): on the NetSuite login page, a `bsk` Agent Window (background *and* focused) and a hidden Claude in
    Chrome tab all had both fields matching `:-webkit-autofill` while the email `value.length` was **0**. The one
-   time it read 20 was in a tab the user had just clicked (the borrow prompt) — consistent with the rule, not
-   proven. So "the email looks empty" from `value.length` says nothing, and an agent that stopped on it was
+   time it read 20 was in a tab the user had just clicked — consistent with the rule, not proven. So "the email looks empty" from `value.length` says nothing, and an agent that stopped on it was
    stopping for no reason. (An earlier version of this skill said the Agent Window "does not get autofill"; that
    was wrong — it came from reading the length only.)
    Then, with the user's consent (`auto_login_click`) and the flag on: click `#login-submit` once (never read or
-   type a credential; stop on an MFA prompt) and check that the URL left the login page. **Not yet tested:** that a
-   `bsk` click submits the hidden autofilled values. If it does not leave the login page, or there is no consent,
+   type a credential; stop on an MFA prompt) and check that the URL left the login page. **Tested (2026-09-30, SB2):** a `bsk`
+   click on `#login-submit` with both fields `:-webkit-autofill` (values hidden, length 0) submitted them and landed on
+   the Home page (`SANDBOX`, no MFA). That run started from a still-valid session, not a truly expired one. If it does not leave the login page, or there is no consent,
    hand off to a **real tab** (the user's own Chrome, where they can see it and press Login):
    - Open it for them: on macOS `open -a "Google Chrome" "<login url>"` **verified**: it opens a new *tab* in the
      already-open Chrome window (`bsk tab list --scope user` then showed it in a user window). Tell the user which
@@ -135,10 +135,8 @@ end-to-end time — the win is per-command overhead and not needing a second log
    - **Claude in Chrome** (connected on this Mac; skill `setup-browser`) works in normal tabs: it puts its tabs in a
      Chrome **tab group** — the first use with no group creates one new window holding it (verified), later tabs
      join the group. Its `javascript_tool` can read the same `:-webkit-autofill` flag (verified) and run `fetch`.
-   - `bsk tab borrow <tab-id> --session <id>` moves a user's tab into the Agent Window; the user must confirm in the
-     extension. It worked once with the user ready (confirmed in ~2 s, the prompt shows for about a second — warn
-     first, a 10 s countdown worked, use `--timeout 120`, and don't repeat a timed-out request). A borrowed tab
-     cannot be `tab close`d (`tab return` first); `bsk session stop <your id>` returns it to the user's window.
+   - Do not use `bsk tab borrow`: its confirmation prompt shows for about a second, so a person cannot click it in time
+     (one attempt timed out, one worked only with a countdown). The two hand-offs above need no confirmation.
    A login counts in the account's "My login audit".
 6. **Read cheaply.** `bsk observe` on a one-paragraph page returned 18.6 KB (one node per
    character) — always cap it: `bsk observe --max-tokens 600 …` gave 2.6 KB on the NetSuite Home

@@ -9,6 +9,19 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.22.5 — 2026-09-30
+
+- **`tab borrow` removed from the guidance** (`browser-engines` **202609_15**): its confirmation prompt shows for about
+  a second, so nobody can click it in time; the two hand-offs that need no confirmation (`open -a "Google Chrome"`,
+  Claude in Chrome) stay. It is no longer listed among the approvals that exist.
+- **`bsk click '#login-submit'` tested** on SB2 (4089685_SB2): both fields matched `:-webkit-autofill` with
+  `value.length` 0, one click submitted the hidden values and landed on Home (`SANDBOX`, no MFA). Caveat: the session
+  was still valid when the login page was opened, so this was not a truly expired-session run. `ns-live-verify`
+  **202609_11**, `setup-browser` **202609_13**, `setup-global-instructions` **202609_10**. The user turned
+  `auto_login_click` on for this machine.
+
+---
+
 ## v0.22.4 — 2026-09-30
 
 - "Say it every time `bsk` is used" now says what it is: a **notice, not a question** — send it and keep working, no
