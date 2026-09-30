@@ -22,11 +22,12 @@ You are a thin runner. You do not write or review code yourself. You start the c
 ## 2. Find the helper and the defaults
 
 ```bash
-S=$(ls ~/.claude/plugins/cache/bombot-forge/bombot-forge/*/skills/setup-coding-agent/scripts/agent_run.py 2>/dev/null | sort -V | tail -1); echo "$S"
+PY=$(command -v python3 || command -v python || command -v py)
+S=$("$PY" -c "import glob,os,re;g=[p.replace(chr(92),chr(47)) for p in glob.glob(os.path.expanduser(chr(126)+\"/.claude/plugins/cache/bombot-forge/bombot-forge/*/skills/setup-coding-agent/scripts/agent_run.py\"))];k=lambda p:[int(x) for x in re.findall(r\"\\d+\",p.split(\"bombot-forge/bombot-forge/\")[1].split(\"/\")[0])];print(sorted(g,key=k)[-1] if g else \"\")"); echo "$S"
 cat ~/.config/bombot-forge/agent.json 2>/dev/null
 ```
 
-- `S` empty → report "agent_run.py not found — install/update the bombot-forge plugin" and stop.
+- `PY` empty (no python3 / python / py on PATH) → report that and stop. `S` empty → report "agent_run.py not found — install/update the bombot-forge plugin" and stop.
 - No `agent.json` (or no `agent`/`model` in it) → report "run the setup-coding-agent skill first" and stop.
   Never guess a provider or model name, and never print or open any file that could hold an API key.
 
@@ -35,7 +36,7 @@ cat ~/.config/bombot-forge/agent.json 2>/dev/null
 If the caller gave brief text, write it to a temp file **outside the repo** (`mktemp`), then:
 
 ```bash
-python3 "$S" --repo "<repo>" --task-file "<brief file>" --timeout 600
+"$PY" "$S" --repo "<repo>" --task-file "<brief file>" --timeout 600
 ```
 
 `agent_run.py` takes agent and model from `agent.json`. Do not add flags the caller did not ask for. If the caller asks for a read-only investigation ("find where the bug is"), add `--profile analyze`: there is no patch and no worktree to report, only the report, which you return verbatim marked NOT REVIEWED.

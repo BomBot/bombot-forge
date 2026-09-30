@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_14`**
+**Skill version: `202609_15`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -283,8 +283,8 @@ it was **not tested**.
 
 ## Measuring it (the delegation log)
 
-Every `agent_run.py` run (`code`, `analyze`, `ns-reader`) appends one line to `~/.local/share/bombot-forge/delegations.jsonl`
-(mode 600; override with `BOMBOT_FORGE_LOG`), and each `--log-outcome` appends a verdict line. It holds numbers and ids
+Every `agent_run.py` run (`code`, `analyze`, `ns-reader`) appends one line to `~/.config/bombot-forge/delegations.jsonl`
+(mode 600 on macOS/Linux; override with `BOMBOT_FORGE_LOG`). It sits beside `agent.json` on purpose: not in `~/.claude/cache` — that is Claude Code's own cache and gets cleaned, while this must persist, and each `--log-outcome` appends a verdict line. It holds numbers and ids
 only — profile, agent, model, tokens (in / cached / out), estimated USD, seconds, exit, how many commands the sandbox
 refused, files and lines changed, task length — **never the task text, the agent's reply or any code**.
 `agent_run.py --log-report [--since YYYY-MM-DD]` totals it per profile with the share of results used as-is.
@@ -314,6 +314,26 @@ on real work** — the log was exercised only on scratch repos.
    Keep Opus (or inherit) only for the final root-cause call the user will rely on.
 
 Not measured: how often the DeepSeek report is right on a large real repo, and the cost saving over an all-Claude audit.
+
+## Windows
+
+`agent_run.py` was changed to run on Windows, but it has **never been run on Windows** — everything below is read from
+the code paths and checked by offline tests that fake the OS-specific failure, nothing more.
+
+- Handled: config, cache and ledger live under `%USERPROFILE%\.config` / `.cache` (same relative names as elsewhere);
+  the interpreter in the allowed command is `python` (not `python3`); paths inside permission globs use forward slashes
+  (a backslash is a glob escape); `ns_read.py` is **copied** when a symlink is not allowed; the agent CLI is launched by
+  the full path `which` finds (npm installs `opencode.cmd`); JSON files are read/written as UTF-8; the console is
+  switched to UTF-8 so a Thai reply cannot crash `print()` (mutation-checked with a cp1252 console); `teibto-agent` finds
+  the helper with a small Python one-liner instead of `ls | sort -V`.
+- Not handled / unknown: `chmod 600` does nothing on Windows (the file keeps your profile's permissions); which shell
+  OpenCode uses for its `bash` tool there, and so whether its permission list treats `>`, `|`, `&&` the way it does on
+  macOS; `bsk` and `cdp` launch steps in the browser skills are macOS-only (`open -a`, Chrome paths).
+- Before trusting `analyze` or `ns-reader` on a new OS, **prove the enforcement there** — the permission list is the
+  only barrier. Run the profile with a task that orders forced attempts and check nothing was written: e.g. for
+  `analyze` in a scratch repo, `git log --oneline > rel.txt`, the same with an absolute path outside the folder,
+  `git diff --no-index <any file> NUL`, and `git log | head -1`. Every one must come back `Permission denied` and no file
+  may appear. If one runs, stop using that profile there and report it.
 
 ## Gotchas
 

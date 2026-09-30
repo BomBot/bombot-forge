@@ -9,6 +9,25 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.22.10 — 2026-09-30
+
+- **Ledger moved** from `~/.local/share/bombot-forge/delegations.jsonl` (0.22.9, one day old, no real entries on the
+  author's machine) to `~/.config/bombot-forge/delegations.jsonl`, beside `agent.json`/`browser.json`. Not
+  `~/.claude/cache`: that is Claude Code's own cache (it keeps `changelog.md`, `model-catalog`, and runs a cleanup), and
+  the ledger must persist. Anyone who ran 0.22.9 with real work must move the file by hand.
+- **`agent_run.py` prepared for Windows — never run on Windows.** `python` instead of `python3` in the allowed
+  command; forward slashes in permission globs; `ns_read.py` copied when symlinks are refused; agent CLI launched by
+  its full `which` path (`opencode.cmd`); UTF-8 for JSON files; console switched to UTF-8 (a cp1252 console crashed on a
+  Thai reply — mutation-checked); `teibto-agent` locates the helper with a Python one-liner (tested on macOS, picks
+  0.22.9 over 0.9.0 by version number). New `setup-coding-agent` **202609_15** "Windows" section lists what is handled,
+  what is unknown (which shell OpenCode uses there and whether it checks `>`/`|` the same way; `chmod` no-op; the
+  browser skills' macOS-only steps) and a forced-escape check to run on a new OS before trusting `analyze`/`ns-reader`.
+  `setup-global-instructions` **202609_14**.
+- Tests: 35 (was 30) — forward-slash globs with `python`, symlink-refused fallback to copy, ledger location, Thai reply on
+  a cp1252 console. Mutations (drop the stdout switch, drop the symlink fallback) each made a test fail, then were restored.
+
+---
+
 ## v0.22.9 — 2026-09-30
 
 - **Delegation log so the setup can be measured.** Each `agent_run.py` run (`code`, `analyze`, `ns-reader`) appends one

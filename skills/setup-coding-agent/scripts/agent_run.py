@@ -65,7 +65,8 @@ def peak_price(model):
     here = os.path.dirname(os.path.abspath(__file__))
     p = os.path.join(here, "prices.json")
     try:
-        return json.load(open(p)).get(model)
+        with open(p, encoding="utf-8") as f:
+            return json.load(f).get(model)
     except Exception:
         return None
 
@@ -78,7 +79,8 @@ READER_SUBS = ("whoami", "ping", "query", "record", "lookup", "feature", "search
 
 def load_agent_cfg(path=None):
     try:
-        cfg = json.load(open(os.path.expanduser(path or AGENT_JSON)))
+        with open(os.path.expanduser(path or AGENT_JSON), encoding="utf-8") as f:
+            cfg = json.load(f)
         return cfg if isinstance(cfg, dict) else {}
     except (OSError, ValueError):
         return {}
@@ -98,7 +100,7 @@ def read_account_ids(cfg):
 # Holds numbers and ids only - never the task text, the agent's reply, file names or code (those can be customer data).
 # The raw per-run folder in ~/.cache is not enough: it is a cache (may be deleted) and says nothing about whether
 # the caller accepted the result.
-LOG_PATH = "~/.local/share/bombot-forge/delegations.jsonl"
+LOG_PATH = "~/.config/bombot-forge/delegations.jsonl"   # beside agent.json; NOT ~/.claude/cache (Claude Code's own, cleaned)
 VERDICTS = ("accepted", "fixed", "rejected")
 
 
@@ -224,6 +226,31 @@ def format_report(records, since=None):
     return "\n".join(lines)
 
 
+# ---- Windows: what is handled here (read from the code paths - NOT run on Windows; see the skill's Status) ----
+IS_WIN = os.name == "nt"
+PY_CMD = "python" if IS_WIN else "python3"     # `python3` is normally absent on Windows
+
+
+def glob_path(p):
+    """A path as it must appear in an OpenCode permission glob: forward slashes (a backslash is a glob escape)."""
+    return p.replace("\\", "/")
+
+
+def link_or_copy(src, dst):
+    """Symlink, or copy when symlinks are not allowed (Windows without Developer Mode/admin). Returns 'link'|'copy'."""
+    try:
+        os.symlink(src, dst)
+        return "link"
+    except (OSError, NotImplementedError, AttributeError):
+        shutil.copy2(src, dst)
+        return "copy"
+
+
+def resolve_exe(name):
+    """Full path of a CLI (npm installs `opencode.cmd` on Windows; a bare name does not launch a .cmd)."""
+    return shutil.which(name) or name
+
+
 # Beyond bash/edit, an OpenCode 2.0.20 headless run also has `execute` (Code Mode: browser.* and opencode.* tools),
 # `subagent`, `skill` and `question` (seen by asking the model to list its tools). All are switched off here:
 # with them on, the bash list below is not the only door. `external_directory` covers read/glob/grep only -
@@ -237,7 +264,7 @@ REDIRECT_ESCAPES = ("*>*/*", "*>*~*", "*>*$*", "*>*..*")
 ANALYZE_GIT = ("git log", "git show", "git blame", "git diff")
 
 
-def ns_reader_permission(reader, accounts):
+def ns_reader_permission(reader, accounts, py="python3"):
     """OpenCode `permission` block for the ns-reader profile.
 
     OpenCode applies the LAST matching rule (verified live), so the ORDER below is the security:
@@ -254,11 +281,11 @@ def ns_reader_permission(reader, accounts):
     ids = [a.get("account") if isinstance(a, dict) else a for a in accounts]
     bash = {"*": "deny"}
     for sub in READER_SUBS:
-        bash["python3 %s %s *" % (reader, sub)] = "allow"
+        bash["%s %s %s *" % (py, reader, sub)] = "allow"
     bash["*--allow-prod-read*"] = "deny"
     for acct in ids:
         for sub in READER_SUBS:
-            bash["python3 %s --allow-prod-read %s --account %s *" % (reader, sub, acct)] = "allow"
+            bash["%s %s --allow-prod-read %s --account %s *" % (py, reader, sub, acct)] = "allow"
     bash["*--bridge-path*"] = "deny"
     bash["*--config*"] = "deny"
     for pat in REDIRECT_ESCAPES:
@@ -331,7 +358,7 @@ def revoke_read_account(account, path=None):
 
 
 NS_READER_PREAMBLE = """You are a read-only NetSuite assistant. The ONLY command you may run is:
-  python3 {reader} whoami|ping|query|record|lookup|feature|search --account <ACCOUNT> ...
+  {py} {reader} whoami|ping|query|record|lookup|feature|search --account <ACCOUNT> ...
 {prod}Rules (they override the task): never try any other command, flag or file; if a command is refused, say
 so and stop trying to get around it; do not guess values - report exactly what the tool printed; if the
 tool says the session expired or the account is wrong, report that and stop.
@@ -356,20 +383,21 @@ def run_ns_reader(a):
     work = os.path.join(run_dir, "work")
     os.makedirs(work, exist_ok=True)
     # a link WITHOUT spaces in its path, so the permission patterns match the command text exactly
-    reader = os.path.join(run_dir, "ns_read.py")
-    os.symlink(reader_src, reader)
+    reader = glob_path(os.path.join(run_dir, "ns_read.py"))
+    link_or_copy(reader_src, reader)
     accounts = read_account_ids(load_agent_cfg())
     cfg = {"$schema": "https://opencode.ai/config.json",
-           "permission": ns_reader_permission(reader, accounts)}
+           "permission": ns_reader_permission(reader, accounts, PY_CMD)}
     cfg_path = os.path.join(run_dir, "opencode-ns-reader.json")
-    json.dump(cfg, open(cfg_path, "w"), indent=2)
+    with open(cfg_path, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2)
     prod = ""
     if accounts:
         prod = ("For these NON-sandbox accounts (the user confirmed them) use EXACTLY this form, the flag first and the\n"
                 "account right after the subcommand, nothing else in that position:\n"
-                + "".join("  python3 %s --allow-prod-read <subcommand> --account %s ...\n" % (reader, x) for x in accounts))
-    prompt = NS_READER_PREAMBLE.format(reader=reader, prod=prod) + "\n\nTASK:\n" + task
-    cmd = ["opencode", "run", "--standalone", "--format", "json", "-m", a.model, prompt]
+                + "".join("  %s %s --allow-prod-read <subcommand> --account %s ...\n" % (PY_CMD, reader, x) for x in accounts))
+    prompt = NS_READER_PREAMBLE.format(py=PY_CMD, reader=reader, prod=prod) + "\n\nTASK:\n" + task
+    cmd = [resolve_exe("opencode"), "run", "--standalone", "--format", "json", "-m", a.model, prompt]
     if a.dry_run:
         print("DRY-RUN — profile ns-reader; config written to", cfg_path, "\n ", " ".join(cmd[:-1]), "<PREAMBLE + TASK>")
         return
@@ -402,7 +430,7 @@ def run_ns_reader(a):
         elif d.get("type") == "tool_use":
             st = part.get("state") or {}
             cmdtxt = (st.get("input") or {}).get("command", "")
-            tools.append("%-9s %s" % (st.get("status"), cmdtxt.replace(run_dir + "/", "")[:150]))
+            tools.append("%-9s %s" % (st.get("status"), cmdtxt.replace(run_dir + "/", "").replace(run_dir + os.sep, "")[:150]))
     print("run dir   :", run_dir)
     print("exit code :", rc, ("| stderr: " + err.strip()[:200]) if err.strip() else "")
     print("commands the agent tried (status · command):")
@@ -468,7 +496,7 @@ def parse_opencode(out, run_dir):
             st = part.get("state") or {}
             inp = st.get("input") or {}
             what = inp.get("command") or inp.get("path") or inp.get("pattern") or json.dumps(inp)[:100]
-            tools.append("%-9s %-6s %s" % (st.get("status"), part.get("tool"), str(what).replace(run_dir + "/", "")[:130]))
+            tools.append("%-9s %-6s %s" % (st.get("status"), part.get("tool"), str(what).replace(run_dir + "/", "").replace(run_dir + os.sep, "")[:130]))
     return tin + tcached, tcached, tout, text, tools
 
 
@@ -490,11 +518,11 @@ def run_analyze(a):
                            time.strftime("%Y%m%d_%H%M%S") + "_an")
     wt = os.path.join(run_dir, "worktree")
     cfg_path = os.path.join(run_dir, "opencode-analyze.json")
-    cmd = ["opencode", "run", "--standalone", "--format", "json", "-m", a.model,
+    cmd = [resolve_exe("opencode"), "run", "--standalone", "--format", "json", "-m", a.model,
            ANALYZE_PREAMBLE + "\n\nTASK:\n" + task]
     os.makedirs(run_dir, exist_ok=True)
-    json.dump({"$schema": "https://opencode.ai/config.json", "permission": analyze_permission()},
-              open(cfg_path, "w"), indent=2)
+    with open(cfg_path, "w", encoding="utf-8") as f:
+        json.dump({"$schema": "https://opencode.ai/config.json", "permission": analyze_permission()}, f, indent=2)
     if a.dry_run:
         print("DRY-RUN - profile analyze; config written to", cfg_path, "\n ", " ".join(cmd[:-1]), "<PREAMBLE + TASK>")
         return
@@ -541,6 +569,11 @@ def run_analyze(a):
 
 
 def main():
+    for _st in (sys.stdout, sys.stderr):
+        try:
+            _st.reconfigure(encoding="utf-8", errors="replace")   # the agent's reply may be Thai; a legacy console code page would crash print()
+        except (AttributeError, ValueError):
+            pass
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--repo", default=".")
     ap.add_argument("--task-file", default=None)
@@ -602,9 +635,8 @@ def main():
         ap.error("--task-file is required")
     # defaults from the per-machine file written by the setup-coding-agent skill (no secrets in it)
     try:
-        cfg = json.load(open(os.path.expanduser("~/.config/bombot-forge/agent.json")))
-        cfg = cfg if isinstance(cfg, dict) else {}
-    except (OSError, ValueError):
+        cfg = load_agent_cfg()
+    except Exception:
         cfg = {}
     eff_agent = a.agent or cfg.get("agent")
     if a.model is None and eff_agent and eff_agent == cfg.get("agent"):
@@ -637,12 +669,12 @@ def main():
                            time.strftime("%Y%m%d_%H%M%S"))
     if agent == "cline":
         model = a.model or "deepseek/deepseek-flash"
-        cmd = ["cline", "-P", a.provider, "-m", model, "--json", "--worktree",
+        cmd = [resolve_exe("cline"), "-P", a.provider, "-m", model, "--json", "--worktree",
                "-t", str(a.timeout), "-c", repo, prompt]
         run_cwd = None
     else:
         model = a.model
-        cmd = ["opencode", "run", "--standalone", "--format", "json"]
+        cmd = [resolve_exe("opencode"), "run", "--standalone", "--format", "json"]
         if model:
             cmd += ["-m", model]
         if a.opencode_auto:

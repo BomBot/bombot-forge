@@ -242,7 +242,7 @@ if os.environ.get("FAKE_WRITE"):
 print(json.dumps({"type": "tool_use", "part": {"tool": "shell", "state": {"status": "error", "input": {"command": "cat x"}}}}))
 print(json.dumps({"type": "tool_use", "part": {"tool": "read", "state": {"status": "completed", "input": {"path": "a.py"}}}}))
 print(json.dumps({"type": "step_finish", "part": {"tokens": {"input": 100, "output": 50, "cache": {"read": 40}}, "reason": "stop"}}))
-print(json.dumps({"type": "text", "part": {"text": "done"}}))
+print(json.dumps({"type": "text", "part": {"text": os.environ.get("FAKE_TEXT", "done")}}))
 """
 
 
@@ -302,19 +302,20 @@ class LedgerTest(unittest.TestCase):
                                m.usd_estimate("deepseek/deepseek-flash", 100, 40, 50))
         self.assertIsNone(m.usd_estimate("p/unpriced/model", 1, 0, 1))
 
-    def cli(self, *args, fake_write=False):
+    def cli(self, *args, fake_write=False, extra_env=None):
         import subprocess, sys as _sys
         home = os.path.join(self.tmp, "home"); os.makedirs(home, exist_ok=True)
         bindir = os.path.join(self.tmp, "bin"); os.makedirs(bindir, exist_ok=True)
         fake = os.path.join(bindir, "opencode")
         open(fake, "w").write(FAKE_OPENCODE); os.chmod(fake, 0o755)
-        env = dict(os.environ, HOME=home, PATH=bindir + os.pathsep + os.environ["PATH"])
+        env = dict(os.environ, HOME=home, USERPROFILE=home, PATH=bindir + os.pathsep + os.environ["PATH"])   # USERPROFILE: what expanduser uses on Windows
+        env.update(extra_env or {})
         env.pop("BOMBOT_FORGE_LOG", None)
         if fake_write:
             env["FAKE_WRITE"] = "1"
         r = subprocess.run([_sys.executable, os.path.join(_HERE, "agent_run.py")] + list(args), env=env,
                            capture_output=True, text=True, timeout=120)
-        return r, os.path.join(home, ".local", "share", "bombot-forge", "delegations.jsonl")
+        return r, os.path.join(home, ".config", "bombot-forge", "delegations.jsonl")
 
     def repo(self):
         import subprocess
@@ -352,6 +353,54 @@ class LedgerTest(unittest.TestCase):
         self.assertIn("fixed by Claude 1 (3 lines)", r3.stdout)
         r4, _ = self.cli("--log-outcome", "20990101_000000", "--verdict", "accepted")
         self.assertEqual(r4.returncode, 2)
+
+
+class PortabilityTest(unittest.TestCase):
+    """Windows-facing behaviour that can be checked on any OS. NOT a substitute for a run on Windows."""
+
+    def setUp(self):
+        self.mod = load("agent_run")
+
+    def test_permission_globs_use_forward_slashes_and_the_given_interpreter(self):
+        reader = self.mod.glob_path("C:\\Users\\a\\run\\ns_read.py")
+        self.assertEqual(reader, "C:/Users/a/run/ns_read.py")
+        r = self.mod.ns_reader_permission(reader, ["4089685"], py="python")["bash"]
+        self.assertEqual(decide(r, "python %s query --account 4089685_SB2 x" % reader), "allow")
+        self.assertEqual(decide(r, "python3 %s query --account 4089685_SB2 x" % reader), "deny")
+        self.assertEqual(decide(r, "python %s --allow-prod-read query --account 4089685 x" % reader), "allow")
+
+    def test_link_falls_back_to_a_copy_when_symlinks_are_not_allowed(self):
+        d = tempfile.mkdtemp()
+        src = os.path.join(d, "s.py"); open(src, "w").write("print(1)\n")
+        real = os.symlink
+        try:
+            def refuse(*a, **k):
+                raise OSError("A required privilege is not held by the client")   # what Windows raises
+            os.symlink = refuse
+            self.assertEqual(self.mod.link_or_copy(src, os.path.join(d, "c.py")), "copy")
+        finally:
+            os.symlink = real
+        self.assertEqual(open(os.path.join(d, "c.py")).read(), "print(1)\n")
+        self.assertEqual(self.mod.link_or_copy(src, os.path.join(d, "l.py")), "link")
+
+    def test_interpreter_name_matches_the_os(self):
+        self.assertEqual(self.mod.PY_CMD, "python" if os.name == "nt" else "python3")
+
+    def test_ledger_lives_beside_agent_json_not_in_claude_code_cache(self):
+        self.assertTrue(self.mod.LOG_PATH.startswith("~/.config/bombot-forge/"))
+        self.assertNotIn(".claude", self.mod.LOG_PATH)
+
+    def test_thai_agent_reply_does_not_crash_a_legacy_console(self):
+        # a cp1252 console raises UnicodeEncodeError on Thai unless main() reconfigures stdout (mutation-checked)
+        L = LedgerTest("test_report_says_when_quality_cannot_be_judged")
+        L.setUp()
+        repo = L.repo()
+        r, _ = L.cli("--profile", "analyze", "--repo", repo, "--task-file", os.path.join(L.tmp, "ask.md"),
+                     "--model", "p/deepseek/deepseek-flash",
+                     extra_env={"FAKE_TEXT": "\u0e1e\u0e1a\u0e1a\u0e31\u0e4a\u0e01\u0e17\u0e35\u0e48\u0e1a\u0e23\u0e23\u0e17\u0e31\u0e14 5",
+                                "PYTHONIOENCODING": "cp1252"})
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertNotIn("UnicodeEncodeError", r.stderr)
 
 
 if __name__ == "__main__":
