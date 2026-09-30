@@ -14,7 +14,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0 — the skill covers both engines now (bsk first), so the old name misled.
 
-**Skill version: `202609_15`**
+**Skill version: `202609_16`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -127,7 +127,7 @@ end-to-end time — the win is per-command overhead and not needing a second log
    Then, with the user's consent (`auto_login_click`) and the flag on: click `#login-submit` once (never read or
    type a credential; stop on an MFA prompt) and check that the URL left the login page. **Tested (2026-09-30, SB2):** a `bsk`
    click on `#login-submit` with both fields `:-webkit-autofill` (values hidden, length 0) submitted them and landed on
-   the Home page (`SANDBOX`, no MFA). That run started from a still-valid session, not a truly expired one. If it does not leave the login page, or there is no consent,
+   the Home page (`SANDBOX`, no MFA). Repeated after the user logged out (a real expired session): `ns_read.py` stopped at the login page without logging in, then the same click landed on Home again. If it does not leave the login page, or there is no consent,
    hand off to a **real tab** (the user's own Chrome, where they can see it and press Login):
    - Open it for them: on macOS `open -a "Google Chrome" "<login url>"` **verified**: it opens a new *tab* in the
      already-open Chrome window (`bsk tab list --scope user` then showed it in a user window). Tell the user which

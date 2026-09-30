@@ -9,6 +9,15 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.22.6 — 2026-09-30
+
+- The `bsk` Login click re-tested on a **truly expired session** (the user logged out of SB2 first): `ns_read.py whoami`
+  stopped at the login page without logging in (exit 3), the form was redirected to automatically with both fields
+  `:-webkit-autofill` and the button enabled, one `#login-submit` click landed on Home (`4089685_SB2`, `SANDBOX`, no MFA).
+  Removes the caveat from 0.22.5. `browser-engines` **202609_16**.
+
+---
+
 ## v0.22.5 — 2026-09-30
 
 - **`tab borrow` removed from the guidance** (`browser-engines` **202609_15**): its confirmation prompt shows for about
