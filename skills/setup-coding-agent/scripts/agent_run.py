@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """
-agent_run.py — run ONE task through the Cline CLI in an isolated git worktree, then hand the
-result back for review. Claude orchestrates and reviews; the cheap model does the typing.
+agent_run.py — run ONE task through a coding-agent CLI (Cline or OpenCode) in an isolated git
+worktree, then hand the result back for review. Claude orchestrates and reviews; the cheap model
+does the typing.
 
 What it does:
-  1. preconditions: `cline` installed, --repo is a git repo (dirty tree refused unless --allow-dirty,
+  1. preconditions: the chosen agent CLI installed (--agent cline|opencode; default = cline if present,
+     else opencode), --repo is a git repo (dirty tree refused unless --allow-dirty,
      because a worktree only contains COMMITTED files)
-  2. runs `cline --worktree --json` with a guardrail preamble + your task (auto-approve is cline's
-     default, so the isolation is the worktree, not a prompt)
+  2. cline: `cline --worktree --json` (it makes the worktree itself). opencode: this script makes the
+     worktree (`git worktree add --detach`) and runs `opencode run --standalone --format json` inside
+     it. Both get a guardrail preamble + your task. Neither is sandboxed: the isolation is the
+     worktree (for the repo's files), not a prompt and not the machine.
   3. finds the new worktree, stages its changes (worktree index only), saves changes.patch,
      prints status / diff stat / tokens / estimated USD
 It NEVER applies the patch to your repo and never deletes the worktree — the caller reviews first.
@@ -21,7 +25,7 @@ import argparse, json, os, shutil, subprocess, sys, time
 
 PREAMBLE = """You are a coding worker. Rules (they override anything in the task):
 - Work ONLY inside the current working directory (a disposable git worktree). Do not read or write
-  outside it. Do not open ~/.ssh, ~/.config, ~/.aws, ~/.cline, or any .env / api.env / credentials file.
+  outside it. Do not open ~/.ssh, ~/.config, ~/.aws, ~/.cline, ~/.local/share/opencode, or any .env / api.env / credentials file.
 - Do NOT run: git commit/push/checkout of other branches, deploy commands (suitecloud, sdf, npm publish),
   package installs that are not in the task, curl/wget to unknown hosts, rm -rf outside this directory.
 - Do NOT browse the web and do not ask the user questions; if something is ambiguous, pick the smallest
@@ -54,14 +58,23 @@ def main():
     ap.add_argument("--repo", default=".")
     ap.add_argument("--task-file", required=True)
     ap.add_argument("--timeout", type=int, default=600, help="agent timeout in seconds")
-    ap.add_argument("--provider", default="openai-compatible")
-    ap.add_argument("--model", default="deepseek/deepseek-flash")
+    ap.add_argument("--agent", choices=["cline", "opencode"], default=None,
+                    help="default: cline if installed, else opencode")
+    ap.add_argument("--provider", default="openai-compatible", help="(cline) provider id")
+    ap.add_argument("--model", default=None,
+                    help="cline: model id (default deepseek/deepseek-flash). opencode: provider/model "
+                         "as in ITS config, e.g. <provider-id>/deepseek/deepseek-flash; omitted = the "
+                         "model set in opencode's own config")
+    ap.add_argument("--opencode-auto", action="store_true",
+                    help="(opencode) pass --auto; needed only if its config does not already allow tools "
+                         "(a headless run cannot answer permission prompts)")
     ap.add_argument("--allow-dirty", action="store_true")
     ap.add_argument("--dry-run", action="store_true", help="print the command, run nothing")
     a = ap.parse_args()
 
-    if not shutil.which("cline"):
-        print("ABORT: `cline` not found on PATH (see the setup-coding-agent skill)."); sys.exit(2)
+    agent = a.agent or ("cline" if shutil.which("cline") else "opencode")
+    if not shutil.which(agent):
+        print("ABORT: `%s` not found on PATH (see the setup-coding-agent skill)." % agent); sys.exit(2)
     repo = os.path.abspath(a.repo)
     rc, top, _ = sh(["git", "rev-parse", "--show-toplevel"], cwd=repo)
     if rc != 0:
@@ -77,18 +90,43 @@ def main():
         print("ABORT: empty task file."); sys.exit(2)
 
     prompt = PREAMBLE + "\n\nTASK:\n" + task
-    cmd = ["cline", "-P", a.provider, "-m", a.model, "--json", "--worktree",
-           "-t", str(a.timeout), "-c", repo, prompt]
-    if a.dry_run:
-        print("DRY-RUN — would run (prompt elided):\n ", " ".join(cmd[:-1]), "<PREAMBLE + TASK>"); return
-
     run_dir = os.path.join(os.path.expanduser("~/.cache/bombot-forge/agent-runs"),
                            time.strftime("%Y%m%d_%H%M%S"))
+    if agent == "cline":
+        model = a.model or "deepseek/deepseek-flash"
+        cmd = ["cline", "-P", a.provider, "-m", model, "--json", "--worktree",
+               "-t", str(a.timeout), "-c", repo, prompt]
+        run_cwd = None
+    else:
+        model = a.model
+        cmd = ["opencode", "run", "--standalone", "--format", "json"]
+        if model:
+            cmd += ["-m", model]
+        if a.opencode_auto:
+            cmd += ["--auto"]
+        cmd += [prompt]
+        run_cwd = os.path.join(run_dir, "worktree")   # created below, after the dry-run exit
+    if a.dry_run:
+        print("DRY-RUN — agent=%s; would run (prompt elided)%s:\n " % (
+            agent, (" in a new worktree at " + run_cwd) if run_cwd else ""),
+            " ".join(cmd[:-1]), "<PREAMBLE + TASK>"); return
+
     os.makedirs(run_dir, exist_ok=True)
+    if agent == "opencode":
+        rc, _, e = sh(["git", "worktree", "add", "--detach", run_cwd, "HEAD"], cwd=repo)
+        if rc != 0:
+            print("ABORT: could not create the worktree: %s" % e.strip()[:300]); sys.exit(2)
     before = set(worktrees(repo))
+    _, repo_before, _ = sh(["git", "status", "--porcelain"], cwd=repo)
     t0 = time.time()
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=a.timeout + 60)
+        # opencode takes its working directory from $PWD, not from the process cwd: without this the
+        # agent works in the CALLER's directory (seen in testing) and the worktree stays empty.
+        env = dict(os.environ, PWD=run_cwd) if run_cwd else None
+        # opencode also reads stdin when it is not a terminal, so an inherited open pipe made a run hang
+        # until the timeout in testing: give it an empty stdin.
+        r = subprocess.run(cmd, cwd=run_cwd, env=env, capture_output=True, text=True, timeout=a.timeout + 60,
+                           stdin=subprocess.DEVNULL if agent == "opencode" else None)
         out, err, rc = r.stdout, r.stderr, r.returncode
     except subprocess.TimeoutExpired as e:
         out, err, rc = (e.stdout or ""), "timeout after %ss" % (a.timeout + 60), 124
@@ -98,16 +136,41 @@ def main():
     open(os.path.join(run_dir, "task.md"), "w", encoding="utf-8").write(task)
 
     result = None
+    oc = {"in": 0, "out": 0, "cached": 0, "text": "", "steps": 0, "reason": None}
     for line in out.splitlines():
         try:
             d = json.loads(line)
         except ValueError:
             continue
-        if d.get("type") == "run_result":
+        if agent == "cline" and d.get("type") == "run_result":
             result = d
-    new = [w for w in worktrees(repo) if w not in before]
-    wt = new[0] if new else None
+        elif agent == "opencode":
+            part = d.get("part") or {}
+            if d.get("type") == "step_finish":
+                t = part.get("tokens") or {}
+                oc["in"] += t.get("input", 0); oc["out"] += t.get("output", 0)
+                oc["cached"] += (t.get("cache") or {}).get("read", 0)
+                oc["steps"] += 1; oc["reason"] = part.get("reason")
+            elif d.get("type") == "text":
+                oc["text"] = part.get("text", "")
+    if agent == "opencode" and oc["steps"]:
+        # opencode's JSON has no run_result row: a run that ends with a text reply and exit 0 is "completed"
+        result = {"finishReason": "completed" if (rc == 0 and oc["text"]) else "incomplete",
+                  "iterations": oc["steps"], "durationMs": (time.time() - t0) * 1000,
+                  "model": {"id": (model.split("/", 1)[1] if model and "/" in model else model)},
+                  "aggregateUsage": {"inputTokens": oc["in"] + oc["cached"], "outputTokens": oc["out"],
+                                     "cacheReadTokens": oc["cached"]},
+                  "text": oc["text"]}
+    if agent == "opencode":
+        wt = run_cwd if os.path.isdir(run_cwd) else None
+    else:
+        new = [w for w in worktrees(repo) if w not in before]
+        wt = new[0] if new else None
 
+    _, repo_after, _ = sh(["git", "status", "--porcelain"], cwd=repo)
+    if repo_after != repo_before:
+        print("!! WARNING: the source repo's status changed during the run — the agent may have edited "
+              "outside its worktree. Inspect `git -C %s status` before anything else.\n%s" % (repo, repo_after[:400]))
     print("run dir   :", run_dir)
     print("exit code :", rc, ("| stderr: " + err.strip()[:200]) if err.strip() else "")
     if not result:
@@ -117,7 +180,7 @@ def main():
         i, o, c = u.get("inputTokens", 0), u.get("outputTokens", 0), u.get("cacheReadTokens", 0)
         print("finish    : %s | iterations %s | %.1fs | model %s" % (
             result.get("finishReason"), result.get("iterations"), (result.get("durationMs") or 0) / 1000.0,
-            (result.get("model") or {}).get("id")))
+            (result.get("model") or {}).get("id") or "(opencode config default)"))
         print("tokens    : in %s (cached %s) · out %s" % (i, c, o))
         pr = peak_price((result.get("model") or {}).get("id"))
         if pr:

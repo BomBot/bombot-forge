@@ -9,6 +9,18 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.15.2 — 2026-09-30
+
+- `setup-coding-agent` **202609_02** + `agent_run.py` — OpenCode is now a supported worker
+  (`--agent cline|opencode`, default = cline if present). The helper creates the worktree for it and
+  parses its JSON (tokens summed from `step_finish`). Two real bugs found by testing and fixed:
+  OpenCode takes its directory from `$PWD` (setting only `cwd=` made the agent work in the caller's
+  directory), and it hung when stdin was an open pipe. New guard: warn if the source repo's status
+  changes during a run. Documented that the tested machine's OpenCode config auto-approves every
+  tool (`permission: "allow"`).
+
+---
+
 ## v0.15.1 — 2026-09-30
 
 - `setup-browser` **202609_03** — re-running is now an update, not a fresh setup: read the existing

@@ -1,7 +1,7 @@
 ---
 name: setup-coding-agent
 description: >-
-  Use when setting up or using a coding agent CLI (Cline, or OpenCode if it is what the machine
+  Use when setting up or using a coding agent CLI (Cline or OpenCode, whichever the machine
   has) as the worker for ALL code/text edits, with Claude only briefing it and reviewing the
   result — for example to spend the company's DeepSeek tokens instead of Claude's. Covers
   detecting which CLI exists, pointing it at the TEIBTO DeepSeek endpoint, the privacy settings to
@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_01`**
+**Skill version: `202609_02`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -27,7 +27,9 @@ DeepSeek key, not Claude's. This is the agentic sibling of `teibto-worker` / `te
 | `--worktree` makes a detached worktree under `~/.cline/worktrees/<id>/<repo>`; the source repo stays untouched | verified |
 | `--json` ends with a `run_result` row: finish reason, iterations, tokens, model | verified |
 | `agent_run.py` end to end on a scratch repo: bug fixed, patch reviewed, applied, test passes, worktree removed | verified — 2 runs, ~5–10 s, est. ≈ US$0.005 each |
-| OpenCode | **not installed on the machine used to write this — nothing here is verified for it** |
+| OpenCode `2.0.20`: `opencode run --standalone --format json -m <provider>/<model> "<prompt>"` run inside a worktree that `agent_run.py` creates | verified on a Mac: 3 runs on a scratch repo; bug fixed, patch reviewed and applied, test passes, source repo untouched; ≈ US$0.004 and ~11 s per run |
+| OpenCode reads `$PWD`, not the process cwd | **verified the hard way**: with only `cwd=` set, the agent worked in the CALLER's directory and found no files. `agent_run.py` now sets `PWD` too |
+| OpenCode reads stdin when it is not a terminal | verified: an inherited open pipe made a run hang until the timeout; `agent_run.py` gives it `/dev/null` |
 | Cline hooks (`--hooks-dir`) as a real guard against dangerous commands | **not tested** |
 
 ## Iron rules
@@ -56,6 +58,19 @@ DeepSeek key, not Claude's. This is the agentic sibling of `teibto-worker` / `te
 names and the base URL only — **never print `apiKey` values**). If both CLIs exist, ask which to
 use; if neither, offer to help install Cline (`cline --help` afterwards) and stop until the user
 has done it.
+
+**OpenCode path (`--agent opencode`).** Nothing to install on a machine that has it; its provider is
+whatever `~/.config/opencode/opencode.jsonc` defines — look for a provider whose `baseURL` is the
+TEIBTO endpoint and pass `--model <that-provider-id>/deepseek/deepseek-flash` (model ids contain a
+`/`). Without `--model` the helper uses OpenCode's own default model, which may not be the company
+key — say which one ran. `opencode run` has no worktree flag, so **the helper creates the worktree
+itself** (`git worktree add --detach`). OpenCode's JSON has no `run_result` row: the helper sums the
+`step_finish` tokens and calls a run "completed" when it exited 0 and ended with a text reply.
+**Check the config's `permission` value:** on the machine used to test it was `"allow"` (every tool
+auto-approved, shell included) — the same exposure as Cline's default. Show the user; don't change it
+without their OK. If a machine's config does NOT allow tools, a headless run can't answer prompts:
+pass `--opencode-auto` knowingly. A running OpenCode desktop app keeps a background service — the
+helper uses `--standalone` (a private server), so it doesn't touch the user's sessions.
 
 **Step 1 — point it at the company key's endpoint.** Endpoint
 `https://tokenhub-intl.tencentcloudmaas.com/v1`, model `deepseek/deepseek-flash` (same as
@@ -121,6 +136,5 @@ me only briefing and reviewing?"* If yes, record `{"default_delegate": true, "ag
 
 ## Status
 
-v0.1 draft — Cline path verified on one Mac with two scratch-repo runs. OpenCode untested (not
-installed). No enforcement layer beyond the worktree; hooks are a possible next step. Not yet run
+v0.1 draft — Cline and OpenCode paths each verified on one Mac with scratch-repo runs. No enforcement layer beyond the worktree; hooks are a possible next step. Not yet run
 on a real customer repo.
