@@ -9,6 +9,20 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.16.0 — 2026-09-30
+
+- `ns-live-verify` **202609_06** — new scoped read helper `scripts/ns_read.py` (`whoami`, `query`,
+  `record`) so a coding agent can be allowed to run ONLY this instead of raw `bsk`: mandatory
+  identity gate, SELECT/WITH-only SQL validated before any browser call, Dev-Bridge-only endpoints,
+  sandbox unless `--allow-prod-read`, own `bsk` session always stopped, never logs in or clicks.
+  Drafted by the coding agent (≈ US$0.03, 25 iterations), then reviewed: I fixed three defects
+  (numeric tab id, any-Suitelet path, the word "Notice" in real data read as a dead session), and
+  live testing on a sandbox found two more the stubs had hidden (`bsk navigate` needs `--json`;
+  the tester answers `{"success": false}` with no `error` key). 31 offline tests, each SQL defence
+  layer and each guard mutation-checked. `cdp` engine not implemented.
+
+---
+
 ## v0.15.4 — 2026-09-30
 
 - `ns-record-write` **202609_11** — offline suite grows from 10 to 17 cases: it now checks what is

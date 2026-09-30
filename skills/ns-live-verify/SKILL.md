@@ -9,7 +9,7 @@ description: >-
 
 # NetSuite Live Verify (read-only via dbgQuery)
 
-**Skill version: `202609_05`**
+**Skill version: `202609_06`**
 
 Run SuiteQL / `record.toJSON` against a live account through a logged-in Chrome tab, so you
 verify against **real state** instead of guessing. Read-only, SELECT-only. Pairs with
@@ -59,6 +59,30 @@ python3 cdp.py eval 'window.__r'
 - SB2 tester body: `{qtype:"sql", sql:"..."}` (also `qtype:"whoami"`, `qtype:"load",recordType,id`).
 - `action=dbgQuery` body: `{q:"<SELECT>", params?:[]}` → `{rows,count,truncated}`;
   `action=dbgRecord` body `{type,id}` → `record.toJSON()` (fields nested under `.record.fields`).
+
+### Option C — the scoped helper `scripts/ns_read.py` (for agents that must not run raw `bsk`)
+
+The read-side sibling of `ns_write.py`: one command, no free-form JS, its own `bsk` session that it
+always stops. `python3 scripts/ns_read.py whoami|query|record --account <ACCOUNT> …`
+
+- **Identity gate every run** (company from `nlapiGetContext()` must equal `--account`); a login or
+  "Notice" page is a hard stop (exit 3) — it never logs in, clicks or types.
+- **Sandbox freely; anything else needs `--allow-prod-read`** (the data goes to whichever model runs
+  the script — say so to the user first).
+- `query` accepts one `SELECT`/`WITH` only (comments stripped, string literals ignored, no `;`, no
+  INSERT/UPDATE/DELETE/…, ≤ 5000 chars), checked **before** any browser call.
+- POSTs only to a Dev Bridge endpoint (`action=dbgQuery|dbgRecord` or `step=DEBUG_QUERY`) — never
+  another Suitelet. Endpoint and body style come from `--bridge-path`/`--body-style` or the local
+  `browser.json` (`dev_bridge.endpoints["<account>"] = {"path": …, "body_style": "q"|"sql"}`).
+- Exit codes: `0` ok · `1` the bridge answered with an error (including `{"success": false}`) ·
+  `2` refused by a guard · `3` session/transport/dialog problem.
+- Engine `bsk` only. `cdp` prints "not implemented" (exit 2) — no lane is bound on the machine it
+  was written on, so it could not be tested.
+- Verified live on a sandbox: `whoami`, and a `COUNT(*)` through the SB2 tester body style; refusal
+  of a stacked/`DROP` query and of a non-bridge Suitelet; a bad column comes back as exit 1.
+  **Not verified live:** `record` (the SB2 tester has no `dbgRecord` action), a non-sandbox read.
+- 31 offline tests: `python3 scripts/test_ns_read_offline.py`. Bugs live testing found that the
+  stubs had hidden (numeric tab id, `bsk navigate` needs `--json`, `success:false`) are now tests.
 
 ## SuiteQL gotchas (cost real time)
 
