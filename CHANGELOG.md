@@ -9,6 +9,23 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.18.0 — 2026-09-30
+
+- **`setup-teibto-worker` deprecated (202609_08 stub) and folded into `setup-coding-agent` (202609_06).**
+  Moved with `git mv`: `ask_cheap.py` and `prices.json` now live in `skills/setup-coding-agent/scripts/`;
+  the key-saving steps, smoke test, cost formula and gotchas are the new section "The company key and
+  the one-shot helper". `agent_run.py` reads `prices.json` from beside itself. The key file path
+  (`~/.config/teibto/api.env`) is unchanged, so an already-configured machine needs nothing.
+- New `scripts/test_agent_run_offline.py` (4 tests): the price table sits beside `agent_run.py`, is valid,
+  gives the default model a positive price, gives an unknown model none (no guessed prices), and
+  `ask_cheap.py` reads the same table. Written first; it failed before the move and passes after.
+- `teibto-worker` skill stub **202609_04**: paths updated. `ask_cheap.py` is kept (moved) because it was not
+  confirmed unused.
+- Anything that ran `.../skills/setup-teibto-worker/scripts/ask_cheap.py` by that path (a script or a
+  note outside this repo) must switch to `.../skills/setup-coding-agent/scripts/ask_cheap.py`.
+
+---
+
 ## v0.17.1 — 2026-09-30
 
 - **Fix: `ns_read.py` / `ns-live-verify` pointed at the wrong endpoint.** They were written against an

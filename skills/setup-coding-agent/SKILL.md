@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_05`**
+**Skill version: `202609_06`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -73,8 +73,8 @@ pass `--opencode-auto` knowingly. A running OpenCode desktop app keeps a backgro
 helper uses `--standalone` (a private server), so it doesn't touch the user's sessions.
 
 **Step 1 — point it at the company key's endpoint.** Endpoint
-`https://tokenhub-intl.tencentcloudmaas.com/v1`, model `deepseek/deepseek-flash` (same as
-`setup-teibto-worker`). If Cline has no such provider, the user runs, in their own terminal:
+`https://tokenhub-intl.tencentcloudmaas.com/v1`, model `deepseek/deepseek-flash` (the same endpoint and
+model the key section below uses). If Cline has no such provider, the user runs, in their own terminal:
 `cline auth -p openai-compatible -b https://tokenhub-intl.tencentcloudmaas.com/v1 -m deepseek/deepseek-flash`
 and enters the key when asked (Cline keeps its own copy in `~/.cline/data/settings/`; the
 per-machine source of truth stays `~/.config/teibto/api.env`).
@@ -109,6 +109,68 @@ subagent read `agent` and `model` from this file, so they need no flags, and **o
 
 > Code/text edits go to the coding agent via `agent_run.py` (skill `setup-coding-agent`); Claude
 > briefs and reviews. Never delegate browser, production, deploy, secrets or customer data.
+
+## The company key and the one-shot helper (moved here from `setup-teibto-worker` in 0.18.0)
+
+The DeepSeek key of the TEIBTO endpoint lives in **`~/.config/teibto/api.env`** (`TEIBTO_API_KEY=…`,
+chmod 600) — the per-machine source of truth. OpenCode/Cline keep their own copy in their own config
+(you enter it once through their `auth` command); this file is what `ask_cheap.py` reads and what you
+re-enter from if a CLI loses its copy.
+
+- Endpoint `https://tokenhub-intl.tencentcloudmaas.com/v1` (OpenAI-compatible), default model
+  `deepseek/deepseek-flash`.
+- **Iron rules:** the key never goes in a repo, a prompt, a command line, or chat. The user types/pastes
+  it themselves (in an editor, or at a hidden prompt) and nobody reads it back — check it is filled by
+  **length only**. Never turn off TLS verification to "fix" an SSL error (see the first gotcha). This
+  repo is public; its redaction CI blocks `sk-…`-shaped keys as a backstop. Customer data sent through
+  any of this leaves to an external provider — only with the user's explicit OK.
+
+**Save the key (per machine).** Default: open the key file in the user's editor. It creates an empty
+template only if the file is missing, locks it to 600 and opens it; it never reads or writes a key:
+
+```bash
+F=~/.config/teibto/api.env; mkdir -p ~/.config/teibto
+[ -s "$F" ] || printf 'TEIBTO_API_KEY=\n' > "$F"; chmod 600 "$F"
+open -a "Sublime Text" "$F" 2>/dev/null || open -e "$F"   # fallback: TextEdit
+```
+
+Tell the user to paste the key right after `TEIBTO_API_KEY=` (no quotes/spaces), save, and say "saved".
+Check without reading the value: `sed -n 's/^TEIBTO_API_KEY=//p' ~/.config/teibto/api.env | tr -d '\n' | wc -c` (> 0).
+Terminal alternative (hidden prompt; the user runs it — it cannot run inside Claude's Bash):
+
+```bash
+bash -c 'mkdir -p ~/.config/teibto && read -rsp "TEIBTO_API_KEY: " k && printf "TEIBTO_API_KEY=%s\n" "$k" > ~/.config/teibto/api.env && chmod 600 ~/.config/teibto/api.env && echo && echo saved'
+```
+
+**`scripts/ask_cheap.py`** sends ONE prompt to that endpoint and prints the reply (stdlib only; the key
+goes only in the HTTP header). Smoke test — expect `pong` and a usage line, exit 0:
+
+```bash
+S=$(ls ~/.claude/plugins/cache/bombot-forge/bombot-forge/*/skills/setup-coding-agent/scripts/ask_cheap.py | sort -V | tail -1)
+python3 "$S" <<<'Reply with exactly: pong'
+```
+
+Env switches: `TEIBTO_MODEL`, `TEIBTO_BASE_URL`, `TEIBTO_TIMEOUT`, `TEIBTO_ENV_FILE`. Exit codes: 0 ok · 1
+request/HTTP error · 2 no key found (it prints the setup command).
+
+**Token usage + cost.** Every `ask_cheap.py` call prints a usage line on stderr from the response's
+`usage` field: `[ask_cheap model: … | tokens in=N out=N total=N (cached=N, reasoning=N incl. in out) | cost≈$X peak|off-peak]`.
+Prices live in **`scripts/prices.json`** (USD per 1M tokens at peak, keyed by the model id the response
+returns) and `agent_run.py` reads the same file for its `est. USD` line. A model with no price shows
+`cost=n/a` — never fill it from a blog or aggregator figure. `deepseek/deepseek-flash` uses DeepSeek's
+official V4.1-Flash rates (peak in $0.30 / cached $0.006 / out $1.20; off-peak half, outside 01–04 and
+06–10 UTC Mon–Fri); TEIBTO/TokenHub billing may differ, so the figure is an estimate. Formula:
+`((in − cached)·input + cached·cached_input + out·output) / 1e6`. Per-machine flat override:
+`TEIBTO_PRICE_IN` / `TEIBTO_PRICE_OUT` / `TEIBTO_PRICE_CACHED`. `python3 scripts/test_agent_run_offline.py`
+checks the table is found and valid.
+
+Gotchas (hit for real):
+- **`SSL: CERTIFICATE_VERIFY_FAILED` on macOS** — Python from python.org ships an empty CA store until
+  "Install Certificates.command" is run. The helper falls back to `certifi`, then `/etc/ssl/cert.pem`, so it
+  still verifies. `curl` is not affected (system store) — a quick way to tell cert store from endpoint.
+- **HTTP 401 "API Key does not exist"** — key file missing/typo'd or the key was revoked; save it again.
+- **Helper not found** — the glob above is empty when the plugin isn't installed or is older than 0.18.0:
+  run `claude plugin marketplace update bombot-forge && claude plugin update bombot-forge@bombot-forge`.
 
 ## The subagent `teibto-agent`
 

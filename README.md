@@ -20,7 +20,7 @@ fan-out fix).
 | **setup-local-llm** | setting up / checking the default `local-llm` worker (free, private — Ollama on `bombot-gaming` over Tailscale via the `ollama` MCP) — installs the MCP script + agent from canonical copies, registers the MCP, PASS/FAIL checker, re-snapshot flow |
 | **teibto-code** | *(deprecated in 0.17.0)* replaced by the `teibto-agent` subagent — see `setup-coding-agent`; the verify-before-apply rule carries over |
 | **teibto-worker** | *(deprecated in 0.17.0)* the subagent it called was removed; use `teibto-agent` (edits), `local-llm` (private text) or `ask_cheap.py` |
-| **setup-teibto-worker** | saving `TEIBTO_API_KEY` at a hidden prompt (never in a repo or shell history) for the `ask_cheap.py` helper and its price table — the subagent that used it was removed in 0.17.0 |
+| **setup-teibto-worker** | *(deprecated in 0.18.0)* moved into `setup-coding-agent`: saving `TEIBTO_API_KEY` at a hidden prompt, the `ask_cheap.py` helper and the token/USD price table |
 
 ## Benchmarks
 

@@ -54,7 +54,7 @@ def worktrees(repo):
 
 def peak_price(model):
     here = os.path.dirname(os.path.abspath(__file__))
-    p = os.path.join(here, "..", "..", "setup-teibto-worker", "scripts", "prices.json")
+    p = os.path.join(here, "prices.json")
     try:
         return json.load(open(p)).get(model)
     except Exception:
