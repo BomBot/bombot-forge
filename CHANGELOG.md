@@ -9,6 +9,26 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.23.0 — 2026-09-30
+
+- **New skill `setup-plugins` (202609_01)**: installs the team's Claude Code plugins from their **GitHub source**, only
+  the ones the user picks. `plugins.json` lists six (teibto-netsuite-toolkit, superpowers, impeccable, mattpocock-skills,
+  andrej-karpathy-skills, ui-ux-pro-max); `scripts/plugins_setup.py` shows what is present, then runs `claude plugin
+  marketplace add` + `install <plugin>@<marketplace> --scope user`. Guards, all in code and covered by offline tests: only
+  four command shapes may run; a name not in the file is refused; a plugin already present under any marketplace
+  (`@synced` included) is skipped; a marketplace that appears under a different name than the file says is reported, not
+  trusted; a repo it cannot read is reported and the run continues; it never logs in.
+  Tests: 12 with a fake `claude`; three mutations (drop the "present elsewhere" check, allow any scope, skip the
+  marketplace-name check) each made a test fail, then were restored. Live: the real CLI in a throwaway `HOME` installed
+  two public plugins, reported the unreadable repo, and a re-run installed nothing.
+  Not covered: skills that are plain folders or symlinks in `~/.claude/skills`, plugins that only come from the account
+  sync, and the locally uploaded `9arm-skills` (no GitHub source); private-repo installs with real access; Windows.
+- **CI fix**: the two previous pushes (0.22.9, 0.22.10) failed the redaction check because a test used a made-up
+  eight-digit run id, which the "account-shaped number" scan rejects. Replaced with a non-numeric id. The earlier
+  "nothing left to do" after 0.22.10 was said without checking CI.
+
+---
+
 ## v0.22.10 — 2026-09-30
 
 - **Ledger moved** from `~/.local/share/bombot-forge/delegations.jsonl` (0.22.9, one day old, no real entries on the

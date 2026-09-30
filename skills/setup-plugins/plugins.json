@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "about": "Plugins this setup can install, by GitHub source. Pick a subset at run time; nothing here is copied, only pointed at.",
+  "plugins": [
+    {
+      "name": "teibto-netsuite-toolkit",
+      "marketplace": "teibto-skills",
+      "source": "https://github.com/Teibto/Teibto-Claude-Skills.git",
+      "note": "TEIBTO NetSuite toolkit (code review, KM generator, release notes ...). Access to the repo may be restricted."
+    },
+    {
+      "name": "superpowers",
+      "marketplace": "superpowers-dev",
+      "source": "https://github.com/obra/superpowers.git",
+      "note": "Process skills (brainstorming, debugging, TDD, plans)."
+    },
+    {
+      "name": "impeccable",
+      "marketplace": "impeccable",
+      "source": "pbakaus/impeccable",
+      "note": "Frontend design critique and polish skills."
+    },
+    {
+      "name": "mattpocock-skills",
+      "marketplace": "mattpocock",
+      "source": "https://github.com/mattpocock/skills.git",
+      "note": "Engineering-practice skills (TDD, diagnosing bugs, code review, grilling)."
+    },
+    {
+      "name": "andrej-karpathy-skills",
+      "marketplace": "karpathy-skills",
+      "source": "https://github.com/multica-ai/andrej-karpathy-skills.git",
+      "note": "Karpathy-style coding guidelines skill."
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "marketplace": "ui-ux-pro-max-skill",
+      "source": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git",
+      "note": "UI/UX design intelligence skill."
+    }
+  ]
+}

@@ -351,7 +351,7 @@ class LedgerTest(unittest.TestCase):
         self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
         r3, _ = self.cli("--log-report")
         self.assertIn("fixed by Claude 1 (3 lines)", r3.stdout)
-        r4, _ = self.cli("--log-outcome", "20990101_000000", "--verdict", "accepted")
+        r4, _ = self.cli("--log-outcome", "nonexistent-run-id", "--verdict", "accepted")
         self.assertEqual(r4.returncode, 2)
 
 
