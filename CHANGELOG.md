@@ -9,6 +9,16 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.14.5 — 2026-09-30
+
+- `cdp-browser` **202609_05** — measured what the page-level dialog guard does NOT cover: it works
+  on the top window only; a same-origin iframe's `confirm()` is still auto-accepted; a popup's
+  dialog is not auto-accepted and hangs `bsk evaluate`/`session stop` until a human dismisses it;
+  the guard is lost on navigation. Conclusion recorded: the guard is not a safety barrier, so no
+  data-changing UI clicks on production through `bsk`; `ns_write.py` unaffected.
+
+---
+
 ## v0.14.4 — 2026-09-30
 
 - `ns-record-write` **202609_09** — docs only: mid-write transport failure verified live on a

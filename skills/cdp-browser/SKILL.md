@@ -12,7 +12,7 @@ description: >-
 
 # Browser driving: bsk for read/QA, cdp for the rest
 
-**Skill version: `202609_04`**
+**Skill version: `202609_05`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -124,6 +124,25 @@ end-to-end time — the win is per-command overhead and not needing a second log
    of the log; judge only the page's own.
 8. **Faster navigation:** `bsk navigate <url> --wait-until domcontentloaded`, then wait for the
    element you need (Home: 8.9 s vs 14–19 s for the default `load`).
+
+### Dialog guard — what it does NOT cover (tested on a Mac against a sandbox, 2026-09-30)
+
+A page-level guard (`window.confirm=()=>false` …) is **not** a safety barrier. Measured on a
+sandbox NetSuite page:
+
+| Case | Result |
+|---|---|
+| no guard, top window `confirm()` | accepted by `bsk`, page got `true`; reported in `dialogs` |
+| guard installed, top window `confirm()` | returns `false`, no dialog — guard works |
+| guard installed, **same-origin iframe** `confirm()` | **accepted (`true`)** — the iframe is a new window, the guard is not in it |
+| guard installed, **popup** (`window.open`) `confirm()` | **not auto-accepted**: the dialog stayed on screen for a human and the `evaluate` hung until the 120 s timeout; `bsk session stop` then failed with "cleanup timed out" until the dialog was dismissed |
+| guard, then navigate | guard gone (the new page's `confirm` is the page's own) |
+| page re-arms `onbeforeunload`, then navigate | no dialog reported — **inconclusive** (Chrome only shows it after a user gesture, which this test had none of) |
+
+What follows: the guard must be reinstalled after **every** navigation and does not reach iframes
+or popups, so `bsk` still must not *click* data-changing UI on production. `ns_write.py` is not
+affected (it calls `N/record`, clicks nothing). If a hung dialog blocks the session, dismiss it by
+hand, then `bsk session stop <id>` again and confirm `session_count` is 0.
 
 ### Known limits (Teibto's tests, mostly Windows — recheck on this Mac before relying)
 
