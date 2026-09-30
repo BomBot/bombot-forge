@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_09`**
+**Skill version: `202609_10`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -248,6 +248,9 @@ profile goes to that provider. So each non-sandbox account is opened **one at a 
    again for `A`. A yes for `A` says nothing about any other account.
 4. To take it back: `--revoke-read-account A`.
 
+
+Before an `ns-reader` run, tell the user in one line that the agent will use `bsk` (a background Agent Window per
+`ns_read.py` call, closed when it finishes; each call also prints a `[ns_read] using bsk …` notice).
 
 Things to know: whatever the agent reads goes to the model provider; its summary is a claim, so
 `agent_run.py` prints the list of commands it actually tried — compare them. The `--standalone`

@@ -144,6 +144,8 @@ Claude Code เก็บ session ที่อิง `cwd` ใน **2 ที่**
 - **ลำดับ lane:** 1) bsk หรือ cdp (ตามที่เครื่องเลือกใน `setup-browser`) → 2) Claude in Chrome → 3) ให้ผู้ใช้ทำเองที่หน้าจอ · cdp.py ขับ Chrome ปกติไม่ได้ (Chrome 136+ ไม่รับ debug port บน default profile) เครื่องที่ใช้ Chrome ปกติ = bsk
 - **bsk กด accept dialog ให้เองทุกชนิด (alert/confirm/prompt/beforeunload) ปิดไม่ได้** → ทุกครั้งหลัง navigate ติด guard (`window.confirm=()=>false` ฯลฯ) และตรวจ identity gate (`nlapiGetContext().getCompany()` + `getEnvironment()`) ก่อนอ่านต่อ · **ห้ามใช้ bsk *คลิก*/กรอกฟอร์มเปลี่ยนข้อมูลบน production** (dialog ถูก accept เอง) — การเขียน production ผ่าน bsk ทำได้เฉพาะ `ns_write.py --allow-bsk-prod` (ไม่คลิกอะไร) ตามกฎ: dry-run ก่อน · ขออนุมัติเป็นรอบ · ทีละ record · ผลไม่ทราบ (exit 3) = หยุด
 - **bsk: มี tab ของตัวเอง + pin + ปิด session ทุกครั้ง** (`bsk session start --no-focus` → `tab create --no-active --url about:blank` → ใส่ `--tab-id` ทุกคำสั่ง → `bsk session stop`) · `observe` ใส่ `--max-tokens` เสมอ (ไม่ใส่ = หน้าเล็กๆ ก็ 18 KB) · รายละเอียดใน skill `cdp-browser`
+- **บอกผู้ใช้ทุกครั้งที่ใช้ bsk** — 1 บรรทัดในแชทก่อนคำสั่ง `bsk` แรกของงาน: ทำอะไร · บัญชี/หน้าไหน · เป็น Agent Window เบื้องหลัง (ปิดเมื่อเสร็จ) · bsk เปิด tab ใน window ปกติของผู้ใช้ไม่ได้ (ทำงานใน Agent Window เสมอ)
+- **bsk Agent Window ไม่ได้ autofill** (วัดแล้ว: email ว่าง 0 ตัวอักษรหลัง 10 วินาที ทั้ง focus/เบื้องหลัง) → ติดหน้า login ห้ามกดใน Agent Window · เปิดหน้า login ใน **tab จริง** (Claude in Chrome หรือให้ผู้ใช้เปิด) แล้วค่อยกด Login ตามกฎ auto-login
 - ❌ อย่าใช้ 9333 (`<personal-gmail>`) เข้า Google Sheets ของ `<work-email>` = Access denied → ใช้ claude-in-chrome Browser 2
 
 **Auto-login (session หมด → เด้งหน้า login)** — Chrome ตั้ง autofill email/password ไว้แล้ว:

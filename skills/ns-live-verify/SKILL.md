@@ -9,7 +9,7 @@ description: >-
 
 # NetSuite Live Verify (read-only via the TEIBTO Dev Bridge)
 
-**Skill version: `202609_07`**
+**Skill version: `202609_08`**
 
 Run SuiteQL / `record.load().toJSON()` / searches against a live account through a logged-in Chrome
 tab, so you verify against **real state** instead of guessing. Read-only. Pairs with
@@ -59,6 +59,8 @@ Two ways to drive the tab — **bsk is the default** (see `cdp-browser` for the 
 
 ### Option A — raw `bsk` (verified live on a sandbox; `evaluate` awaits the promise, one call)
 
+Say it first (one line: what for, which account, a background Agent Window closed when done).
+
 ```bash
 export BSK_AUTO_START=0
 bsk session start --no-focus --name lv --json > s.json          # note session_id
@@ -101,13 +103,14 @@ always stops. `python3 scripts/ns_read.py <whoami|ping|query|record|lookup|featu
 - The path is only `…scriptlet.nl?script=<id>&deploy=<id>` — from `--bridge-path`, else config
   `dev_bridge.endpoints["<account>"].path`, else the README's default ids. Nothing else can ride along.
 - Exit codes: `0` ok · `1` the bridge answered `ok:false` · `2` refused by a guard · `3` session/transport/dialog.
+- It announces itself on stderr (`[ns_read] using bsk: opening a background Agent Window …`); stdout stays pure JSON.
 - Engine `bsk` only. `cdp` prints "not implemented" (exit 2) — no lane is bound on the machine it was
   written on, so it could not be tested.
 - **Verified live on a sandbox** with the default ids: `ping`, `query` (a `COUNT(*)`), `record` (a field
   subset and a full dump, cut by `--max-chars`), `lookup`, `feature`, `search` (ad-hoc), a bad column
   (bridge `ok:false` → exit 1), and the local refusals. **Not verified live:** a saved search
   (`--search-id`), `--meta`, `--filters-json` with a real filter, any non-sandbox read.
-- 33 offline tests: `python3 scripts/test_ns_read_offline.py`.
+- 38 offline tests: `python3 scripts/test_ns_read_offline.py`.
 
 ## SuiteQL gotchas (cost real time)
 
@@ -153,10 +156,12 @@ custom button's `window.<fn>` is `undefined`), which is stronger than the deploy
 
 ## Session / login handling
 
-When a fetch returns the login/timeout page: navigate the tab to any account page → it bounces
-to `enterpriselogin.nl`. Chrome autofills email+password. **Click `#login-submit` only — never
-read the password field.** If the button is disabled, click the background outside the login box
-once (blur → enables), then click submit. Fields empty (not autofilled) → stop and ask.
+When a fetch returns the login/timeout page: **do not log in inside the `bsk` Agent Window** — there Chrome
+did not autofill (email at 0 characters after 10 s, focused or in the background; measured). Open the login
+page in a **real tab** instead (Claude in Chrome, or ask the user to open it), where Chrome fills email +
+password. Then: **click `#login-submit` only — never read the password field.** If the button is disabled,
+click the background outside the login box once (blur → enables), then click submit. Fields empty in a real
+tab → stop and ask. `ns_read.py` stops with exit 3 and says so; it never logs in.
 
 ## Status
 

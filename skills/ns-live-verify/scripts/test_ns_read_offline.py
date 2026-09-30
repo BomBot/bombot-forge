@@ -13,7 +13,7 @@ import os
 import re
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _SCRIPT = os.path.join(_HERE, "ns_read.py")
@@ -408,6 +408,33 @@ class OfflineReadTest(unittest.TestCase):
     def test_single_account_in_equals_form_still_works(self):
         code, out = self.invoke(["whoami", "--account=" + ACCOUNT, "--config", self.cfg], FakeBsk())
         self.assertEqual(code, 0)
+
+
+    def test_it_says_out_loud_that_it_is_opening_a_bsk_window(self):
+        # the user asked to be told every time bsk is used
+        old = self.mod._bsk_run
+        self.mod._bsk_run = FakeBsk()
+        out, err = io.StringIO(), io.StringIO()
+        try:
+            with redirect_stdout(out), redirect_stderr(err):
+                self.mod.main(["ping", "--account", ACCOUNT, "--config", self.cfg])
+        finally:
+            self.mod._bsk_run = old
+        text = err.getvalue()
+        self.assertIn("bsk", text)
+        self.assertIn(ACCOUNT, text)
+        self.assertIn("background", text)
+        self.assertIn("read-only", text)
+
+    def test_stdout_stays_pure_json_for_a_successful_read(self):
+        code, out, fake = self.run_cmd(["ping"])
+        json.loads(out)   # raises if the notice leaked into stdout
+
+    def test_expired_session_message_says_to_use_a_real_tab(self):
+        code, out, fake = self.run_cmd(["whoami"], FakeBsk(identity=json.dumps({"ok": False, "reason": "no-context"})))
+        self.assertEqual(code, 3)
+        self.assertIn("real Chrome tab", out)
+        self.assertIn("autofill", out)
 
 
 if __name__ == "__main__":

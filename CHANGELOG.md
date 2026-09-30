@@ -9,6 +9,29 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.21.0 — 2026-09-30
+
+- **Issue: sessions that hit the NetSuite login page saw an empty email, so the auto-login stopped.** The
+  suspected causes were "the read was too fast" or "the page was opened in the Agent Window". Live test
+  (Chrome 152, bsk 0.3.1): on the login page the email stayed at **0 characters for 10 s** in an Agent Window
+  opened in the background *and* in one opened focused, so it is not speed — an Agent Window did not get
+  autofill. Consequence written into `cdp-browser` **202609_07**, `setup-browser` **202609_06** and
+  `ns-live-verify` **202609_08**: never try to log in inside a `bsk` Agent Window; hand off to a **real tab**
+  (Claude in Chrome, or ask the user to open the page) and apply the auto-login rule there. Those hand-off
+  routes, `open -a "Google Chrome" <url>` and `bsk tab borrow` are **not yet exercised**.
+- **Say it every time `bsk` is used** (the user's request): one line in the chat before the first `bsk`
+  command of a job — what for, which account/page, a background Agent Window closed when done. Written
+  into the three skills, `setup-coding-agent` **202609_10** (before an `ns-reader` run) and the global
+  instructions snapshot (`setup-global-instructions` **202609_05**); `ns_read.py` also announces itself on
+  stderr and keeps stdout pure JSON. 38 offline tests (3 new).
+- **Not done, and why:** "open a new tab, not a new window". `bsk` cannot: every session owns an Agent Window
+  and `tab create` only makes tabs inside it (`--no-focus` / `--no-active` are the least intrusive it gets).
+  A tab in the user's own window is what Claude in Chrome does.
+- Also disclosed: while measuring this I ran `bsk session stop --all` once, which stops every session on the
+  machine, including one that may have belonged to another Claude session. Sessions are stopped by id.
+
+---
+
 ## v0.20.1 — 2026-09-30
 
 - `setup-coding-agent` **202609_09** — docs only: the confirmed-account path was exercised end to end. After the

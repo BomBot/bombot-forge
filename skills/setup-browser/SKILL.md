@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (engine choice, install, Dev Bridge, login consent)
 
-**Skill version: `202609_05`**
+**Skill version: `202609_06`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -37,6 +37,7 @@ A choice is never buried in a paragraph. Do these, in this order:
 
 - **Never read, extract, or type a password.** The login helper only clicks a submit button;
   Chrome's own autofill fills the fields. Empty fields, MFA, or a changed page → stop and ask.
+- **Say it every time you use `bsk`** (one line before the first `bsk` command of a job: what for, which account/page, a background Agent Window that is closed when done).
 - **Ask before installing anything** and before running a downloaded script — read it first.
 - **Don't guess.** If a step's outcome can't be verified (extension connected, Dev Bridge script
   id), say so and ask; never invent an id, URL, or version.
@@ -130,16 +131,24 @@ the login screen, may I click **Login / เข้าสู่ระบบ** for 
 autofill the email + password on its own, without asking you to type or unlock anything at fill
 time. Record `auto_login_click: true|false`.
 
+**Where it works.** Chrome fills the login form in a **normal tab**. In a `bsk` **Agent Window** it did not: on
+the NetSuite login page the email stayed at 0 characters for 10 s, focused or in the background (measured,
+Chrome 152 / bsk 0.3.1). So with `bsk`, do NOT judge "not autofilled" from the Agent Window and do not wait
+longer — open the login page in a **real tab** (Claude in Chrome, or ask the user to open it; `bsk` cannot
+open a tab in the user's own window) and do the steps below there. With `cdp`, the Chrome for Testing
+profile fills only what that profile saved.
+
 How the helper works when consented (this is the exact rule):
-1. Check that the **email field already has a value** (never touch the password field). Empty →
+1. Check that the **email field already has a value** (never touch the password field). Empty in a real
+   tab →
    stop and tell the user; do not type anything.
 2. Check whether the **Login button is disabled**.
 3. If disabled: click the **page background outside the white panel, on the right side of the
    screen**, to trigger blur so the button enables. Re-check.
 4. Click **Login / เข้าสู่ระบบ**. If it was never disabled, just click it.
 5. A 2FA / trusted-device prompt or any change in the page → stop and ask.
-With bsk the click is `bsk click '#login-submit'` on the machine's own pinned tab; with cdp use
-`cdp.py click`; with Claude in Chrome use its click.
+The click: Claude in Chrome's click on the real tab; with cdp use `cdp.py click`; with bsk only on a tab the
+user borrowed into the Agent Window (not exercised) — otherwise the user presses Login.
 
 ## Re-running: update, don't overwrite
 

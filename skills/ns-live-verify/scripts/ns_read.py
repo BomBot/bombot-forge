@@ -475,6 +475,9 @@ def main(argv=None):
     ST["tab"] = None
     session = None
     try:
+        # Told to stderr on purpose (stdout stays pure JSON): every use of bsk is announced.
+        print("[ns_read] using bsk: opening a background Agent Window (its own session, closed when "
+              "done) to read %s — read-only." % account, file=sys.stderr)
         d, err = _bsk_run(["session", "start", "--no-focus", "--name", "ns-read", "--json"])
         if err:
             print("could not start bsk session:", err)
@@ -508,7 +511,9 @@ def main(argv=None):
         _bsk_eval(DIALOG_GUARD_JS)
         ident = _identity()
         if ident is None:
-            print("SESSION EXPIRED or not logged in")
+            print("SESSION EXPIRED or not logged in. Do not wait for Chrome to fill the email here: an Agent "
+                  "Window did not get autofill in a live test (0 characters after 10 s, focused or not). Log "
+                  "in in a real Chrome tab (yours, or Claude in Chrome), then run this again.")
             return 3
         company, env = ident
         if company != account:

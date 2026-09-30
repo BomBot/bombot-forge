@@ -12,7 +12,7 @@ description: >-
 
 # Browser driving: bsk for read/QA, cdp for the rest
 
-**Skill version: `202609_06`**
+**Skill version: `202609_07`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -92,6 +92,10 @@ end-to-end time — the win is per-command overhead and not needing a second log
 
 ### Every run
 
+0. **Say it.** Tell the user **each time you start using `bsk`** — one line in the chat before the first `bsk` command of the job: what for, which account/page, and that it opens a *background Agent Window* (own session, closed when done). Not for every command inside the same job. `bsk` always works inside an **Agent Window** (a separate window that only the
+   session owns): `tab create` makes tabs *in that window* and there is no `bsk` mode that opens a tab in
+   the user's everyday window. `--no-focus` / `--no-active` (below) keep it from stealing focus — that is the
+   least intrusive `bsk` can be. If the user must SEE the page or log in, use a real tab instead (step 5).
 1. **Own session, always stopped:** `bsk session start --no-focus --name <job> --json` → `session_id`.
    `bsk session stop <id>` at the end **even on failure**; confirm `bsk status` shows 0 sessions.
 2. **Own tab, pinned:** `bsk tab create --no-active --url about:blank --session <id> --json` →
@@ -111,10 +115,19 @@ end-to-end time — the win is per-command overhead and not needing a second log
    Must match the account you mean and (for anything beyond reads) `SANDBOX`. A login page has no
    `nlapiGetContext`, so the gate also catches an expired session. Fetching `/app/...` from
    `about:blank` fails — open a classic NetSuite page first.
-5. **Expired session (redirected to the login page):** follow the BomBot auto-login rule — only if
-   `#login-submit` exists and is enabled (Chrome autofilled), click it once; never read or type a
-   credential; stop on empty fields or an MFA prompt. It counts as a login in the account's
-   "My login audit".
+5. **Expired session (redirected to the login page):** **do not try to log in inside the Agent Window.**
+   Measured on this Mac (Chrome 152, bsk 0.3.1): on the NetSuite login page the email field stayed at 0
+   characters for 10 s in an Agent Window — with the window in the background *and* with it focused — so
+   "Chrome was too slow" is not the explanation; an Agent Window simply did not get autofill. An empty email
+   there says nothing about whether the user saved credentials. Hand off to a **real tab**:
+   - **Claude in Chrome** (if installed; skill `setup-browser`) opens a new *tab* in the user's own window,
+     where autofill works — then follow the auto-login rule there (`#login-submit` enabled → click once;
+     never read or type a credential; stop on an MFA prompt).
+   - Otherwise tell the user to log in in their own Chrome (on macOS `open -a "Google Chrome" "<login url>"`
+     opens it as a tab — **not yet exercised**), and re-run the read after they say they're in.
+   - `bsk tab borrow` moves a user's tab into the Agent Window (the user confirms each time) — **not
+     exercised**, and the tab then lives in that window.
+   A login counts in the account's "My login audit".
 6. **Read cheaply.** `bsk observe` on a one-paragraph page returned 18.6 KB (one node per
    character) — always cap it: `bsk observe --max-tokens 600 …` gave 2.6 KB on the NetSuite Home
    page. Prefer `evaluate` for targeted reads (titles, counts, one value); save screenshots to a
@@ -161,7 +174,7 @@ sessions longer than 30 minutes, writes during contention, other OSes.
   investigated — may be because it was the window's only tab).
 - Closing the Agent Window mid-run kills the run — including after a Save. Tell the owner first.
 - Everything above was measured with a person's real Chrome: an Agent Window shares its logins and is
-  **not** a sandbox.
+  **not** a sandbox — but it does **not** get autofill (see step 5).
 
 ## cdp lane (Chrome for Testing + cdp.py)
 
