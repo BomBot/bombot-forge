@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_16`**
+**Skill version: `202609_17`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -344,10 +344,15 @@ the whole conversation — including code or data the agent read. `agent_run.py`
   only). It takes the id from the `sessionID` in the run's own event stream and runs `opencode session delete <id>
   --standalone`, so nothing else can be touched (the id must look like `ses_…`). The line `session   : deleted …`
   is printed and `session_id` / `session_deleted` go into the delegation log. **`--keep-session`** skips it (for debugging).
+- **Every session we start is titled `[agent_run] <run id> <profile>`** (`opencode run --title`): a marker that does not
+  depend on the run folder, so a session that escaped deletion (timeout, failed delete) is still findable — by that title in
+  OpenCode's UI and by `--purge-sessions`. The title carries no task text (without it OpenCode titles a session with a
+  summary of the prompt). The ledger also records each run's `session_id`. Sessions from before 0.24.3 have no title and are
+  found by their directory alone.
 - The per-run folder `~/.cache/bombot-forge/agent-runs/<run>/` still holds `out.jsonl` (the full event log, which
   also contains what the agent read) — delete it yourself when the work is customer-related. Nothing prunes that folder yet.
 - **Old sessions:** `agent_run.py --purge-sessions` lists the sessions whose directory is inside that agent-runs
-  cache (id + run folder name only; a string-prefix match, not a `LIKE`, so `_` in a path is not a wildcard).
+  cache **or whose title starts with `[agent_run] `** (id + run name only; a string-prefix match, not a `LIKE`, so `_` in a path is not a wildcard).
   `--yes` deletes them. **Show the user the list and get an OK first.** Sessions from anywhere else are never listed.
 - **Verified:** on OpenCode 2.0.20 a fresh session is created per run, and `session delete` removes the session and its
   message rows from the database (row counts checked before/after); a live `analyze` run left the session count unchanged.

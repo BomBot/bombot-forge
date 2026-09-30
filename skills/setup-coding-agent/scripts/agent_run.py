@@ -100,6 +100,14 @@ def read_account_ids(cfg):
 # in OpenCode's own database. We never resume one, so a finished run deletes the session it created (by the id in the
 # event stream, so nothing else is touched) unless --keep-session. The per-run folder in ~/.cache keeps out.jsonl.
 RUNS_ROOT = "~/.cache/bombot-forge/agent-runs"
+# Every session we start gets this title prefix (`opencode run --title`): a marker that does not depend on the run
+# folder, so a session that escaped deletion can still be found. It carries only the run id and profile - never the
+# task (OpenCode would otherwise title the session with an LLM summary of the prompt).
+TITLE_PREFIX = "[agent_run] "
+
+
+def session_title(run_dir, profile):
+    return "%s%s %s" % (TITLE_PREFIX, os.path.basename(run_dir.rstrip("/\\")), profile)
 
 
 def session_ids(out):
@@ -158,17 +166,27 @@ def opencode_db_path():
 
 
 def agent_run_sessions(db=None, root=None):
-    """[(session id, run folder name)] for sessions whose directory is inside the agent-runs cache. Read-only.
-    Compares by string prefix, not LIKE: `_` and `%` in a path are LIKE wildcards."""
+    """[(session id, run name)] for sessions whose directory is inside the agent-runs cache OR whose title starts with
+    TITLE_PREFIX. Read-only. Compares by string prefix, not LIKE: `_` and `%` in a path are LIKE wildcards."""
     import sqlite3
     root = (root or os.path.expanduser(RUNS_ROOT)).rstrip("/\\") + os.sep
     con = sqlite3.connect("file:%s?mode=ro" % (db or opencode_db_path()), uri=True)
     try:
-        rows = con.execute("SELECT id, directory FROM session_v2 WHERE substr(directory, 1, ?) = ?",
-                           (len(root), root)).fetchall()
+        try:
+            rows = con.execute("SELECT id, directory, title FROM session_v2 WHERE substr(directory, 1, ?) = ? "
+                               "OR substr(title, 1, ?) = ?", (len(root), root, len(TITLE_PREFIX), TITLE_PREFIX)).fetchall()
+        except sqlite3.OperationalError:         # an OpenCode database without a title column: directory only
+            rows = [(i, d, None) for i, d in con.execute(
+                "SELECT id, directory FROM session_v2 WHERE substr(directory, 1, ?) = ?", (len(root), root)).fetchall()]
     finally:
         con.close()
-    return [(i, d[len(root):].split(os.sep, 1)[0]) for i, d in rows]
+    out = []
+    for i, d, t in rows:
+        if d.startswith(root):
+            out.append((i, d[len(root):].split(os.sep, 1)[0]))
+        else:                                   # found by its title marker only (folder moved or gone)
+            out.append((i, ((t or "")[len(TITLE_PREFIX):].split(" ", 1)[0] or "?") + " (by title)"))
+    return out
 
 
 def purge_agent_sessions(delete=False, db=None, root=None):
@@ -487,7 +505,8 @@ def run_ns_reader(a):
                 "account right after the subcommand, nothing else in that position:\n"
                 + "".join("  %s %s --allow-prod-read <subcommand> --account %s ...\n" % (PY_CMD, reader, x) for x in accounts))
     prompt = NS_READER_PREAMBLE.format(py=PY_CMD, reader=reader, prod=prod) + "\n\nTASK:\n" + task
-    cmd = [resolve_exe("opencode"), "run", "--standalone", "--format", "json", "-m", a.model, prompt]
+    cmd = [resolve_exe("opencode"), "run", "--standalone", "--format", "json", "-m", a.model,
+           "--title", session_title(run_dir, "ns-reader"), prompt]
     if a.dry_run:
         print("DRY-RUN — profile ns-reader; config written to", cfg_path, "\n ", " ".join(cmd[:-1]), "<PREAMBLE + TASK>")
         return
@@ -611,6 +630,7 @@ def run_analyze(a):
     wt = os.path.join(run_dir, "worktree")
     cfg_path = os.path.join(run_dir, "opencode-analyze.json")
     cmd = [resolve_exe("opencode"), "run", "--standalone", "--format", "json", "-m", a.model,
+           "--title", session_title(run_dir, "analyze"),
            ANALYZE_PREAMBLE + "\n\nTASK:\n" + task]
     os.makedirs(run_dir, exist_ok=True)
     with open(cfg_path, "w", encoding="utf-8") as f:
@@ -780,7 +800,8 @@ def main():
         run_cwd = None
     else:
         model = a.model
-        cmd = [resolve_exe("opencode"), "run", "--standalone", "--format", "json"]
+        cmd = [resolve_exe("opencode"), "run", "--standalone", "--format", "json",
+               "--title", session_title(run_dir, "code")]
         if model:
             cmd += ["-m", model]
         if a.opencode_auto:

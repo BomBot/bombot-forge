@@ -243,6 +243,7 @@ if sys.argv[1:3] == ["session", "delete"]:
 if sys.argv[1:3] == ["debug", "paths"]:
     print("home  /x"); print("db    " + os.environ.get("FAKE_DB", "/nonexistent.db")); sys.exit(0)
 SID = "ses_fake123"
+open(os.environ.get("FAKE_ARGV_LOG", os.devnull), "a").write(json.dumps(sys.argv[1:]) + "\\n")
 if os.environ.get("FAKE_WRITE"):
     open(os.path.join(os.environ["PWD"], "new.txt"), "w").write("hi\\n")
 print(json.dumps({"type": "tool_use", "sessionID": SID, "part": {"tool": "shell", "state": {"status": "error", "input": {"command": "cat x"}}}}))
@@ -318,6 +319,7 @@ class LedgerTest(unittest.TestCase):
         env.update(extra_env or {})
         env.pop("BOMBOT_FORGE_LOG", None)
         env.setdefault("FAKE_DEL_LOG", os.path.join(self.tmp, "del.log"))
+        env.setdefault("FAKE_ARGV_LOG", os.path.join(self.tmp, "argv.log"))
         if fake_write:
             env["FAKE_WRITE"] = "1"
         r = subprocess.run([_sys.executable, os.path.join(_HERE, "agent_run.py")] + list(args), env=env,
@@ -417,13 +419,18 @@ class LedgerTest(unittest.TestCase):
         db = os.path.join(self.tmp, "oc.db")
         root = os.path.join(home, ".cache", "bombot-forge", "agent-runs")
         con = sqlite3.connect(db)
-        con.execute("CREATE TABLE session_v2 (id text primary key, directory text not null)")
-        rows = [("ses_in1", root + "/run-a_first/worktree"), ("ses_in2", root + "/run-b_reader_nsr/work"),
-                ("ses_out", "/somewhere/else/worktree"),
+        con.execute("CREATE TABLE session_v2 (id text primary key, directory text not null, title text)")
+        P = self.mod.TITLE_PREFIX
+        rows = [("ses_in1", root + "/run-a_first/worktree", P + "run-a_first code"),
+                ("ses_in2", root + "/run-b_reader_nsr/work", None),                 # an old session: no title
+                ("ses_out", "/somewhere/else/worktree", "my own work"),
                 # differs from the root only where a LIKE pattern would treat '_' as a wildcard
-                ("ses_lookalike", root.replace("home_x", "homeXx") + "/run-c_third/worktree"),
-                ("ses_prefix", root + "-old/run-d/worktree")]
-        con.executemany("INSERT INTO session_v2 VALUES (?, ?)", rows)
+                ("ses_lookalike", root.replace("home_x", "homeXx") + "/run-c_third/worktree", "x"),
+                ("ses_prefix", root + "-old/run-d/worktree", "y"),
+                # marked by title only: its folder was moved
+                ("ses_moved", "/moved/away/worktree", P + "run-e_moved analyze"),
+                ("ses_notprefix", "/elsewhere", "see " + P + "in the middle")]
+        con.executemany("INSERT INTO session_v2 VALUES (?, ?, ?)", rows)
         con.commit(); con.close()
         return db, root
 
@@ -431,7 +438,8 @@ class LedgerTest(unittest.TestCase):
         home = os.path.join(self.tmp, "home_x"); os.makedirs(home)
         db, root = self.make_db(home)
         got = self.mod.agent_run_sessions(db, root)
-        self.assertEqual(sorted(got), [("ses_in1", "run-a_first"), ("ses_in2", "run-b_reader_nsr")])
+        self.assertEqual(sorted(got), [("ses_in1", "run-a_first"), ("ses_in2", "run-b_reader_nsr"),
+                                       ("ses_moved", "run-e_moved (by title)")])
 
     def test_purge_is_a_dry_run_until_yes(self):
         home = os.path.join(self.tmp, "home_x"); os.makedirs(home)
@@ -445,12 +453,38 @@ class LedgerTest(unittest.TestCase):
                                         capture_output=True, text=True, timeout=60)
         r = run("--purge-sessions")
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn("2 session(s)", r.stdout)
+        self.assertIn("3 session(s)", r.stdout)
         self.assertIn("dry run", r.stdout)
         self.assertEqual(self.deleted(), [])
         r = run("--purge-sessions", "--yes")
-        self.assertEqual(sorted(self.deleted()), ["ses_in1", "ses_in2"])
+        self.assertEqual(sorted(self.deleted()), ["ses_in1", "ses_in2", "ses_moved"])
         self.assertNotIn("ses_out", r.stdout)
+
+    def test_every_opencode_run_carries_the_title_marker_and_no_task_text(self):
+        repo = self.repo()
+        for prof, extra in [("analyze", []), ("code", ["--agent", "opencode"])]:
+            open(os.path.join(self.tmp, "argv.log"), "w").close()
+            r, _ = self.cli("--profile", prof, "--repo", repo, "--task-file", os.path.join(self.tmp, "ask.md"),
+                            "--model", "p/deepseek/deepseek-flash", *extra)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            runs = [json.loads(l) for l in open(os.path.join(self.tmp, "argv.log")) if l.strip() and '"run"' in l]
+            self.assertEqual(len(runs), 1, runs)
+            argv = runs[0]
+            title = argv[argv.index("--title") + 1]
+            self.assertTrue(title.startswith(self.mod.TITLE_PREFIX), title)
+            self.assertTrue(title.endswith(" " + prof), title)
+            self.assertNotIn("SECRET-CUSTOMER-TASK", title)
+
+    def test_purge_still_works_on_a_database_without_a_title_column(self):
+        import sqlite3
+        home = os.path.join(self.tmp, "home_x"); os.makedirs(home)
+        root = os.path.join(home, ".cache", "bombot-forge", "agent-runs")
+        db = os.path.join(self.tmp, "old.db")
+        con = sqlite3.connect(db)
+        con.execute("CREATE TABLE session_v2 (id text primary key, directory text not null)")
+        con.execute("INSERT INTO session_v2 VALUES ('ses_old', ?)", (root + "/run-a_first/worktree",))
+        con.commit(); con.close()
+        self.assertEqual(self.mod.agent_run_sessions(db, root), [("ses_old", "run-a_first")])
 
 
 class PortabilityTest(unittest.TestCase):

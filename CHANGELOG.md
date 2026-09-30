@@ -9,6 +9,20 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.24.3 — 2026-09-30
+
+- **Sessions are marked so an escaped one can be found.** Every `opencode run` that `agent_run.py` starts now passes
+  `--title "[agent_run] <run id> <profile>"` (verified live: OpenCode stores exactly that title). `--purge-sessions` selects
+  a session by its directory inside the agent-runs cache **or** by that title prefix, so it is still found if its folder
+  was moved or deleted; a database without a `title` column falls back to directory only. The title carries only the run id
+  and profile, never the task; as a side effect OpenCode no longer titles the session with an LLM summary of the prompt.
+- No change to what is deleted: a finished run still deletes its own session; `--purge-sessions` still lists first and
+  deletes only with `--yes`. Sessions created before this version have no title marker (directory match only).
+- `setup-coding-agent` **202609_17**. Tests: 45 (was 43); mutations (drop `--title` from the analyze command, purge ignores
+  the title marker) each made a test fail, then were restored.
+
+---
+
 ## v0.24.2 — 2026-09-30
 
 - Test-only fix: the 0.24.1 tests used made-up run folder names shaped like dates (eight digits), which the repo's
