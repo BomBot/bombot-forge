@@ -9,6 +9,39 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.14.0 — 2026-09-30
+
+- `ns-record-write` **202609_07** + `ns_write.py` — new `--allow-bsk-prod`: `--confirm` through `bsk`
+  on a non-sandbox account is still refused unless this flag is passed (dry-run first, the user
+  approves the round, a WARNING line is printed). Acceptable because the in-page write is an
+  `N/record` call that clicks nothing and opened no dialog in any live test; explicit because `bsk`
+  auto-accepts any dialog that does appear. UI clicks on production stay off-limits for `bsk`.
+  Offline suite is now 10 cases (3 new for the flag).
+- `cdp-browser` **202609_04** — lane priority (1 bsk/cdp per machine, 2 Claude in Chrome, 3 the user
+  acts on the screen); notes that `cdp.py` cannot drive the everyday Chrome (136+ ignores the debug
+  port on the default profile); production wording updated.
+- **New skill `setup-browser` 202609_01** — interactive per-machine setup: choose bsk or cdp
+  (trade-off table), install (bsk: opens the Web Store page), optional Claude in Chrome, Dev Bridge
+  trial (asks for the Home URL), login-click consent (never reads the password field); writes
+  `~/.config/bombot-forge/browser.json` (no secrets, local only). Not yet run end to end on a clean
+  machine.
+
+---
+
+## v0.13.3 — 2026-09-29
+
+- `ns-record-write` **202609_06** — docs only: `--mode save --dynamic` through bsk verified live on a
+  sandbox (write, revert, re-read). The test record has no sourcing-dependent fields, so it shows
+  dynamic mode runs, not that field sourcing fires.
+
+---
+
+## v0.13.2 — 2026-09-29
+
+- `ns-record-write` **202609_05** — docs only: `--mode save` through bsk verified live on a sandbox.
+
+---
+
 ## v0.13.1 — 2026-09-29
 
 - `ns-record-write` **202609_04** — docs only: records the first live `--confirm` write through bsk on a
