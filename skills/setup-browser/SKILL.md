@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (engine choice, install, Dev Bridge, login consent)
 
-**Skill version: `202609_13`**
+**Skill version: `202609_14`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -148,6 +148,45 @@ How the helper works when consented (this is the exact rule):
 5. A 2FA / trusted-device prompt or any change in the page → stop and ask.
 The click: `bsk click '#login-submit'` (logged in on SB2 with the hidden autofilled values, 2026-09-30 — still verify the URL left the login page), Claude in Chrome's click on a real tab, or `cdp.py click`; if none works, the user presses Login in their own tab.
 
+## Step 5b — keep the `bsk` daemon running from login (optional, `bsk` only)
+
+The daemon is the background process that joins the browser extension to the `bsk` command. Ordinary `bsk`
+commands start it on their own (BrowserSkill's own environment guide says so), so **most machines need nothing**.
+Offer this only when it helps: the agent host kills child processes after a command, the user wants it already up
+before the first command, or they saw the daemon missing after a reboot.
+
+- **Look first (read-only):** `BSK_AUTO_START=0 bsk status --json` (PowerShell: `$env:BSK_AUTO_START = '0'; bsk status --json`)
+  — a daemon already answering means there is nothing to do. On Windows also check whether the task exists:
+  `Get-ScheduledTask -TaskName 'bsk-daemon' -ErrorAction SilentlyContinue`.
+- **Ask first** (see *How to ask*): creating a login task is a persistent change on the machine. Default: **No**.
+- **Windows — Task Scheduler.** A Windows *service* is not recommended: the daemon uses the user's own `~/.bsk`
+  folder (reasoning, not tested). The task is: trigger *At log on* of this user · action `bsk.exe daemon start
+  --foreground` (a flag `bsk` documents as "owned by the current terminal or supervisor") · **no execution time
+  limit** (a finite limit would stop the daemon) · *do not start a new instance* if one is already running · run as
+  the logged-in user, no elevation. Example (PowerShell, cmdlets from Microsoft's docs — **not run by the author**):
+
+  ```powershell
+  $bsk = (Get-Command bsk.exe).Source
+  $act = New-ScheduledTaskAction -Execute $bsk -Argument 'daemon start --foreground'
+  $trg = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+  $set = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
+           -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
+  Register-ScheduledTask -TaskName 'bsk-daemon' -Action $act -Trigger $trg -Settings $set -RunLevel Limited
+  ```
+
+  Undo: `Unregister-ScheduledTask -TaskName 'bsk-daemon' -Confirm:$false`. `bsk.exe` is a console program, so a
+  console window may show at logon; how to hide it was **not verified**. Don't stop or restart a daemon that is
+  already running to "test" the task — it takes effect at the next login (BrowserSkill's guide says a shared
+  daemon may belong to another session).
+- **macOS (LaunchAgent) / Linux (`systemd --user`):** the same `bsk daemon start --foreground` under that
+  OS's supervisor is possible, **not tested**. One known risk: the daemon **replaces itself on auto-update** (the
+  old process exits after spawning its successor — seen in `~/.bsk/daemon.log*`), so a supervisor set to restart
+  on exit could start a second copy that races the successor for `daemon.lock`. Test across an update before relying on it.
+- Setting this up does not connect the browser: Chrome must also be running with the extension, or `bsk status`
+  shows an empty `browsers` list.
+- No new key in `browser.json`: whether the task exists is read from the machine (the *Look first* check), not
+  from the prefs file.
+
 ## Re-running: update, don't overwrite
 
 A machine that was set up before keeps its choices. On every re-run (also from an older session):
@@ -206,3 +245,6 @@ previous file (or "no change"), and the one rule to remember —
 
 v0.1 draft — written from the flow the maintainer specified; not yet run end to end on a clean
 machine. Steps 4–5 depend on a Dev Bridge deployment the user already has.
+Step 5b (daemon at login): the maintainer reported on 2026-09-30 that a Windows Task Scheduler task works; the
+exact settings were not captured, so the example above is from Microsoft's cmdlet docs and untested. macOS/Linux
+untested.

@@ -9,6 +9,19 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.23.2 — 2026-09-30
+
+- `setup-browser` **202609_14**: new optional Step 5b, *keep the `bsk` daemon running from login*. Explains what the
+  daemon is, that ordinary `bsk` commands already start it (so the default is **No**), and the Windows recipe as a
+  Task Scheduler task at logon running `bsk.exe daemon start --foreground` with no time limit and no second instance.
+  Status stated in the skill: the maintainer reported the Task Scheduler approach works on Windows, but the exact
+  settings were not captured — the PowerShell example is from Microsoft's cmdlet docs and was **not run**; hiding the
+  console window not verified; macOS LaunchAgent / Linux `systemd --user` untested, with the known risk that the
+  daemon replaces itself on auto-update (seen in `~/.bsk/daemon.log*`) and a restart-on-exit supervisor could race
+  its successor. No new `browser.json` key (the state is read from the machine).
+
+---
+
 ## v0.23.1 — 2026-09-30
 
 - README only (no skill body changed): the `setup-coding-agent` row now mentions the `analyze` and `ns-reader` profiles,
