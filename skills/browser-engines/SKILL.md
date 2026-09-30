@@ -14,7 +14,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0 — the skill covers both engines now (bsk first), so the old name misled.
 
-**Skill version: `202609_11`**
+**Skill version: `202609_12`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -129,14 +129,16 @@ end-to-end time — the win is per-command overhead and not needing a second log
      new *tab* in the already-open Chrome window (a `bsk tab list --scope user` then showed it in a user
      window, not an Agent Window). Tell the user which tab it is, and re-run the read after they say
      they're in. You cannot close that tab yourself — say so.
-   - `bsk tab borrow <tab-id> --session <id>` moves a user's tab into the Agent Window and asks the user to
-     confirm in the extension (default on, set in the extension's Automation settings). **Tried once: it timed
-     out after 60 s. The user reported the confirmation prompt showed for only about a second — too short
-     to reach with the mouse.** So do not build the login path on borrow: whether autofill happens in that
-     tab and survives the borrow is still unknown, and the confirmation is easy to miss. bsk's own hint on a
-     timeout: report the blocked step; do not repeat the request or switch tools — so don't loop on it. Where
-     the prompt actually appears (extension popup, a Chrome/macOS notification that is still in Notification
-     Center, or in-page) is **not known**.
+   - `bsk tab borrow <tab-id> --session <id>` moves a user's tab into the Agent Window; the user confirms in the
+     extension (setting: Automation settings, default on). **Verified on the second try:** with the user ready,
+     it was confirmed in about 2 s; Chrome had **autofilled both fields in that real tab** (email 20 characters;
+     both fields matched `:-webkit-autofill`; only the email length was read, never the password) and the
+     autofill **survived the borrow** for the 6 s watched. The first try timed out because the prompt shows for
+     only about a second — so **warn the user right before you send it** (a 10 s countdown worked), use
+     `--timeout 120`, and don't repeat a timed-out request (bsk's hint). Then click `#login-submit` per the
+     auto-login rule and `bsk tab return <id> --session <id>`. The click itself has **not** been tried. A
+     borrowed tab cannot be closed (`tab close` says call `tab return` first); `bsk session stop <your id>`
+     returns it to the user's window by itself — so a leftover test tab is the user's to close.
    A login counts in the account's "My login audit".
 6. **Read cheaply.** `bsk observe` on a one-paragraph page returned 18.6 KB (one node per
    character) — always cap it: `bsk observe --max-tokens 600 …` gave 2.6 KB on the NetSuite Home

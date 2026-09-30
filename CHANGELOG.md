@@ -9,6 +9,19 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.22.2 — 2026-09-30
+
+- `browser-engines` **202609_12**, `setup-browser` **202609_10** — the real-tab hand-off, second try, with the user
+  ready: `bsk tab borrow` was confirmed in ~2 s. In the real tab Chrome **had autofilled** the login form
+  (email 20 characters; email and password both matched `:-webkit-autofill`; only the email length was read)
+  and it **survived the borrow** for the 6 s watched. That settles the earlier question: the empty email was
+  the Agent Window (it never got autofill), not speed. Facts recorded: the prompt shows for ~1 s so warn the
+  user first (a 10 s countdown worked) and use `--timeout 120`; a borrowed tab cannot be `tab close`d until
+  `tab return`; `session stop` returns borrowed tabs by itself. **Not tried:** clicking Login in the borrowed
+  tab, and a borrow when the user is not watching.
+
+---
+
 ## v0.22.1 — 2026-09-30
 
 - `browser-engines` **202609_11**, `setup-browser` **202609_09** — the `bsk tab borrow` confirmation, as the user
