@@ -10,12 +10,28 @@ description: >-
 
 # Setup Browser (engine choice, install, Dev Bridge, login consent)
 
-**Skill version: `202609_04`**
+**Skill version: `202609_05`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
 secrets**, never in a repo. Other skills (`cdp-browser`, `ns-record-write`, `ns-live-verify`) read
-it. Ask **one step at a time** and wait for the answer; never install or click ahead of an OK.
+it. Ask **one step at a time** and wait for the answer; never install or click ahead of an OK. Every
+decision follows *How to ask the user* below.
+
+## How to ask the user (at every decision point in this skill)
+
+A choice is never buried in a paragraph. Do these, in this order:
+
+1. **Bullets first.** One block per option, at most three short lines each: **Pros · Cons · Best when**.
+   No paragraphs, no "it depends" prose. Say which option you recommend and why in one line.
+2. **Then a picker — the last thing in your message.** Use the `AskUserQuestion` tool: a short label, a
+   one-line description that carries the key trade-off, the recommended option first and marked
+   "(Recommended)". At most 4 options per question, one decision per question, at most 4 questions per
+   call (split further decisions into the next round). Use multi-select only when the choices are not
+   exclusive. The user can always type their own answer via "Other".
+3. **No picker available?** (the tool is not offered, or the run is unattended) Ask the same thing as a
+   numbered list in chat, and wait. Never pick for the user and never treat silence as consent.
+4. Don't ask what Step 0 already showed, and don't re-ask something already answered.
 
 ## Iron rules
 
@@ -50,7 +66,10 @@ Show this table and recommend **bsk** for anyone who works in their everyday Chr
 | Risk | Third-party (Tencent) daemon that **auto-updates** (~30 min; `BSK_AUTO_UPDATE=off` to pin); verified on one Mac only here | Can't drive your everyday Chrome (Chrome 136+ ignores the debug port on the default profile) |
 | Production writes | `ns_write.py --allow-bsk-prod` only, after dry-run + your approval | `ns_write.py --engine cdp`, and UI-driven writes |
 
-Ask: **bsk, cdp, or both?** Record `engine` (primary) and `also_installed`.
+Ask with the bullets above and a picker: **bsk (Recommended if they work in everyday Chrome)** — fast,
+already logged in, but it auto-accepts dialogs so no data-changing clicks on production · **cdp** — full
+control, but a separate Chrome for Testing profile and it cannot drive everyday Chrome · **Both** — a
+fallback, but two things to keep working. Record `engine` (primary) and `also_installed`.
 
 ## Step 2a — install bsk (if chosen)
 
@@ -73,8 +92,9 @@ Follow the `cdp-browser` skill's cdp lane: Chrome for Testing, a fixed profile u
 ## Step 3 — Claude in Chrome (optional)
 
 Say it is **optional** and that it is the second-priority lane (after bsk/cdp) — useful when the
-first lane is missing, or for sites that need your main Chrome/Google session. Ask: *install it
-yourself from the link, or want me to walk you through?* Link:
+first lane is missing, or for sites that need your main Chrome/Google session. Ask (picker: **I'll install it myself** /
+**Walk me through it** / **Skip — it's optional**): *install it yourself from the link, or want me to walk you
+through?* Link:
 `https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn`.
 After they install, test it: load the tools (`ToolSearch` → `select:mcp__claude-in-chrome__tabs_context_mcp`)
 and call `tabs_context_mcp`. Record `claude_in_chrome: true|false|declined`.
@@ -87,7 +107,8 @@ screen** (the last resort, and the only choice for a data-changing click a dialo
 Explain: *Dev Bridge (`Teibto/TEIBTO-Dev-Bridge`) is a read-only Suitelet in your NetSuite account.
 Through the logged-in browser tab it runs SELECT-only SuiteQL, loads a record as JSON, looks up fields,
 checks features and runs searches, so Claude can check the real state of records, GL and script
-deployments instead of guessing — nothing is written. Administrator role only.* Ask whether to try it.
+deployments instead of guessing — nothing is written. Administrator role only.* Ask with a picker (**Try it now** / **Later** / **Skip**) — the bullets carry what it does and that it is
+Administrator-only and read-only.
 
 If yes:
 1. Ask the user to **copy the URL of the Home page of the account they work in** and paste it.
@@ -104,8 +125,8 @@ If yes:
 
 ## Step 5 — Login helper consent
 
-Ask: *If a NetSuite page falls back to the login screen, may I click **Login / เข้าสู่ระบบ** for
-you?* State plainly: **I will never read your password field.** It works only if Chrome is set to
+Ask with a picker (**Yes, click Login for me** / **No, ask me each time**): *If a NetSuite page falls back to
+the login screen, may I click **Login / เข้าสู่ระบบ** for you?* State plainly: **I will never read your password field.** It works only if Chrome is set to
 autofill the email + password on its own, without asking you to type or unlock anything at fill
 time. Record `auto_login_click: true|false`.
 
@@ -126,7 +147,7 @@ A machine that was set up before keeps its choices. On every re-run (also from a
 
 1. **Read first.** Load `~/.config/bombot-forge/browser.json` and show the current values in one
    small table (engine, also_installed, claude_in_chrome, auto_login_click, dev_bridge).
-2. **Ask per key: keep or change?** Default is **keep**. Ask only about a key the user brought up,
+2. **Ask per key: keep or change?** (a picker per key: **Keep** (default) / **Change**). Ask only about a key the user brought up,
    plus any key that is **new** in this skill version and missing from the file. Never re-ask
    what is already answered.
 3. **Verify, don't reinstall.** Re-check that what the file says is still true (`bsk status`,

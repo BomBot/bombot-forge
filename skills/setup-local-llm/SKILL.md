@@ -10,7 +10,7 @@ description: >-
 
 # Setup Local LLM (Ollama on bombot-gaming)
 
-**Skill version: `202609_01`**
+**Skill version: `202609_02`**
 
 `local-llm` is the **default** cheap worker — free and private (text stays on your own tailnet).
 paid DeepSeek (`ask_cheap.py`, see `setup-coding-agent`) is the fallback when this one is unavailable; the old `teibto-worker` subagent was removed in 0.17.0.
@@ -34,6 +34,21 @@ it as a plugin agent would create a second `local-llm` next to the user-level on
   file carries measured model benchmarks) — in that case re-snapshot it here instead (see below).
 - **Don't change a working machine's registration** just to match this doc (e.g. an IP vs the
   hostname). If the checker passes, leave it.
+
+## How to ask the user (at every decision point in this skill)
+
+A choice is never buried in a paragraph. Do these, in this order:
+
+1. **Bullets first.** One block per option, at most three short lines each: **Pros · Cons · Best when**.
+   No paragraphs, no "it depends" prose. Say which option you recommend and why in one line.
+2. **Then a picker — the last thing in your message.** Use the `AskUserQuestion` tool: a short label, a
+   one-line description that carries the key trade-off, the recommended option first and marked
+   "(Recommended)". At most 4 options per question, one decision per question, at most 4 questions per
+   call (split further decisions into the next round). Use multi-select only when the choices are not
+   exclusive. The user can always type their own answer via "Other".
+3. **No picker available?** (the tool is not offered, or the run is unattended) Ask the same thing as a
+   numbered list in chat, and wait. Never pick for the user and never treat silence as consent.
+4. Don't ask what Step 0 already showed, and don't re-ask something already answered.
 
 ## Setup (per machine)
 

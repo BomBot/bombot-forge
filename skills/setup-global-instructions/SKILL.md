@@ -10,7 +10,7 @@ description: >-
 
 # Setup Global Instructions (compare + merge ~/.claude/CLAUDE.md)
 
-**Skill version: `202609_03`**
+**Skill version: `202609_04`**
 
 Bring a machine's **global** `~/.claude/CLAUDE.md` in line with the canonical NetSuite-dev
 operating instructions, kept here as a redacted snapshot at
@@ -36,6 +36,24 @@ clobbers.
   the target has but the reference lacks — it's likely that machine's own addition.
 - **Confirm before writing.** Show the proposed merged result (or a diff) and wait for an
   explicit OK before writing `~/.claude/CLAUDE.md`. Changes apply on the next session start.
+
+## How to ask the user (at every decision point in this skill)
+
+A choice is never buried in a paragraph. Do these, in this order:
+
+1. **Bullets first.** One block per option, at most three short lines each: **Pros · Cons · Best when**.
+   No paragraphs, no "it depends" prose. Say which option you recommend and why in one line.
+2. **Then a picker — the last thing in your message.** Use the `AskUserQuestion` tool: a short label, a
+   one-line description that carries the key trade-off, the recommended option first and marked
+   "(Recommended)". At most 4 options per question, one decision per question, at most 4 questions per
+   call (split further decisions into the next round). Use multi-select only when the choices are not
+   exclusive. The user can always type their own answer via "Other".
+3. **No picker available?** (the tool is not offered, or the run is unattended) Ask the same thing as a
+   numbered list in chat, and wait. Never pick for the user and never treat silence as consent.
+4. Don't ask what Step 0 already showed, and don't re-ask something already answered.
+
+Decision points here: for each section that differs, **Apply the merge** / **Show me the diff first** /
+**Keep mine** (a picker per section, batched up to four); and the final write (**Write it** / **Not yet**).
 
 ## Flow
 

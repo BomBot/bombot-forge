@@ -9,6 +9,21 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.19.0 — 2026-09-30
+
+- **How the setup skills ask the user.** A setup choice used to come out as a long paragraph ending in a
+  sentence ("bsk / cdp / both?"), easy to miss. New rule, written into `setup-browser` **202609_05**,
+  `setup-coding-agent` **202609_07**, `setup-local-llm` **202609_02** and `setup-global-instructions`
+  **202609_04**: bullets first (Pros · Cons · Best when, ≤ 3 lines per option, recommendation in one
+  line), then a picker via `AskUserQuestion` as the last thing in the message (short label, one-line
+  trade-off, recommended first, ≤ 4 options, one decision per question, ≤ 4 questions per call); if the
+  tool is unavailable or the run is unattended, the same as a numbered list in chat — never pick for the
+  user. `setup-browser` also names the concrete option set for engine choice, Claude in Chrome, the Dev
+  Bridge trial, login consent, keep/change on re-run, and the auto-mode-blocked choices.
+  Not yet exercised in a fresh session: the picker rendering and the fallback are as written, not observed.
+
+---
+
 ## v0.18.1 — 2026-09-30
 
 - README: new top section "Setup skills — run once per machine" (setup-global-instructions, setup-browser,

@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_06`**
+**Skill version: `202609_07`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -50,6 +50,25 @@ file access; this one reads, edits and runs commands — and is what the **`teib
   terminal (or it is already configured — check with the smoke test, don't read the key file).
 - **Don't guess another CLI's flags.** For OpenCode (or anything else), read its `--help` first and
   say what you could not verify.
+
+## How to ask the user (at every decision point in this skill)
+
+A choice is never buried in a paragraph. Do these, in this order:
+
+1. **Bullets first.** One block per option, at most three short lines each: **Pros · Cons · Best when**.
+   No paragraphs, no "it depends" prose. Say which option you recommend and why in one line.
+2. **Then a picker — the last thing in your message.** Use the `AskUserQuestion` tool: a short label, a
+   one-line description that carries the key trade-off, the recommended option first and marked
+   "(Recommended)". At most 4 options per question, one decision per question, at most 4 questions per
+   call (split further decisions into the next round). Use multi-select only when the choices are not
+   exclusive. The user can always type their own answer via "Other".
+3. **No picker available?** (the tool is not offered, or the run is unattended) Ask the same thing as a
+   numbered list in chat, and wait. Never pick for the user and never treat silence as consent.
+4. Don't ask what Step 0 already showed, and don't re-ask something already answered.
+
+Decision points here: which CLI when both exist (**OpenCode** / **Cline**), the privacy settings
+(**Opt out of telemetry and disable web_search (Recommended for customer repos)** / **Leave as is**), and Step 4
+(**Delegate edits to the agent** / **Not yet**).
 
 ## Setup
 
