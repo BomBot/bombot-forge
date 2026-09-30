@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (engine choice, install, Dev Bridge, login consent)
 
-**Skill version: `202609_02`**
+**Skill version: `202609_03`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -33,7 +33,8 @@ it. Ask **one step at a time** and wait for the answer; never install or click a
 Check what already exists: `command -v bsk`, `BSK_AUTO_START=0 bsk status --json`,
 `ls ~/Applications/"Google Chrome for Testing.app"`, an existing `~/.config/bombot-forge/browser.json`,
 and whether the `mcp__claude-in-chrome__*` tools are available. Report it in two lines and skip
-any step that is already done and working.
+any step that is already done and working. **If `browser.json` exists this is an UPDATE run** — see
+*Re-running: update, don't overwrite* below; never treat the machine as blank.
 
 ## Step 1 — pick the engine
 
@@ -116,13 +117,36 @@ How the helper works when consented (this is the exact rule):
 With bsk the click is `bsk click '#login-submit'` on the machine's own pinned tab; with cdp use
 `cdp.py click`; with Claude in Chrome use its click.
 
+## Re-running: update, don't overwrite
+
+A machine that was set up before keeps its choices. On every re-run (also from an older session):
+
+1. **Read first.** Load `~/.config/bombot-forge/browser.json` and show the current values in one
+   small table (engine, also_installed, claude_in_chrome, auto_login_click, dev_bridge).
+2. **Ask per key: keep or change?** Default is **keep**. Ask only about a key the user brought up,
+   plus any key that is **new** in this skill version and missing from the file. Never re-ask
+   what is already answered.
+3. **Verify, don't reinstall.** Re-check that what the file says is still true (`bsk status`,
+   `cdp.py tabs`, the extension connected). Fix only what is actually broken. Never reinstall a
+   working `bsk`/Chrome for Testing, and never change a version pin, unless the user asks.
+4. **Merge, don't replace.** Keep keys this skill doesn't know (another skill or the user may have
+   added them). Only touch keys the user chose to change.
+5. **Back up, then write atomically.** `cp browser.json browser.json.bak.<YYYYMMDD_HHMMSS>` first;
+   write a temp file next to it and `mv` it into place. If the file's modified time changed since
+   you read it (another session ran setup meanwhile), re-read, re-merge, and tell the user.
+6. **Nothing to change → write nothing** and say so.
+
+Engine change (bsk ↔ cdp) is a change like any other: ask, install only the missing side, keep
+the other installed (`also_installed`) unless the user wants it removed — removal is never automatic.
+
 ## Step 6 — write the prefs and summarize
 
-Write `~/.config/bombot-forge/browser.json` (create the folder; chmod 600 is fine but there are no
-secrets):
+Apply *Re-running* above first. Then write `~/.config/bombot-forge/browser.json` (create the folder;
+chmod 600 is fine but there are no secrets):
 
 ```json
 {
+  "schema": 1,
   "engine": "bsk",
   "also_installed": [],
   "claude_in_chrome": "declined",
@@ -131,32 +155,12 @@ secrets):
 }
 ```
 
-Finish with a short table: what is installed and tested, the lane priority, what the user can
-still do later (`/setup-browser` again to change anything), and the one rule to remember —
+`schema` lets a later version of this skill add keys without guessing: a missing or older `schema`
+means "ask about the new keys", never "start over".
+
+Finish with a short table: what is installed and tested, the lane priority, what changed versus the
+previous file (or "no change"), and the one rule to remember —
 **no data-changing clicks on production through bsk**.
-
-## If auto mode blocks a step
-
-Auto mode's classifier can refuse a step here (installing a downloaded script, writing under
-`~/.config`, editing `settings.json`, or a guardrail change such as `--allow-bsk-prod`). A denial
-covers the **outcome**: don't retry it in smaller pieces, with other tools, or with different
-quoting. Finish everything that doesn't depend on it, then **stop, say what you were trying to do
-and why, and offer these three options** (the user decides — never pick for them):
-
-1. **You add the allow rule yourself** — you edit `permissions.allow` in your own settings
-   (`~/.claude/settings.json`, or the project's `.claude/settings.json`). Give the exact line(s)
-   needed for the blocked command, and say which file they belong in. Nothing else changes.
-2. **Switch to Manual or Accept-edits mode** — you change the mode yourself (in the app's mode
-   picker); auto mode's classifier is then out of the loop and you approve prompts by hand
-   (Accept-edits approves file edits automatically; shell commands may still ask).
-3. **Switch to Manual/Accept-edits, then have me edit the allow rules** — after you change the
-   mode, tell me; I show the exact `permissions.allow` diff first, back up the settings file, write
-   it only after your OK, and tell you to reload if needed.
-
-Whichever they pick: never change the permission mode or the allow rules on your own, keep every
-allow rule as narrow as possible (one command pattern, not a whole tool), and remember that
-switching mode does not make a guardrail change (like `--allow-bsk-prod`) automatically fine — it
-still needs the user's explicit OK.
 
 ## Gotchas
 

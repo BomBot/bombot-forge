@@ -9,6 +9,16 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.15.1 — 2026-09-30
+
+- `setup-browser` **202609_03** — re-running is now an update, not a fresh setup: read the existing
+  `browser.json` first, ask keep/change per key (default keep, ask only new or requested keys),
+  verify instead of reinstalling, merge unknown keys, back up then write atomically (re-merge if
+  another session changed the file), write nothing when nothing changed. Adds `schema: 1` to the
+  file. Engine change never removes the other side automatically.
+
+---
+
 ## v0.15.0 — 2026-09-30
 
 - **New skill `setup-coding-agent` 202609_01** — use Cline (or OpenCode, if that is what the machine
