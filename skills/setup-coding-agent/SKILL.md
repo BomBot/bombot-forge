@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_15`**
+**Skill version: `202609_16`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -334,6 +334,25 @@ the code paths and checked by offline tests that fake the OS-specific failure, n
   `analyze` in a scratch repo, `git log --oneline > rel.txt`, the same with an absolute path outside the folder,
   `git diff --no-index <any file> NUL`, and `git log | head -1`. Every one must come back `Permission denied` and no file
   may appear. If one runs, stop using that profile there and report it.
+
+## OpenCode sessions (each run leaves one; we delete it)
+
+`opencode run` stores every run as a **session** in OpenCode's own database (`opencode debug paths` → `db`), with
+the whole conversation — including code or data the agent read. `agent_run.py` never resumes one, so:
+
+- **Default: a finished run deletes the session it created** (`--profile code`, `analyze`, `ns-reader`, OpenCode
+  only). It takes the id from the `sessionID` in the run's own event stream and runs `opencode session delete <id>
+  --standalone`, so nothing else can be touched (the id must look like `ses_…`). The line `session   : deleted …`
+  is printed and `session_id` / `session_deleted` go into the delegation log. **`--keep-session`** skips it (for debugging).
+- The per-run folder `~/.cache/bombot-forge/agent-runs/<run>/` still holds `out.jsonl` (the full event log, which
+  also contains what the agent read) — delete it yourself when the work is customer-related. Nothing prunes that folder yet.
+- **Old sessions:** `agent_run.py --purge-sessions` lists the sessions whose directory is inside that agent-runs
+  cache (id + run folder name only; a string-prefix match, not a `LIKE`, so `_` in a path is not a wildcard).
+  `--yes` deletes them. **Show the user the list and get an OK first.** Sessions from anywhere else are never listed.
+- **Verified:** on OpenCode 2.0.20 a fresh session is created per run, and `session delete` removes the session and its
+  message rows from the database (row counts checked before/after); a live `analyze` run left the session count unchanged.
+  **Not verified:** a run that times out may have no session id in its output — then nothing is deleted and the line says so;
+  Cline has its own task store, not handled here.
 
 ## Gotchas
 

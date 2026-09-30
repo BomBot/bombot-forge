@@ -237,12 +237,18 @@ class AnalyzePermissionTest(unittest.TestCase):
 
 FAKE_OPENCODE = """#!/usr/bin/env python3
 import json, os, sys
+if sys.argv[1:3] == ["session", "delete"]:
+    open(os.environ["FAKE_DEL_LOG"], "a").write(sys.argv[3] + "\\n")
+    sys.exit(int(os.environ.get("FAKE_DEL_RC", "0")))
+if sys.argv[1:3] == ["debug", "paths"]:
+    print("home  /x"); print("db    " + os.environ.get("FAKE_DB", "/nonexistent.db")); sys.exit(0)
+SID = "ses_fake123"
 if os.environ.get("FAKE_WRITE"):
     open(os.path.join(os.environ["PWD"], "new.txt"), "w").write("hi\\n")
-print(json.dumps({"type": "tool_use", "part": {"tool": "shell", "state": {"status": "error", "input": {"command": "cat x"}}}}))
-print(json.dumps({"type": "tool_use", "part": {"tool": "read", "state": {"status": "completed", "input": {"path": "a.py"}}}}))
-print(json.dumps({"type": "step_finish", "part": {"tokens": {"input": 100, "output": 50, "cache": {"read": 40}}, "reason": "stop"}}))
-print(json.dumps({"type": "text", "part": {"text": os.environ.get("FAKE_TEXT", "done")}}))
+print(json.dumps({"type": "tool_use", "sessionID": SID, "part": {"tool": "shell", "state": {"status": "error", "input": {"command": "cat x"}}}}))
+print(json.dumps({"type": "tool_use", "sessionID": SID, "part": {"tool": "read", "state": {"status": "completed", "input": {"path": "a.py"}}}}))
+print(json.dumps({"type": "step_finish", "sessionID": SID, "part": {"tokens": {"input": 100, "output": 50, "cache": {"read": 40}}, "reason": "stop"}}))
+print(json.dumps({"type": "text", "sessionID": SID, "part": {"text": os.environ.get("FAKE_TEXT", "done")}}))
 """
 
 
@@ -311,6 +317,7 @@ class LedgerTest(unittest.TestCase):
         env = dict(os.environ, HOME=home, USERPROFILE=home, PATH=bindir + os.pathsep + os.environ["PATH"])   # USERPROFILE: what expanduser uses on Windows
         env.update(extra_env or {})
         env.pop("BOMBOT_FORGE_LOG", None)
+        env.setdefault("FAKE_DEL_LOG", os.path.join(self.tmp, "del.log"))
         if fake_write:
             env["FAKE_WRITE"] = "1"
         r = subprocess.run([_sys.executable, os.path.join(_HERE, "agent_run.py")] + list(args), env=env,
@@ -353,6 +360,97 @@ class LedgerTest(unittest.TestCase):
         self.assertIn("fixed by Claude 1 (3 lines)", r3.stdout)
         r4, _ = self.cli("--log-outcome", "nonexistent-run-id", "--verdict", "accepted")
         self.assertEqual(r4.returncode, 2)
+
+    # ---- OpenCode session cleanup
+    def deleted(self):
+        p = os.path.join(self.tmp, "del.log")
+        return open(p).read().split() if os.path.exists(p) else []
+
+    def test_session_ids_are_parsed_deduped_and_validated(self):
+        out = "\n".join([json.dumps({"sessionID": "ses_a1"}), json.dumps({"sessionID": "ses_a1"}),
+                         json.dumps({"sessionID": "ses_b2"}), json.dumps({"sessionID": "../etc"}),
+                         json.dumps({"sessionID": "ses_x; rm -rf /"}), json.dumps({"type": "text"}), "not json"])
+        self.assertEqual(self.mod.session_ids(out), ["ses_a1", "ses_b2"])
+
+    def test_delete_refuses_anything_that_is_not_a_session_id(self):
+        ok, msg = self.mod.delete_session("ses_x; rm -rf /")
+        self.assertFalse(ok)
+        self.assertIn("refused", msg)
+        self.assertEqual(self.deleted(), [])
+
+    def test_a_finished_analyze_run_deletes_the_session_it_created(self):
+        repo = self.repo()
+        r, log = self.cli("--profile", "analyze", "--repo", repo, "--task-file", os.path.join(self.tmp, "ask.md"),
+                          "--model", "p/deepseek/deepseek-flash")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.deleted(), ["ses_fake123"])
+        self.assertIn("session   : deleted ses_fake123", r.stdout)
+        rec = json.loads(open(log).read().splitlines()[0])
+        self.assertEqual((rec["session_id"], rec["session_deleted"]), ("ses_fake123", True))
+
+    def test_keep_session_leaves_it_alone_and_says_so(self):
+        repo = self.repo()
+        r, log = self.cli("--profile", "analyze", "--repo", repo, "--task-file", os.path.join(self.tmp, "ask.md"),
+                          "--model", "p/deepseek/deepseek-flash", "--keep-session")
+        self.assertEqual(self.deleted(), [])
+        self.assertIn("kept ses_fake123 (--keep-session)", r.stdout)
+        self.assertFalse(json.loads(open(log).read().splitlines()[0])["session_deleted"])
+
+    def test_a_failed_delete_does_not_fail_the_run_but_is_reported_and_logged(self):
+        repo = self.repo()
+        r, log = self.cli("--profile", "analyze", "--repo", repo, "--task-file", os.path.join(self.tmp, "ask.md"),
+                          "--model", "p/deepseek/deepseek-flash", extra_env={"FAKE_DEL_RC": "1"})
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("COULD NOT delete", r.stdout)
+        self.assertFalse(json.loads(open(log).read().splitlines()[0])["session_deleted"])
+
+    def test_a_code_run_on_opencode_also_deletes_its_session(self):
+        repo = self.repo()
+        r, log = self.cli("--profile", "code", "--agent", "opencode", "--repo", repo,
+                          "--task-file", os.path.join(self.tmp, "ask.md"), "--model", "p/deepseek/deepseek-flash",
+                          fake_write=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(self.deleted(), ["ses_fake123"])
+
+    def make_db(self, home):
+        import sqlite3
+        db = os.path.join(self.tmp, "oc.db")
+        root = os.path.join(home, ".cache", "bombot-forge", "agent-runs")
+        con = sqlite3.connect(db)
+        con.execute("CREATE TABLE session_v2 (id text primary key, directory text not null)")
+        rows = [("ses_in1", root + "/20260101_010101/worktree"), ("ses_in2", root + "/20260101_020202_nsr/work"),
+                ("ses_out", "/somewhere/else/worktree"),
+                # differs from the root only where a LIKE pattern would treat '_' as a wildcard
+                ("ses_lookalike", root.replace("home_x", "homeXx") + "/20260101_030303/worktree"),
+                ("ses_prefix", root + "-old/20260101/worktree")]
+        con.executemany("INSERT INTO session_v2 VALUES (?, ?)", rows)
+        con.commit(); con.close()
+        return db, root
+
+    def test_purge_finds_only_sessions_inside_the_agent_runs_cache(self):
+        home = os.path.join(self.tmp, "home_x"); os.makedirs(home)
+        db, root = self.make_db(home)
+        got = self.mod.agent_run_sessions(db, root)
+        self.assertEqual(sorted(got), [("ses_in1", "20260101_010101"), ("ses_in2", "20260101_020202_nsr")])
+
+    def test_purge_is_a_dry_run_until_yes(self):
+        home = os.path.join(self.tmp, "home_x"); os.makedirs(home)
+        db, root = self.make_db(home)
+        import subprocess, sys as _sys
+        bindir = os.path.join(self.tmp, "bin"); os.makedirs(bindir, exist_ok=True)
+        fake = os.path.join(bindir, "opencode"); open(fake, "w").write(FAKE_OPENCODE); os.chmod(fake, 0o755)
+        env = dict(os.environ, HOME=home, USERPROFILE=home, FAKE_DB=db, PATH=bindir + os.pathsep + os.environ["PATH"],
+                   FAKE_DEL_LOG=os.path.join(self.tmp, "del.log"))
+        run = lambda *a: subprocess.run([_sys.executable, os.path.join(_HERE, "agent_run.py")] + list(a), env=env,
+                                        capture_output=True, text=True, timeout=60)
+        r = run("--purge-sessions")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("2 session(s)", r.stdout)
+        self.assertIn("dry run", r.stdout)
+        self.assertEqual(self.deleted(), [])
+        r = run("--purge-sessions", "--yes")
+        self.assertEqual(sorted(self.deleted()), ["ses_in1", "ses_in2"])
+        self.assertNotIn("ses_out", r.stdout)
 
 
 class PortabilityTest(unittest.TestCase):

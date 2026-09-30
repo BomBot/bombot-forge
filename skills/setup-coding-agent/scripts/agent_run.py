@@ -96,6 +96,96 @@ def read_account_ids(cfg):
     return out
 
 
+# ---- OpenCode sessions: every `opencode run` leaves a session (with the full conversation, incl. what the agent read)
+# in OpenCode's own database. We never resume one, so a finished run deletes the session it created (by the id in the
+# event stream, so nothing else is touched) unless --keep-session. The per-run folder in ~/.cache keeps out.jsonl.
+RUNS_ROOT = "~/.cache/bombot-forge/agent-runs"
+
+
+def session_ids(out):
+    """Distinct `sessionID`s in an `opencode run --format json` stream, in order of appearance."""
+    ids = []
+    for line in (out or "").splitlines():
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        sid = d.get("sessionID") if isinstance(d, dict) else None
+        if isinstance(sid, str) and re.match(r"^ses_[A-Za-z0-9]+$", sid) and sid not in ids:
+            ids.append(sid)
+    return ids
+
+
+def delete_session(sid, cwd=None):
+    """(ok, message) - `opencode session delete <id> --standalone`. Never raises."""
+    if not re.match(r"^ses_[A-Za-z0-9]+$", sid or ""):
+        return False, "refused: %r is not a session id" % (sid,)
+    try:
+        rc, so, se = sh([resolve_exe("opencode"), "session", "delete", sid, "--standalone"], cwd=cwd, timeout=60)
+    except Exception as e:                      # timeout, missing binary ...
+        return False, str(e)[:160]
+    return rc == 0, (so or se).strip().splitlines()[-1][:160] if (so or se).strip() else "exit %d" % rc
+
+
+def finish_session(out, run_dir, keep=False):
+    """Delete the session(s) this run created. Returns (first_id or None, deleted: bool, one-line message)."""
+    ids = session_ids(out)
+    if not ids:
+        return None, False, "no session id in the output (a timeout can cut it) - nothing deleted"
+    if keep:
+        return ids[0], False, "kept %s (--keep-session)" % ids[0]
+    bad = []
+    for sid in ids:
+        ok, msg = delete_session(sid, cwd=run_dir)
+        if not ok:
+            bad.append("%s: %s" % (sid, msg))
+    if bad:
+        return ids[0], False, "COULD NOT delete: " + "; ".join(bad) + " (the conversation is still in OpenCode's database)"
+    return ids[0], True, "deleted %s" % ", ".join(ids)
+
+
+def opencode_db_path():
+    """OpenCode's database file, from `opencode debug paths` (the `db` line), else the usual default."""
+    try:
+        rc, so, _ = sh([resolve_exe("opencode"), "debug", "paths"], timeout=30)
+        for line in so.splitlines():
+            parts = line.split(None, 1)
+            if rc == 0 and len(parts) == 2 and parts[0] == "db":
+                return parts[1].strip()
+    except Exception:
+        pass
+    return os.path.expanduser("~/.local/share/opencode/opencode.db")
+
+
+def agent_run_sessions(db=None, root=None):
+    """[(session id, run folder name)] for sessions whose directory is inside the agent-runs cache. Read-only.
+    Compares by string prefix, not LIKE: `_` and `%` in a path are LIKE wildcards."""
+    import sqlite3
+    root = (root or os.path.expanduser(RUNS_ROOT)).rstrip("/\\") + os.sep
+    con = sqlite3.connect("file:%s?mode=ro" % (db or opencode_db_path()), uri=True)
+    try:
+        rows = con.execute("SELECT id, directory FROM session_v2 WHERE substr(directory, 1, ?) = ?",
+                           (len(root), root)).fetchall()
+    finally:
+        con.close()
+    return [(i, d[len(root):].split(os.sep, 1)[0]) for i, d in rows]
+
+
+def purge_agent_sessions(delete=False, db=None, root=None):
+    """List (and with delete=True remove) the OpenCode sessions created by agent_run.py. Returns the report lines."""
+    rows = agent_run_sessions(db, root)
+    lines = ["%d session(s) created by agent_run.py (directory under %s):" % (len(rows), root or RUNS_ROOT)]
+    for sid, run in rows:
+        if delete:
+            ok, msg = delete_session(sid)
+            lines.append("  %-30s run %-22s %s" % (sid, run, "deleted" if ok else "FAILED: " + msg))
+        else:
+            lines.append("  %-30s run %s" % (sid, run))
+    if rows and not delete:
+        lines.append("dry run - nothing deleted. Re-run with --yes (after the user OKs this list) to delete them.")
+    return lines
+
+
 # ---- delegation ledger: one JSON line per run + one per review outcome, kept so the setup can be MEASURED ----
 # Holds numbers and ids only - never the task text, the agent's reply, file names or code (those can be customer data).
 # The raw per-run folder in ~/.cache is not enough: it is a cache (may be deleted) and says nothing about whether
@@ -412,6 +502,7 @@ def run_ns_reader(a):
     if isinstance(out, bytes):
         out = out.decode("utf-8", "replace")
     open(os.path.join(run_dir, "out.jsonl"), "w", encoding="utf-8").write(out)
+    sid, sdeleted, smsg = finish_session(out, run_dir, a.keep_session)
     tin = tout = tcached = 0
     text = ""
     tools = []
@@ -437,11 +528,12 @@ def run_ns_reader(a):
     for t in tools:
         print("  ", t)
     print("tokens    : in %s (cached %s) · out %s · %.1fs" % (tin + tcached, tcached, tout, time.time() - t0))
+    print("session   :", smsg)
     print("agent said:", text.strip()[:1500])
     print("\nNOTE: the agent's summary is a claim - compare it with the command list above and re-run "
           "anything that matters yourself. Data it read went to the model provider.")
     _log_run(run_dir, "ns-reader", a, tin + tcached, tcached, tout, time.time() - t0, rc, bool(rc == 0 and text),
-             len(task), tools)
+             len(task), tools, session_id=sid, session_deleted=sdeleted)
     sys.exit(0 if rc == 0 and text else 1)
 
 
@@ -541,6 +633,7 @@ def run_analyze(a):
     if isinstance(out, bytes):
         out = out.decode("utf-8", "replace")
     open(os.path.join(run_dir, "out.jsonl"), "w", encoding="utf-8").write(out)
+    sid, sdeleted, smsg = finish_session(out, run_dir, a.keep_session)
     tin, tcached, tout, text, tools = parse_opencode(out, run_dir)
     _, wt_after, _ = sh(["git", "status", "--porcelain"], cwd=wt)
     _, repo_after, _ = sh(["git", "status", "--porcelain"], cwd=repo)
@@ -556,6 +649,7 @@ def run_analyze(a):
     for t in tools:
         print("  ", t)
     print("tokens    : in %s (cached %s) - out %s - %.1fs" % (tin, tcached, tout, time.time() - t0))
+    print("session   :", smsg)
     pr = peak_price(a.model.split("/", 1)[1] if "/" in a.model else a.model)
     if pr:
         usd = ((tin - tcached) * pr["input"] + tcached * pr.get("cached_input", pr["input"]) + tout * pr["output"]) / 1e6
@@ -564,7 +658,7 @@ def run_analyze(a):
     print("\nNOTE: this is the agent's CLAIM. Spot-check every file:line it cites before acting on it; "
           "the code it read went to the model provider. The worktree was removed.")
     _log_run(run_dir, "analyze", a, tin, tcached, tout, time.time() - t0, rc, bool(rc == 0 and text), len(task), tools,
-             repo=repo)
+             repo=repo, session_id=sid, session_deleted=sdeleted)
     sys.exit(0 if rc == 0 and text else 1)
 
 
@@ -591,6 +685,12 @@ def main():
     ap.add_argument("--claude-fixed-lines", type=int, default=None, help="lines Claude had to change (with --verdict fixed)")
     ap.add_argument("--log-report", action="store_true", help="print totals and review verdicts from the delegation log")
     ap.add_argument("--since", default=None, metavar="YYYY-MM-DD", help="with --log-report: only runs from this date")
+    ap.add_argument("--keep-session", action="store_true",
+                    help="(opencode) do not delete the OpenCode session this run created (default: delete it)")
+    ap.add_argument("--purge-sessions", action="store_true",
+                    help="list the OpenCode sessions agent_run.py created earlier (directory under the agent-runs cache); "
+                         "with --yes, delete them")
+    ap.add_argument("--yes", action="store_true", help="with --purge-sessions: really delete (ask the user first)")
     ap.add_argument("--timeout", type=int, default=600, help="agent timeout in seconds")
     ap.add_argument("--agent", choices=["cline", "opencode"], default=None,
                     help="default: cline if installed, else opencode")
@@ -622,6 +722,12 @@ def main():
         return
     if a.log_report:
         print(format_report(read_log(), a.since)); return
+    if a.purge_sessions:
+        try:
+            print("\n".join(purge_agent_sessions(delete=a.yes)))
+        except Exception as e:
+            print("REFUSED:", e); sys.exit(2)
+        return
     if a.log_outcome:
         if not a.verdict:
             ap.error("--log-outcome needs --verdict")
@@ -709,6 +815,10 @@ def main():
         out = out.decode("utf-8", "replace")
     open(os.path.join(run_dir, "out.jsonl"), "w", encoding="utf-8").write(out)
     open(os.path.join(run_dir, "task.md"), "w", encoding="utf-8").write(task)
+    sid = sdeleted = None
+    smsg = None
+    if agent == "opencode":
+        sid, sdeleted, smsg = finish_session(out, run_dir, a.keep_session)
 
     result = None
     oc = {"in": 0, "out": 0, "cached": 0, "text": "", "steps": 0, "reason": None}
@@ -748,6 +858,8 @@ def main():
               "outside its worktree. Inspect `git -C %s status` before anything else.\n%s" % (repo, repo_after[:400]))
     print("run dir   :", run_dir)
     print("exit code :", rc, ("| stderr: " + err.strip()[:200]) if err.strip() else "")
+    if smsg:
+        print("session   :", smsg)
     if not result:
         print("RESULT    : none — the agent did not finish (crash or timeout). Nothing was applied.")
     else:
@@ -768,7 +880,8 @@ def main():
     _done = bool(result and result.get("finishReason") == "completed")
     if not wt:
         print("WORKTREE  : none found — nothing to review.")
-        _log_run(run_dir, "code", a, _cin, _cc, _co, time.time() - t0, rc, _done, len(task), repo=repo)
+        _log_run(run_dir, "code", a, _cin, _cc, _co, time.time() - t0, rc, _done, len(task), repo=repo,
+                 session_id=sid, session_deleted=sdeleted)
         sys.exit(1)
 
     # stage into the worktree's own index, leaving build junk the agent's test runs create out of the patch
@@ -796,7 +909,7 @@ def main():
             _add += int(_f[0]) if _f[0].isdigit() else 0
             _del += int(_f[1]) if _f[1].isdigit() else 0
     _log_run(run_dir, "code", a, _cin, _cc, _co, time.time() - t0, rc, _done, len(task), repo=repo,
-             files_changed=_files, lines_added=_add, lines_removed=_del)
+             files_changed=_files, lines_added=_add, lines_removed=_del, session_id=sid, session_deleted=sdeleted)
     sys.exit(0 if _done else 1)
 
 

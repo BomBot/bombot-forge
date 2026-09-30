@@ -9,6 +9,24 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.24.1 — 2026-09-30
+
+- **`agent_run.py` deletes the OpenCode session each run creates** (all three profiles, OpenCode only). Until now every
+  run left a session in OpenCode's database holding the whole conversation, i.e. whatever the agent read — a second copy
+  of possibly customer data next to `out.jsonl`. The id comes from the run's own event stream (validated as `ses_…`), the
+  delete is `opencode session delete <id> --standalone`, a failure is reported and logged but never fails the run.
+  `--keep-session` opts out. Ledger gains `session_id` / `session_deleted`.
+- **`--purge-sessions [--yes]`** lists, and with `--yes` deletes, the sessions whose directory is inside
+  `~/.cache/bombot-forge/agent-runs/` (id + run folder name shown, dry run by default). The match is a string prefix
+  on purpose: a `LIKE` would treat `_` in a path as a wildcard (a test catches that).
+- `setup-coding-agent` **202609_16**: new section "OpenCode sessions". Verified live (session count 33 before and after a
+  run; `session delete` removes session and message rows). Not verified: a timed-out run may print no session id, so its
+  session is left. `out.jsonl` in the run folder is still kept and is not pruned.
+- Tests: 43 (was 35); four mutations (analyze stops deleting, purge uses `LIKE`, `--keep-session` ignored, no id
+  validation before delete) each made a test fail, then were restored.
+
+---
+
 ## v0.24.0 — 2026-09-30
 
 - **New skill `setup-global-instructions-nondev` (202609_01)** — the global `~/.claude/CLAUDE.md` for a non-dev NetSuite
