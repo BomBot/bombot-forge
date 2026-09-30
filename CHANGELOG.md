@@ -9,6 +9,19 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.16.1 — 2026-09-30
+
+- `setup-coding-agent` **202609_03** + `agent_run.py --profile ns-reader` — lets an OpenCode agent
+  READ a NetSuite sandbox with an enforced allow-list: only `ns_read.py whoami|query|record`; all
+  other commands, edits, web access and the flags `--allow-prod-read` / `--bridge-path` / `--config`
+  are denied by OpenCode's own permission system. Verified live (2 allowed, 4 denied); compound
+  commands (`&&`, `;`, `$(…)`) verified denied. Prints the commands the agent actually tried.
+  Known: OpenCode's `--standalone` server watches parent folders up to the home directory, which
+  triggered macOS iCloud/Music prompts once (answer Don't Allow); `watcher.ignore` untested.
+  `default_delegate` is still NOT turned on by any skill.
+
+---
+
 ## v0.16.0 — 2026-09-30
 
 - `ns-live-verify` **202609_06** — new scoped read helper `scripts/ns_read.py` (`whoami`, `query`,

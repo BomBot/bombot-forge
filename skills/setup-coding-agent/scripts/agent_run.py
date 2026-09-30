@@ -16,6 +16,12 @@ What it does:
      prints status / diff stat / tokens / estimated USD
 It NEVER applies the patch to your repo and never deletes the worktree — the caller reviews first.
 
+  --profile ns-reader (opencode only): NOT a code-edit run. The agent gets an EMPTY scratch folder and a
+  permission list (enforced by OpenCode itself) that allows only `ns_read.py whoami|query|record` from the
+  ns-live-verify skill; every other command, file edit, web access and the flags --allow-prod-read /
+  --bridge-path / --config are denied. It can therefore read a SANDBOX account, and nothing else.
+  Usage: agent_run.py --profile ns-reader --task-file ask.md --model <provider>/<model>
+
 Exit codes: 0 agent completed · 1 agent did not complete (see summary) · 2 precondition failed
 
 Usage:
@@ -53,6 +59,90 @@ def peak_price(model):
         return None
 
 
+NS_READER_PREAMBLE = """You are a read-only NetSuite assistant. The ONLY command you may run is:
+  python3 {reader} whoami|query|record --account <ACCOUNT> ...
+Rules (they override the task): never try any other command, flag or file; if a command is refused, say
+so and stop trying to get around it; do not guess values - report exactly what the tool printed; if the
+tool says the session expired or the account is wrong, report that and stop."""
+
+
+def run_ns_reader(a):
+    if (a.agent or "opencode") != "opencode" or not shutil.which("opencode"):
+        print("ABORT: --profile ns-reader needs the opencode CLI (it enforces the permission list)."); sys.exit(2)
+    if not a.model:
+        print("ABORT: --profile ns-reader needs --model <provider>/<model> as named in opencode's config."); sys.exit(2)
+    here = os.path.dirname(os.path.abspath(__file__))
+    reader_src = os.path.realpath(os.path.join(here, "..", "..", "ns-live-verify", "scripts", "ns_read.py"))
+    if not os.path.isfile(reader_src):
+        print("ABORT: ns_read.py not found at %s" % reader_src); sys.exit(2)
+    task = open(a.task_file, encoding="utf-8").read().strip()
+    if not task:
+        print("ABORT: empty task file."); sys.exit(2)
+    run_dir = os.path.join(os.path.expanduser("~/.cache/bombot-forge/agent-runs"),
+                           time.strftime("%Y%m%d_%H%M%S") + "_nsr")
+    work = os.path.join(run_dir, "work")
+    os.makedirs(work, exist_ok=True)
+    # a link WITHOUT spaces in its path, so the permission patterns match the command text exactly
+    reader = os.path.join(run_dir, "ns_read.py")
+    os.symlink(reader_src, reader)
+    cfg = {"$schema": "https://opencode.ai/config.json",
+           "permission": {"bash": {"*": "deny",
+                                   "python3 %s whoami *" % reader: "allow",
+                                   "python3 %s query *" % reader: "allow",
+                                   "python3 %s record *" % reader: "allow",
+                                   "*--allow-prod-read*": "deny",
+                                   "*--bridge-path*": "deny",
+                                   "*--config*": "deny"},
+                          "edit": "deny", "webfetch": "deny", "websearch": "deny"}}
+    cfg_path = os.path.join(run_dir, "opencode-ns-reader.json")
+    json.dump(cfg, open(cfg_path, "w"), indent=2)
+    prompt = NS_READER_PREAMBLE.format(reader=reader) + "\n\nTASK:\n" + task
+    cmd = ["opencode", "run", "--standalone", "--format", "json", "-m", a.model, prompt]
+    if a.dry_run:
+        print("DRY-RUN — profile ns-reader; config written to", cfg_path, "\n ", " ".join(cmd[:-1]), "<PREAMBLE + TASK>")
+        return
+    env = dict(os.environ, PWD=work, OPENCODE_CONFIG=cfg_path)
+    t0 = time.time()
+    try:
+        r = subprocess.run(cmd, cwd=work, env=env, capture_output=True, text=True,
+                           timeout=a.timeout + 60, stdin=subprocess.DEVNULL)
+        out, err, rc = r.stdout, r.stderr, r.returncode
+    except subprocess.TimeoutExpired as e:
+        out, err, rc = (e.stdout or ""), "timeout after %ss" % (a.timeout + 60), 124
+    if isinstance(out, bytes):
+        out = out.decode("utf-8", "replace")
+    open(os.path.join(run_dir, "out.jsonl"), "w", encoding="utf-8").write(out)
+    tin = tout = tcached = 0
+    text = ""
+    tools = []
+    for line in out.splitlines():
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        part = d.get("part") or {}
+        if d.get("type") == "step_finish":
+            t = part.get("tokens") or {}
+            tin += t.get("input", 0); tout += t.get("output", 0)
+            tcached += (t.get("cache") or {}).get("read", 0)
+        elif d.get("type") == "text":
+            text = part.get("text", "")
+        elif d.get("type") == "tool_use":
+            st = part.get("state") or {}
+            cmdtxt = (st.get("input") or {}).get("command", "")
+            tools.append("%-9s %s" % (st.get("status"), cmdtxt.replace(run_dir + "/", "")[:150]))
+    print("run dir   :", run_dir)
+    print("exit code :", rc, ("| stderr: " + err.strip()[:200]) if err.strip() else "")
+    print("commands the agent tried (status · command):")
+    for t in tools:
+        print("  ", t)
+    print("tokens    : in %s (cached %s) · out %s · %.1fs" % (tin + tcached, tcached, tout, time.time() - t0))
+    print("agent said:", text.strip()[:1500])
+    print("\nNOTE: the agent's summary is a claim - compare it with the command list above and re-run "
+          "anything that matters yourself. Data it read went to the model provider.")
+    sys.exit(0 if rc == 0 and text else 1)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--repo", default=".")
@@ -65,12 +155,17 @@ def main():
                     help="cline: model id (default deepseek/deepseek-flash). opencode: provider/model "
                          "as in ITS config, e.g. <provider-id>/deepseek/deepseek-flash; omitted = the "
                          "model set in opencode's own config")
+    ap.add_argument("--profile", choices=["code", "ns-reader"], default="code",
+                    help="code (default): edit a repo in a worktree. ns-reader: read a NetSuite sandbox "
+                         "through ns_read.py only (opencode)")
     ap.add_argument("--opencode-auto", action="store_true",
                     help="(opencode) pass --auto; needed only if its config does not already allow tools "
                          "(a headless run cannot answer permission prompts)")
     ap.add_argument("--allow-dirty", action="store_true")
     ap.add_argument("--dry-run", action="store_true", help="print the command, run nothing")
     a = ap.parse_args()
+    if a.profile == "ns-reader":
+        return run_ns_reader(a)
 
     agent = a.agent or ("cline" if shutil.which("cline") else "opencode")
     if not shutil.which(agent):

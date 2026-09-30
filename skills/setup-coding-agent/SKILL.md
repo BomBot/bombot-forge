@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_02`**
+**Skill version: `202609_03`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -107,6 +107,33 @@ me only briefing and reviewing?"* If yes, record `{"default_delegate": true, "ag
 
 > Code/text edits go to the coding agent via `agent_run.py` (skill `setup-coding-agent`); Claude
 > briefs and reviews. Never delegate browser, production, deploy, secrets or customer data.
+
+## Profile `ns-reader` — let the agent READ a NetSuite sandbox, nothing else (OpenCode only)
+
+`agent_run.py --profile ns-reader --task-file ask.md --model <provider>/<model>` runs the agent in an
+EMPTY scratch folder (no repo, no patch) with a permission list that **OpenCode itself enforces**:
+the only shell commands allowed are `ns_read.py whoami|query|record` (from `ns-live-verify`); every
+other command, all file edits, web fetch/search, and the flags `--allow-prod-read`, `--bridge-path`
+and `--config` are denied. So it can read a SANDBOX account through the Dev Bridge and can neither
+click, write, log in, run raw `bsk`/`cdp.py`, nor reach production. The bridge endpoint comes from the
+local `browser.json` (`dev_bridge.endpoints`); with none configured the agent can only `whoami`.
+Production reads stay with Claude, who runs `ns_read.py --allow-prod-read` itself after the user's OK.
+
+| Claim | Status |
+|---|---|
+| OpenCode's per-command `bash` permission (`allow`/`deny` globs, last match wins) is enforced | **verified**: `echo *` allowed, `ls` denied; `echo A && ls`, `echo B; ls` and `echo $(ls)` also denied |
+| With the profile: `whoami` and `query` run, `--allow-prod-read`, `--bridge-path`, raw `bsk`, `ns_write.py` are denied | **verified live** on a sandbox (2 allowed, 4 denied) |
+| `NS_READ_CONFIG` reaches the command the agent runs | verified (the query used the config's endpoint) |
+| Env-prefixed commands (`VAR=x python3 …`) and other quoting tricks are denied | reasoned from the glob rule, **not tested** |
+| Cline equivalent | none — the profile refuses `--agent cline` |
+| `cdp` engine | not implemented in `ns_read.py` |
+
+Things to know: whatever the agent reads goes to the model provider; its summary is a claim, so
+`agent_run.py` prints the list of commands it actually tried — compare them. The `--standalone`
+server OpenCode starts watches the parent folders up to the home directory (its own log shows
+`watcher` on `/Users/<you>`), and on macOS that produced permission prompts for iCloud Drive and
+Music once. Answer **Don't Allow** — nothing here needs them. Whether config `watcher.ignore` avoids
+it was **not tested**.
 
 ## The protocol Claude follows (when `default_delegate` is on)
 
