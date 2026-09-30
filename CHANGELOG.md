@@ -9,6 +9,25 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.24.0 — 2026-09-30
+
+- **New skill `setup-global-instructions-nondev` (202609_01)** — the global `~/.claude/CLAUDE.md` for a non-dev NetSuite
+  machine: **no SDF at all** (`suitecloud` in any form), no deploy of XML/JS, no upload/edit of JS on the account; work by
+  reading pulled files (a git repo or a File Cabinet download — assumption to confirm), the Dev Bridge and the browser;
+  record edits only through `ns_write.py` on a per-case yes. Not a copy of the dev skill: `scripts/build_nondev.py` keeps
+  five sections of the dev snapshot verbatim (Accuracy, Communication, Slack, Session memory, Browser automation), drops
+  the developer-only ones, and adds `reference/nondev-sections.md`; the flow (diff by section, backup, confirm) is the dev
+  skill's. A target section that contradicts the ban (`SDF Deploy`) is shown and offered for removal.
+- **Deny rules, measured.** The skill also proposes `permissions.deny` = `Bash(suitecloud:*)`, `Bash(npx suitecloud:*)`,
+  `Bash(*suitecloud*)`. Tested with the real `claude -p` in `bypassPermissions` mode against a fake `suitecloud` that logs
+  any real run: with no rule it ran; with the rules a direct call, `bash -c '…'` and `$(which suitecloud) …` did not.
+  **Evaded:** `s=suite; ${s}cloud file:list` ran (the patterns match the command text). Also untested: deny vs an existing
+  allow entry. Both are stated in the skill; the CLAUDE.md ban covers what the rule cannot.
+- Tests: 9 (`test_build_nondev_offline.py`); three mutations (keep `SDF Deploy`, drop `file:upload` from the ban,
+  fence-blind heading split) each made a test fail, then were restored.
+
+---
+
 ## v0.23.2 — 2026-09-30
 
 - `setup-browser` **202609_14**: new optional Step 5b, *keep the `bsk` daemon running from login*. Explains what the
