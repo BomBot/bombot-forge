@@ -12,7 +12,7 @@ description: >-
 
 # Browser driving: bsk for read/QA, cdp for the rest
 
-**Skill version: `202609_08`**
+**Skill version: `202609_09`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -123,10 +123,14 @@ end-to-end time — the win is per-command overhead and not needing a second log
    - **Claude in Chrome** (if installed; skill `setup-browser`) opens a new *tab* in the user's own window,
      where autofill works — then follow the auto-login rule there (`#login-submit` enabled → click once;
      never read or type a credential; stop on an MFA prompt).
-   - Otherwise tell the user to log in in their own Chrome (on macOS `open -a "Google Chrome" "<login url>"`
-     opens it as a tab — **not yet exercised**), and re-run the read after they say they're in.
-   - `bsk tab borrow` moves a user's tab into the Agent Window (the user confirms each time) — **not
-     exercised**, and the tab then lives in that window.
+   - Otherwise open it for them: on macOS `open -a "Google Chrome" "<login url>"` **verified**: it opens a
+     new *tab* in the already-open Chrome window (a `bsk tab list --scope user` then showed it in a user
+     window, not an Agent Window). Tell the user which tab it is, and re-run the read after they say
+     they're in. You cannot close that tab yourself — say so.
+   - `bsk tab borrow <tab-id> --session <id>` moves a user's tab into the Agent Window and asks the user to
+     confirm in the extension. **Tried once: it timed out after 60 s (nobody confirmed), so whether Chrome
+     autofills that tab and keeps the value through the borrow is still unknown.** bsk's own hint on
+     the timeout: report the blocked step; do not repeat the request or switch tools — so don't loop on it.
    A login counts in the account's "My login audit".
 6. **Read cheaply.** `bsk observe` on a one-paragraph page returned 18.6 KB (one node per
    character) — always cap it: `bsk observe --max-tokens 600 …` gave 2.6 KB on the NetSuite Home

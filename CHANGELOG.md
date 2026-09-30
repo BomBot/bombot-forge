@@ -9,6 +9,18 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.21.2 — 2026-09-30
+
+- `cdp-browser` **202609_09** — the real-tab hand-off, tried on a Mac (Chrome 152, bsk 0.3.1). **Verified:**
+  `open -a "Google Chrome" <login url>` opens a new *tab* in the already-open Chrome window, and
+  `bsk tab list --scope user` sees it in a user window (not an Agent Window). **Not verified:** `bsk tab
+  borrow` — the confirmation prompt was not answered within 60 s, so it timed out (exit 4, `confirmation_timeout`);
+  whether autofill happens in that tab and survives the borrow is still unknown. bsk's hint is not to repeat
+  the request, so it was not repeated. The test session was stopped by id and the login tab was left for the
+  user to close (bsk cannot close a tab in the user's window).
+
+---
+
 ## v0.21.1 — 2026-09-30
 
 - **Fix: the skills told the agent to confirm "`session_count` is 0" after stopping its session** — wrong when
