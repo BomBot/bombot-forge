@@ -9,6 +9,16 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.14.2 — 2026-09-30
+
+- `setup-global-instructions` **202609_03** — snapshot's "Browser automation" section matches
+  `--allow-bsk-prod`: production writes through `bsk` only via `ns_write.py --allow-bsk-prod`
+  (dry-run first, per-round approval, one record per call, exit 3 = stop), no UI clicks on
+  production through `bsk`; lane priority added (bsk/cdp → Claude in Chrome → user acts) and the
+  note that `cdp.py` cannot drive the everyday Chrome.
+
+---
+
 ## v0.14.1 — 2026-09-30
 
 - `setup-browser` **202609_02** — new "If auto mode blocks a step" section: stop, explain, and offer
