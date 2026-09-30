@@ -235,5 +235,124 @@ class AnalyzePermissionTest(unittest.TestCase):
         self.assertEqual(decide(rd, "/w/src/calc.py"), "allow")
 
 
+FAKE_OPENCODE = """#!/usr/bin/env python3
+import json, os, sys
+if os.environ.get("FAKE_WRITE"):
+    open(os.path.join(os.environ["PWD"], "new.txt"), "w").write("hi\\n")
+print(json.dumps({"type": "tool_use", "part": {"tool": "shell", "state": {"status": "error", "input": {"command": "cat x"}}}}))
+print(json.dumps({"type": "tool_use", "part": {"tool": "read", "state": {"status": "completed", "input": {"path": "a.py"}}}}))
+print(json.dumps({"type": "step_finish", "part": {"tokens": {"input": 100, "output": 50, "cache": {"read": 40}}, "reason": "stop"}}))
+print(json.dumps({"type": "text", "part": {"text": "done"}}))
+"""
+
+
+class LedgerTest(unittest.TestCase):
+    def setUp(self):
+        self.mod = load("agent_run")
+        self.tmp = tempfile.mkdtemp()
+        self.log = os.path.join(self.tmp, "sub", "d.jsonl")
+
+    def run_rec(self, run_id, **kw):
+        rec = dict(kind="run", run_id=run_id, profile="analyze", completed=True, tokens_in=100, tokens_cached=40,
+                   tokens_out=50, usd_est=0.001, seconds=10.0, tools_denied=1)
+        rec.update(kw)
+        self.assertTrue(self.mod.log_event(rec, self.log))
+
+    def test_log_is_created_private_and_appended(self):
+        self.run_rec("r1"); self.run_rec("r2")
+        self.assertEqual(stat.S_IMODE(os.stat(self.log).st_mode), 0o600)
+        self.assertEqual([r["run_id"] for r in self.mod.read_log(self.log)], ["r1", "r2"])
+
+    def test_bad_lines_are_skipped_not_fatal(self):
+        self.run_rec("r1")
+        open(self.log, "a").write("not json\n[1,2]\n")
+        self.assertEqual(len(self.mod.read_log(self.log)), 1)
+
+    def test_outcome_needs_a_known_run_and_a_known_verdict(self):
+        self.run_rec("r1")
+        with self.assertRaises(ValueError):
+            self.mod.log_outcome("nope", "accepted", path=self.log)
+        with self.assertRaises(ValueError):
+            self.mod.log_outcome("r1", "great", path=self.log)
+        self.mod.log_outcome("r1", "fixed", 7, "off by one", path=self.log)
+        self.assertEqual(self.mod.read_log(self.log)[-1]["claude_fixed_lines"], 7)
+
+    def test_summary_counts_the_latest_verdict_and_flags_unreviewed(self):
+        for i in range(3):
+            self.run_rec("r%d" % i)
+        self.run_rec("u1", usd_est=None)
+        self.mod.log_outcome("r0", "rejected", path=self.log)
+        self.mod.log_outcome("r0", "accepted", path=self.log)      # changed my mind: latest wins
+        self.mod.log_outcome("r1", "fixed", 4, path=self.log)
+        prof, unrev = self.mod.summarize_log(self.mod.read_log(self.log))
+        g = prof["analyze"]
+        self.assertEqual((g["runs"], g["accepted"], g["fixed"], g["rejected"], g["fixed_lines"]), (4, 1, 1, 0, 4))
+        self.assertEqual(g["usd_unpriced"], 1)
+        self.assertEqual(unrev, ["r2", "u1"])
+
+    def test_report_says_when_quality_cannot_be_judged(self):
+        self.run_rec("r1")
+        txt = self.mod.format_report(self.mod.read_log(self.log))
+        self.assertIn("no verdicts recorded yet", txt)
+        self.assertIn("Not recorded: Claude's own tokens", txt)
+
+    def test_usd_estimate_uses_the_provider_stripped_id_and_never_guesses(self):
+        m = self.mod
+        self.assertAlmostEqual(m.usd_estimate("p/deepseek/deepseek-flash", 100, 40, 50),
+                               m.usd_estimate("deepseek/deepseek-flash", 100, 40, 50))
+        self.assertIsNone(m.usd_estimate("p/unpriced/model", 1, 0, 1))
+
+    def cli(self, *args, fake_write=False):
+        import subprocess, sys as _sys
+        home = os.path.join(self.tmp, "home"); os.makedirs(home, exist_ok=True)
+        bindir = os.path.join(self.tmp, "bin"); os.makedirs(bindir, exist_ok=True)
+        fake = os.path.join(bindir, "opencode")
+        open(fake, "w").write(FAKE_OPENCODE); os.chmod(fake, 0o755)
+        env = dict(os.environ, HOME=home, PATH=bindir + os.pathsep + os.environ["PATH"])
+        env.pop("BOMBOT_FORGE_LOG", None)
+        if fake_write:
+            env["FAKE_WRITE"] = "1"
+        r = subprocess.run([_sys.executable, os.path.join(_HERE, "agent_run.py")] + list(args), env=env,
+                           capture_output=True, text=True, timeout=120)
+        return r, os.path.join(home, ".local", "share", "bombot-forge", "delegations.jsonl")
+
+    def repo(self):
+        import subprocess
+        d = os.path.join(self.tmp, "repo"); os.makedirs(d)
+        open(os.path.join(d, "a.py"), "w").write("x = 1\n")
+        for c in (["init", "-q"], ["add", "a.py"], ["-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "i"]):
+            subprocess.run(["git"] + c, cwd=d, check=True)
+        open(os.path.join(self.tmp, "ask.md"), "w").write("SECRET-CUSTOMER-TASK find the bug")
+        return d
+
+    def test_analyze_run_writes_one_ledger_line_without_task_text(self):
+        repo = self.repo()
+        r, log = self.cli("--profile", "analyze", "--repo", repo, "--task-file", os.path.join(self.tmp, "ask.md"),
+                          "--model", "p/deepseek/deepseek-flash")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("logged    : run id", r.stdout)
+        raw = open(log).read()
+        self.assertNotIn("SECRET-CUSTOMER-TASK", raw)
+        rec = json.loads(raw)
+        self.assertEqual((rec["profile"], rec["tokens_in"], rec["tokens_cached"], rec["tokens_out"]), ("analyze", 140, 40, 50))
+        self.assertEqual((rec["tools_tried"], rec["tools_denied"], rec["repo"], rec["completed"]), (2, 1, "repo", True))
+        self.assertGreater(rec["usd_est"], 0)
+
+    def test_code_run_logs_lines_changed_and_the_verdict_round_trips(self):
+        repo = self.repo()
+        r, log = self.cli("--profile", "code", "--agent", "opencode", "--repo", repo,
+                          "--task-file", os.path.join(self.tmp, "ask.md"), "--model", "p/deepseek/deepseek-flash",
+                          fake_write=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        rec = json.loads(open(log).read().splitlines()[0])
+        self.assertEqual((rec["profile"], rec["files_changed"], rec["lines_added"], rec["lines_removed"]), ("code", 1, 1, 0))
+        r2, _ = self.cli("--log-outcome", rec["run_id"], "--verdict", "fixed", "--claude-fixed-lines", "3")
+        self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
+        r3, _ = self.cli("--log-report")
+        self.assertIn("fixed by Claude 1 (3 lines)", r3.stdout)
+        r4, _ = self.cli("--log-outcome", "20990101_000000", "--verdict", "accepted")
+        self.assertEqual(r4.returncode, 2)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

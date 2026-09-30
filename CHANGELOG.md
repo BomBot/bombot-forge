@@ -9,6 +9,24 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.22.9 — 2026-09-30
+
+- **Delegation log so the setup can be measured.** Each `agent_run.py` run (`code`, `analyze`, `ns-reader`) appends one
+  line to `~/.local/share/bombot-forge/delegations.jsonl` (mode 600; `BOMBOT_FORGE_LOG` overrides): tokens in/cached/out,
+  estimated USD, seconds, exit, sandbox-refused commands, files/lines changed, task length, run id — **no task text,
+  reply, file names or code**. New `--log-outcome <run id> --verdict accepted|fixed|rejected [--claude-fixed-lines N]
+  [--note]` (refuses an unknown run or verdict; latest verdict wins) and `--log-report [--since]` (per-profile totals,
+  share used as-is, unreviewed runs). `setup-coding-agent` **202609_14**: protocol step 8 "record the verdict" and a
+  "Measuring it" section; `teibto-agent` returns the `logged : run id` line; global `CLAUDE.md` + snapshot
+  (`setup-global-instructions` **202609_13**) carry the rule.
+- Limits stated in the skill: the log proves the DeepSeek side and the review outcomes only; Claude's own tokens and the
+  all-Claude baseline are not recorded. Exercised on scratch repos only, not on real work yet.
+- Tests: 30 (was 22), incl. three end-to-end runs through a fake `opencode` (ledger line written, no task text in it,
+  lines-changed counted, verdict round-trip). Mutations (analyze stops logging; verdict for an unknown run accepted)
+  each made a test fail, then were restored. Live: one real `analyze` run logged and reported.
+
+---
+
 ## v0.22.8 — 2026-09-30
 
 - **New `agent_run.py --profile analyze`** (OpenCode only): read-only bug hunt in an existing repo, run by DeepSeek.

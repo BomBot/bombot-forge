@@ -210,3 +210,4 @@ helper เดินทะลุ `shadowRoot` เอง · **synthetic event (`el
 - แก้โค้ด/ข้อความที่ขอบเขตชัดและมี acceptance test → ส่งให้ coding agent ผ่าน `agent_run.py` (skill `setup-coding-agent`); Claude เขียน brief และ review ทุกบรรทัดก่อน apply
 - ห้าม delegate: งาน browser, production, deploy, secrets, ข้อมูลลูกค้า (โค้ด/ข้อมูลที่ส่งไปอยู่กับ provider ภายนอก)
 - งานหาบั๊ก/แกะโค้ดเดิม: ขั้นหาที่ → ส่งให้ DeepSeek ผ่าน `agent_run.py --profile analyze` (อ่านอย่างเดียว) · ขั้นตรวจผลที่ DeepSeek ส่งกลับ → Claude ตรวจ `file:line` เอง หรือส่ง subagent โดย**ระบุ `model` ทุกครั้ง** (ไม่ระบุ = ใช้ model เดียวกับ session เช่น Opus 5.5): ค้น/ไล่ไฟล์ → `haiku` · ต้องใช้วิจารณญาณ → `sonnet` · Opus เฉพาะขั้นสรุป/ตัดสิน root cause ที่ผู้ใช้ต้องพึ่ง
+- ทุกครั้งที่ใช้ `agent_run.py` ต้องปิดด้วย `--log-outcome <run id> --verdict accepted|fixed|rejected` หลัง review — ledger อยู่ที่ `~/.local/share/bombot-forge/delegations.jsonl` (ตัวเลขล้วน ไม่มีเนื้อหางาน) ดูสรุปด้วย `agent_run.py --log-report`

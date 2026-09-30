@@ -47,8 +47,9 @@ Return, in this order:
 1. The helper's whole output — run dir, exit code, finish, tokens, `est. USD`, worktree path, changed
    files, and the `changes.patch` path. Do not shorten, round or re-word the token/USD lines.
 2. The agent's own reply, quoted and clearly marked as *the agent's claim*.
-3. One line: `NOT REVIEWED — caller must read every changed line, run the acceptance test, and only then apply
-   (git apply <changes.patch>) and remove the worktree.`
+3. The `logged : run id …` line exactly as printed, so the caller can record the verdict.
+4. One line: `NOT REVIEWED — caller must read every changed line, run the acceptance test, and only then apply
+   (git apply <changes.patch>) and remove the worktree, then record the verdict with agent_run.py --log-outcome.`
 
 Exit code 1 (agent did not complete) or 2 (precondition failed): report the output verbatim and stop —
 don't retry, don't re-brief, don't edit files yourself.

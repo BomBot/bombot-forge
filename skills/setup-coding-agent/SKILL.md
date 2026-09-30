@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_13`**
+**Skill version: `202609_14`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -275,6 +275,24 @@ it was **not tested**.
    with the specific defect (don't just re-run).
 6. **Apply** with `git apply`, **commit per the repo's rules**, then **remove the worktree**.
 7. **Say what it cost and what you changed from the agent's output.**
+8. **Record the verdict — every time, so the setup can be measured.** `agent_run.py` printed a `logged : run id …`
+   line; close it with
+   `agent_run.py --log-outcome <run id> --verdict accepted|fixed|rejected [--claude-fixed-lines N] [--note "<no customer data>"]`
+   (accepted = used as-is · fixed = you corrected it · rejected = thrown away or redone; for `analyze`: findings
+   confirmed / partly right / wrong). A run with no verdict is counted as unreviewed and tells us nothing about quality.
+
+## Measuring it (the delegation log)
+
+Every `agent_run.py` run (`code`, `analyze`, `ns-reader`) appends one line to `~/.local/share/bombot-forge/delegations.jsonl`
+(mode 600; override with `BOMBOT_FORGE_LOG`), and each `--log-outcome` appends a verdict line. It holds numbers and ids
+only — profile, agent, model, tokens (in / cached / out), estimated USD, seconds, exit, how many commands the sandbox
+refused, files and lines changed, task length — **never the task text, the agent's reply or any code**.
+`agent_run.py --log-report [--since YYYY-MM-DD]` totals it per profile with the share of results used as-is.
+
+What it can and cannot tell you: it proves the DeepSeek side (how much, how often it finished, how often Claude
+accepted or had to fix the result). It does **not** record Claude's own tokens or what an all-Claude run would have
+cost; for the saving, compare a period with and without delegation from the session usage by hand. **Not yet measured
+on real work** — the log was exercised only on scratch repos.
 
 ## Investigating existing code (bug hunts, audits): DeepSeek finds, Claude checks
 

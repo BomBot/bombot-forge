@@ -94,6 +94,136 @@ def read_account_ids(cfg):
     return out
 
 
+# ---- delegation ledger: one JSON line per run + one per review outcome, kept so the setup can be MEASURED ----
+# Holds numbers and ids only - never the task text, the agent's reply, file names or code (those can be customer data).
+# The raw per-run folder in ~/.cache is not enough: it is a cache (may be deleted) and says nothing about whether
+# the caller accepted the result.
+LOG_PATH = "~/.local/share/bombot-forge/delegations.jsonl"
+VERDICTS = ("accepted", "fixed", "rejected")
+
+
+def _log_path():
+    return os.path.expanduser(os.environ.get("BOMBOT_FORGE_LOG") or LOG_PATH)
+
+
+def log_event(rec, path=None):
+    """Append one record. Never raises: a logging problem must not break a run (it prints a warning)."""
+    p = path or _log_path()
+    try:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        new = not os.path.exists(p)
+        rec = dict(rec, v=1, ts=datetime.datetime.now().astimezone().isoformat(timespec="seconds"))
+        with open(p, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False, sort_keys=True) + "\n")
+        if new:
+            os.chmod(p, 0o600)
+        return True
+    except OSError as e:
+        print("WARNING: could not write the delegation log %s: %s" % (p, e))
+        return False
+
+
+def read_log(path=None):
+    out = []
+    try:
+        for line in open(path or _log_path(), encoding="utf-8"):
+            try:
+                d = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(d, dict):
+                out.append(d)
+    except OSError:
+        pass
+    return out
+
+
+def usd_estimate(model, tin, tcached, tout):
+    """Peak-rate upper bound in USD for `model` (opencode `provider/model` or a bare id), or None if unpriced."""
+    key = model.split("/", 1)[1] if model and model.count("/") >= 2 else model
+    pr = peak_price(key) or peak_price(model)
+    if not pr:
+        return None
+    return ((tin - tcached) * pr["input"] + tcached * pr.get("cached_input", pr["input"]) + tout * pr["output"]) / 1e6
+
+
+def log_outcome(run_id, verdict, fixed_lines=None, note="", path=None):
+    """Record what the CALLER decided about a run. Refuses an unknown run id or verdict (no guessed data)."""
+    if verdict not in VERDICTS:
+        raise ValueError("verdict must be one of %s" % ", ".join(VERDICTS))
+    if not any(r.get("kind") == "run" and r.get("run_id") == run_id for r in read_log(path)):
+        raise ValueError("no run %r in the log (see --log-report for ids)" % run_id)
+    rec = {"kind": "outcome", "run_id": run_id, "verdict": verdict, "note": (note or "")[:300]}
+    if fixed_lines is not None:
+        rec["claude_fixed_lines"] = int(fixed_lines)
+    if not log_event(rec, path):
+        raise ValueError("could not write the log")
+
+
+def summarize_log(records, since=None):
+    """Per-profile totals + review verdicts. Pure function (tested offline)."""
+    runs = {r["run_id"]: r for r in records if r.get("kind") == "run" and r.get("run_id")
+            and (not since or r.get("ts", "") >= since)}
+    last_outcome = {}
+    for r in records:
+        if r.get("kind") == "outcome" and r.get("run_id") in runs:
+            last_outcome[r["run_id"]] = r          # the latest verdict for a run wins
+    prof = {}
+    for rid, r in runs.items():
+        g = prof.setdefault(r.get("profile", "?"), {"runs": 0, "completed": 0, "tokens_in": 0, "tokens_cached": 0,
+                            "tokens_out": 0, "usd": 0.0, "usd_unpriced": 0, "seconds": 0.0, "denied": 0,
+                            "accepted": 0, "fixed": 0, "rejected": 0, "unreviewed": 0, "fixed_lines": 0})
+        g["runs"] += 1
+        g["completed"] += 1 if r.get("completed") else 0
+        g["tokens_in"] += r.get("tokens_in") or 0
+        g["tokens_cached"] += r.get("tokens_cached") or 0
+        g["tokens_out"] += r.get("tokens_out") or 0
+        if r.get("usd_est") is None:
+            g["usd_unpriced"] += 1
+        else:
+            g["usd"] += r["usd_est"]
+        g["seconds"] += r.get("seconds") or 0
+        g["denied"] += r.get("tools_denied") or 0
+        o = last_outcome.get(rid)
+        if o:
+            g[o["verdict"]] += 1
+            g["fixed_lines"] += o.get("claude_fixed_lines") or 0
+        else:
+            g["unreviewed"] += 1
+    unreviewed_ids = sorted(rid for rid in runs if rid not in last_outcome)
+    return prof, unreviewed_ids
+
+
+def format_report(records, since=None):
+    prof, unrev = summarize_log(records, since)
+    if not prof:
+        return "no delegated runs in the log yet (%s)" % _log_path()
+    lines = ["Delegation log%s - %s" % ((" since " + since) if since else "", _log_path())]
+    for name in sorted(prof):
+        g = prof[name]
+        reviewed = g["accepted"] + g["fixed"] + g["rejected"]
+        lines.append("")
+        lines.append("[%s] %d runs, %d completed, avg %.0fs" % (name, g["runs"], g["completed"], g["seconds"] / g["runs"]))
+        lines.append("  tokens : in %d (cached %d) - out %d   est. USD %.4f%s" % (
+            g["tokens_in"], g["tokens_cached"], g["tokens_out"], g["usd"],
+            (" (+%d runs unpriced)" % g["usd_unpriced"]) if g["usd_unpriced"] else ""))
+        if g["denied"]:
+            lines.append("  commands the sandbox refused: %d" % g["denied"])
+        if reviewed:
+            lines.append("  reviewed %d/%d : accepted %d - fixed by Claude %d (%d lines) - rejected %d  => used as-is %.0f%%" % (
+                reviewed, g["runs"], g["accepted"], g["fixed"], g["fixed_lines"], g["rejected"],
+                100.0 * g["accepted"] / reviewed))
+        else:
+            lines.append("  reviewed 0/%d - no verdicts recorded yet, quality cannot be judged" % g["runs"])
+    if unrev:
+        lines.append("")
+        lines.append("Runs with no verdict (%d): %s%s" % (len(unrev), ", ".join(unrev[-5:]), " ..." if len(unrev) > 5 else ""))
+    lines.append("")
+    lines.append("Not recorded: Claude's own tokens and what an all-Claude run would have cost - compare those "
+                 "from the session usage by hand; this log only proves the DeepSeek side and the review outcomes.")
+    return "\n".join(lines)
+
+
 # Beyond bash/edit, an OpenCode 2.0.20 headless run also has `execute` (Code Mode: browser.* and opencode.* tools),
 # `subagent`, `skill` and `question` (seen by asking the model to list its tools). All are switched off here:
 # with them on, the bash list below is not the only door. `external_directory` covers read/glob/grep only -
@@ -282,7 +412,27 @@ def run_ns_reader(a):
     print("agent said:", text.strip()[:1500])
     print("\nNOTE: the agent's summary is a claim - compare it with the command list above and re-run "
           "anything that matters yourself. Data it read went to the model provider.")
+    _log_run(run_dir, "ns-reader", a, tin + tcached, tcached, tout, time.time() - t0, rc, bool(rc == 0 and text),
+             len(task), tools)
     sys.exit(0 if rc == 0 and text else 1)
+
+
+def _log_run(run_dir, profile, a, tin, tcached, tout, seconds, rc, completed, task_chars, tools=None, repo=None, **extra):
+    """One ledger line for a finished run. `tools` = the '<status> ...' lines printed to the user."""
+    rec = {"kind": "run", "run_id": os.path.basename(run_dir), "profile": profile, "agent": a.agent or "?",
+           "model": a.model, "tokens_in": tin, "tokens_cached": tcached, "tokens_out": tout,
+           "usd_est": usd_estimate(a.model, tin, tcached, tout) if a.model else None,
+           "seconds": round(seconds, 1), "exit": rc, "completed": completed, "task_chars": task_chars,
+           "run_dir": run_dir}
+    if repo:
+        rec["repo"] = os.path.basename(repo)
+    if tools is not None:
+        rec["tools_tried"] = len(tools)
+        rec["tools_denied"] = sum(1 for t in tools if t.split()[0] == "error")
+    rec.update(extra)
+    if log_event(rec):
+        print("logged    : run id %s  (record the verdict: --log-outcome %s --verdict accepted|fixed|rejected)"
+              % (rec["run_id"], rec["run_id"]))
 
 
 ANALYZE_PREAMBLE = """You are a read-only code investigator. The current folder is a disposable copy of the repo at HEAD.
@@ -385,6 +535,8 @@ def run_analyze(a):
     print("agent said:\n" + text.strip()[:6000])
     print("\nNOTE: this is the agent's CLAIM. Spot-check every file:line it cites before acting on it; "
           "the code it read went to the model provider. The worktree was removed.")
+    _log_run(run_dir, "analyze", a, tin, tcached, tout, time.time() - t0, rc, bool(rc == 0 and text), len(task), tools,
+             repo=repo)
     sys.exit(0 if rc == 0 and text else 1)
 
 
@@ -399,6 +551,13 @@ def main():
     ap.add_argument("--session-id", default="")
     ap.add_argument("--session-name", default="")
     ap.add_argument("--note", default="")
+    ap.add_argument("--log-outcome", default=None, metavar="RUN_ID",
+                    help="record what the CALLER decided about a finished run (needs --verdict)")
+    ap.add_argument("--verdict", choices=list(VERDICTS), default=None,
+                    help="accepted = used as-is - fixed = Claude corrected it - rejected = thrown away / redone")
+    ap.add_argument("--claude-fixed-lines", type=int, default=None, help="lines Claude had to change (with --verdict fixed)")
+    ap.add_argument("--log-report", action="store_true", help="print totals and review verdicts from the delegation log")
+    ap.add_argument("--since", default=None, metavar="YYYY-MM-DD", help="with --log-report: only runs from this date")
     ap.add_argument("--timeout", type=int, default=600, help="agent timeout in seconds")
     ap.add_argument("--agent", choices=["cline", "opencode"], default=None,
                     help="default: cline if installed, else opencode")
@@ -427,6 +586,17 @@ def main():
                 print("read account %s: %s" % (a.revoke_read_account, st))
         except ValueError as e:
             print("REFUSED:", e); sys.exit(2)
+        return
+    if a.log_report:
+        print(format_report(read_log(), a.since)); return
+    if a.log_outcome:
+        if not a.verdict:
+            ap.error("--log-outcome needs --verdict")
+        try:
+            log_outcome(a.log_outcome, a.verdict, a.claude_fixed_lines, a.note)
+        except ValueError as e:
+            print("REFUSED:", e); sys.exit(2)
+        print("recorded %s for run %s (%s)" % (a.verdict, a.log_outcome, _log_path()))
         return
     if not a.task_file:
         ap.error("--task-file is required")
@@ -560,8 +730,14 @@ def main():
             usd = ((i - c) * pr["input"] + c * pr.get("cached_input", pr["input"]) + o * pr["output"]) / 1e6
             print("est. USD  : %.5f (peak-rate upper bound; real billing may differ)" % usd)
         print("agent said:", (result.get("text") or "").strip()[:600])
+    u0 = (result or {}).get("aggregateUsage") or (result or {}).get("usage") or {}
+    _cin, _cc, _co = u0.get("inputTokens", 0), u0.get("cacheReadTokens", 0), u0.get("outputTokens", 0)
+    a.agent, a.model = agent, (a.model or model)     # what actually ran, for the ledger
+    _done = bool(result and result.get("finishReason") == "completed")
     if not wt:
-        print("WORKTREE  : none found — nothing to review."); sys.exit(1)
+        print("WORKTREE  : none found — nothing to review.")
+        _log_run(run_dir, "code", a, _cin, _cc, _co, time.time() - t0, rc, _done, len(task), repo=repo)
+        sys.exit(1)
 
     # stage into the worktree's own index, leaving build junk the agent's test runs create out of the patch
     sh(["git", "add", "-A", "--", ".", ":!**/__pycache__/**", ":!*.pyc", ":!.DS_Store",
@@ -579,7 +755,17 @@ def main():
     print("  git -C '%s' apply --check '%s'   # dry check" % (repo, pf))
     print("  git -C '%s' apply '%s'           # only after review" % (repo, pf))
     print("  git -C '%s' worktree remove --force '%s'  # cleanup when done" % (repo, wt))
-    sys.exit(0 if result and result.get("finishReason") == "completed" else 1)
+    _, numstat, _ = sh(["git", "diff", "--cached", "--numstat"], cwd=wt)
+    _add = _del = _files = 0
+    for _l in numstat.splitlines():
+        _f = _l.split("\t")
+        if len(_f) >= 3:
+            _files += 1
+            _add += int(_f[0]) if _f[0].isdigit() else 0
+            _del += int(_f[1]) if _f[1].isdigit() else 0
+    _log_run(run_dir, "code", a, _cin, _cc, _co, time.time() - t0, rc, _done, len(task), repo=repo,
+             files_changed=_files, lines_added=_add, lines_removed=_del)
+    sys.exit(0 if _done else 1)
 
 
 if __name__ == "__main__":
