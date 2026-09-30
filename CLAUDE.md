@@ -5,8 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this repo is
 
 `bombot-forge` is a **Claude Code plugin**: a collection of skills (`skills/<name>/SKILL.md`), not an
-application. There is no build, lint, or test command — the "product" is the skill instructions
+application. There is no build or lint command — the "product" is the skill instructions
 themselves, plus one helper script (`skills/ns-record-write/scripts/ns_write.py`) that skill invokes.
+The only tests are the helper's offline suite: `python3 skills/ns-record-write/scripts/test_ns_write_offline.py`.
 Changes here take effect the next time a Claude Code session loads this plugin's skills.
 
 ## Versioning (two independent version numbers — keep both in sync)

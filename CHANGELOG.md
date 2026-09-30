@@ -9,6 +9,17 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.15.3 — 2026-09-30
+
+- `ns-record-write` **202609_10** — adds `scripts/test_ns_write_offline.py`: 10 offline cases (no
+  browser, network, `bsk` or `cdp`) for the helper's guards and exit codes, including the
+  `--allow-bsk-prod` opt-in. Drafted by the coding agent (OpenCode on the company DeepSeek key,
+  ≈ US$0.011), then reviewed line by line and mutation-checked: deliberately breaking the bsk
+  production guard (both directions), the account guard, the dry-run guard and the exit-3 rule each
+  makes at least one test fail. The tests do not check the values passed to the write.
+
+---
+
 ## v0.15.2 — 2026-09-30
 
 - `setup-coding-agent` **202609_02** + `agent_run.py` — OpenCode is now a supported worker

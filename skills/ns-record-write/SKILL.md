@@ -10,7 +10,7 @@ description: >-
 
 # NetSuite Record Write (scoped ns_write helper)
 
-**Skill version: `202609_09`**
+**Skill version: `202609_10`**
 
 Writing to a live NetSuite record from a logged-in browser tab. The **only** sanctioned
 write channel here is `scripts/qa/ns_write.py` — a helper that takes **structured args**
@@ -139,6 +139,10 @@ python3 scripts/qa/ns_write.py --engine bsk --bsk-session <SID> --bsk-tab <TAB> 
 - A custom record's `--type` is its **script id** (`customrecord_…`), not the numeric `rectype` in the URL (`INVALID_RCRD_TYPE`). `nlapiGetRecordType()` on the record page gives it.
 - **Mid-write transport failure was exercised live on a sandbox with a `bsk` test shim on `PATH`** (the shim only triggers the failure; the helper talked to the real `bsk` and the real page): (a) the session stopped right before the write call → real `not_found` from `bsk` → `OUTCOME UNKNOWN`, exit 3, record unchanged; (b) the write call really ran but its reply was lost → `OUTCOME UNKNOWN`, exit 3, **and the record had changed** — that is exactly why the rule is "re-read, never re-run". Not reproduced: a natural race (the window is ~1 s, and one attempt to kill the session 0.4 s in came too late — the write had already returned).
 - Dialogs: a page rejection comes back as the error text, not a dialog — the guard stayed silent in the live run.
+
+## Offline tests for the helper
+
+After changing `ns_write.py`, run `python3 scripts/test_ns_write_offline.py` (no browser, network, `bsk` or `cdp` needed; 10 cases: dry-run, account guard, the `bsk` production opt-in, exit codes 0/1/2/3, argument errors). It stubs the browser layer, so it proves the guards and exit codes, not that a page accepts a write — live behaviour is covered by the notes above.
 
 ## Validate the setup (run on EACH machine)
 
