@@ -10,7 +10,7 @@ description: >-
 
 # Setup Global Instructions (compare + merge ~/.claude/CLAUDE.md)
 
-**Skill version: `202609_16`**
+**Skill version: `202609_17`**
 
 Bring a machine's **global** `~/.claude/CLAUDE.md` in line with the canonical NetSuite-dev
 operating instructions, kept here as a redacted snapshot at

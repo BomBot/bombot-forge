@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_18`**
+**Skill version: `202609_19`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -119,8 +119,7 @@ Expect `finish: completed`, a one-line patch in `calc.py`, and a token/USD line.
 (`git apply <run dir>/changes.patch`), run `python3 test_calc.py`, and remove the worktree with
 the last command the helper printed.
 
-**Step 4 — make it the default (opt-in).** Ask: *"Delegate all code/text edits to the agent, with
-me only briefing and reviewing?"* If yes, record `{"default_delegate": true, "agent": "opencode", "model": "<provider-id>/deepseek/deepseek-flash"}`
+**Step 4 — record the agent and model.** (`default_delegate` in this file is **superseded since 0.28.0**: how much to hand over is now chosen **per project**, see "Delegation level (per project)"; leave it out or ignore it.) Record `{"agent": "opencode", "model": "<provider-id>/deepseek/deepseek-flash"}`
 (use the agent and the model name exactly as that CLI's own config spells them; for Cline `model` may be
 omitted) in `~/.config/bombot-forge/agent.json` (no secrets). `agent_run.py` and the `teibto-agent`
 subagent read `agent` and `model` from this file, so they need no flags, and **offer** to add a short rule to the global
@@ -194,7 +193,7 @@ Gotchas (hit for real):
 ## The subagent `teibto-agent`
 
 Ships in `agents/teibto-agent.md`. Ask for it by name ("ให้ teibto-agent …") or let Claude pick it when
-`default_delegate` is on. It is a thin haiku runner: it checks the repo is clean, runs `agent_run.py` once,
+the project's delegation level calls for it. It is a thin haiku runner: it checks the repo is clean, runs `agent_run.py` once,
 and returns the helper's output verbatim plus the `changes.patch` path, marked **NOT REVIEWED**. It never
 applies, commits or edits the repo — Claude (the caller) does the review and the apply per the protocol
 below. It refuses to run without `agent.json` (it never guesses a provider or model). **Not yet exercised
@@ -262,7 +261,45 @@ server OpenCode starts watches the parent folders up to the home directory (its 
 Music once. Answer **Don't Allow** — nothing here needs them. Whether config `watcher.ignore` avoids
 it was **not tested**.
 
-## The protocol Claude follows (when `default_delegate` is on)
+## Delegation level (per project)
+
+How much edit work Claude hands to the agent is a **per-project, personal** setting, chosen when the user asks to set it
+(e.g. "set the delegation level of this project"). Ask with the picker (bullets first, see the convention in
+`setup-browser`), then run `delegation_level.py set --level <name> [--hook] --project <dir>` (add `--dry-run` first and show it).
+
+| Level | Claude… | Enforced by |
+|---|---|---|
+| **always** | writes a brief and runs `agent_run.py` for every delegable edit; **does not edit project files itself**; only briefs, reviews, applies | the CLAUDE.local.md block, plus (optional) a hook that blocks Edit/Write |
+| **medium** | hands over most well-scoped, testable edits; keeps the very small, ambiguous or design-heavy ones | text only |
+| **low** | hands over only large repetitive jobs with a clear test | text only |
+| **on-request** (**default**) | hands over only when the user says so ("send it to the agent") | text only |
+
+- **What it writes (all personal, none committed):** `CLAUDE.local.md` (one marked block; the rest of the file is never
+  touched, and it is backed up first), `.claude/bombot-forge.local.json` (the choice), and — only for `always` with the hook —
+  `.claude/settings.local.json` (just our two hook entries; other settings and hooks are kept), a copy of the script as
+  `.claude/bombot-forge-hook.py` (so a plugin update cannot break the hook path) and `.claude/bombot-forge-override.json`.
+  They are added to `.git/info/exclude` (per clone) unless git already ignores them. `delegation_level.py show` / `remove`
+  report and undo exactly this.
+- **The hook (level `always`, opt-in):** a `PreToolUse` hook denies `Edit`/`Write`/`MultiEdit`/`NotebookEdit` on files inside the project and
+  tells Claude to use `agent_run.py`. Not blocked: files outside the project and an allow list (`.claude/**`, `CLAUDE.md`,
+  `CLAUDE.local.md`, `.gitignore`, `deploy.xml`, `manifest.xml`, `.env*`) — config and things that must never be delegated.
+- **"This conversation, Claude does it" (the per-conversation switch):** the **user** types `!self` (or `ให้ claude ทำเองรอบนี้`)
+  in a message; a second hook (`UserPromptSubmit`) reads *that* text and records the session id, so edits are allowed for that
+  conversation only. `!agent` (or `กลับไปส่ง agent`) turns it off. Text Claude writes into a tool call cannot turn it on
+  (tested). The words are in the local JSON and can be changed.
+- **Verified:** with the real `claude` CLI — a blocked edit leaves the file unchanged and Claude is told why; `!self` in the same
+  message lets the edit through; an allow-listed file edits normally; the block in `CLAUDE.local.md` is visible to Claude;
+  `CLAUDE.local.md` is loaded; 31 offline tests with 8 mutations.
+- **Not a wall:** Claude can still change files through `Bash` (that is also how `git apply` of a reviewed patch works), so
+  `always` stops edits made by the editing tools, not a determined detour. A message the user *pastes* that contains `!self`
+  counts as typed. The hook fails open (a broken hook never blocks Claude). Applies to Claude Code on this machine only; **not run on
+  Windows** (the hook command quotes the interpreter path for a POSIX shell).
+- **Not measured:** whether `always` actually saves tokens. Claude still writes a brief and reads the whole diff, so for a
+  one-line change doing it directly is cheaper. `--log-report` shows the agent side; Claude's own tokens are not recorded.
+- **Default and old setups:** a project with nothing set is **on-request** — nothing is handed over unprompted. This replaces the
+  earlier machine-wide `default_delegate: true` behaviour (projects not yet configured no longer delegate by themselves).
+
+## The protocol Claude follows (whenever it hands an edit to the agent)
 
 1. **Decide.** Is it an edit/authoring task inside one git repo with no secrets and no production
    effect? If not, do it yourself. Customer data present → ask the user first.
@@ -296,7 +333,7 @@ on real work** — the log was exercised only on scratch repos.
 
 ## Investigating existing code (bug hunts, audits): DeepSeek finds, Claude checks
 
-`default_delegate` covers edits. Investigation is two separate jobs, and they go to different places:
+The delegation level covers edits. Investigation is two separate jobs, and they go to different places:
 
 1. **Find it — DeepSeek, `--profile analyze` (OpenCode only).**
    `agent_run.py --profile analyze --repo . --task-file ask.md` gives the agent a throw-away worktree of HEAD

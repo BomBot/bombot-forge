@@ -9,6 +9,34 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.28.0 — 2026-10-01
+
+- **Per-project delegation level.** `setup-coding-agent` **202609_19** adds `delegation_level.py` and a section "Delegation level
+  (per project)": the user picks **always / medium / low / on-request** for a project and it is remembered there. It writes a
+  marked block into the project's **`CLAUDE.local.md`** (Claude Code loads it every session — verified), the choice into
+  `.claude/bombot-forge.local.json`, and adds the files to `.git/info/exclude`: all personal, nothing to commit. Other content of
+  `CLAUDE.local.md` and `settings.local.json` is never touched (backed up first); `show` / `remove` report and undo exactly that.
+- **`always` can be enforced.** Opt-in hook: `PreToolUse` denies `Edit`/`Write`/`MultiEdit`/`NotebookEdit` inside the project (allow
+  list: `.claude/**`, `CLAUDE.md`, `CLAUDE.local.md`, `.gitignore`, `deploy.xml`, `manifest.xml`, `.env*`) and tells Claude to use
+  `agent_run.py`. **Per-conversation switch** as the maintainer asked: the *user* types `!self` (or `ให้ claude ทำเองรอบนี้`) and
+  a `UserPromptSubmit` hook records that session; `!agent` ends it. Text Claude writes into a tool call cannot turn it on (a test
+  caught that my first test suite missed this; fixed). A copy of the script is placed in the project so a plugin update cannot
+  break the hook path.
+- **Verified with the real `claude` CLI:** blocked edit leaves the file unchanged; `!self` in the same message lets it through; an
+  allow-listed file edits; Claude can state the level from the block. Hook payloads (`session_id`, `prompt`, `tool_input.file_path`,
+  `CLAUDE_PROJECT_DIR`) were read from a live run, not assumed. Tests: 31 (new file) with eight mutations (override not
+  session-scoped, hook failing closed, allow list ignored, outside-project policed, whole file overwritten, tool-call text lifts the
+  block, hook at every level, user's hooks wiped) each caught, then restored.
+- **Behaviour change — read this:** the default for a project with nothing set is **on-request** (nothing is handed over unprompted).
+  This replaces the machine-wide `default_delegate: true` of earlier versions, which is now ignored for the decision. The global
+  CLAUDE.md "Coding agent" rule and `teibto-agent`'s description say so (`setup-global-instructions` **202609_17**). Machines that
+  want the old behaviour set the project to `medium` or `always`.
+- **Limits stated in the skill:** Claude can still change files through `Bash` (so `always` stops the editing tools, not a determined
+  detour; this is also what lets `git apply` work); a pasted message containing `!self` counts as typed; the hook fails open; **not
+  run on Windows**; whether `always` saves tokens is **not measured** (for a one-line change it likely costs more).
+
+---
+
 ## v0.27.1 — 2026-10-01
 
 - **The three-list summary no longer ends the reply.** 0.25.0 told Claude to *end* every answer with "checked (with evidence) /
