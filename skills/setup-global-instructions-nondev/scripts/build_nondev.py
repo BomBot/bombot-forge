@@ -6,7 +6,7 @@ It does not keep a second copy of the shared sections. It takes the dev snapshot
 (../../setup-global-instructions/reference/global-CLAUDE.snapshot.md), keeps five of its sections verbatim
 (Accuracy, Communication style, Slack, Session memory, Browser automation), drops the developer-only ones
 (Code conventions, Editing existing code, SDF Deploy, graphify, project-folder move, Coding agent), and adds the
-sections in ../reference/nondev-sections.md (Role, the SDF / deploy / upload ban, the UI scope A/B/C, way of working, Git).
+sections in ../reference/nondev-sections.md (Role, the SDF / deploy / upload ban, the UI scope A/B/C, the narrow JS hotfix lane, way of working, Git).
 
   python3 build_nondev.py                 # print the assembled text
   python3 build_nondev.py --out FILE      # write it to FILE
@@ -22,7 +22,7 @@ OVERRIDES = os.path.join(HERE, "..", "reference", "nondev-sections.md")
 
 # (source, heading prefix) in output order. "dev" = kept verbatim from the dev snapshot, "non" = from nondev-sections.md
 RECIPE = [("non", "Role"), ("dev", "Accuracy"), ("dev", "Communication style"), ("dev", "Slack"),
-          ("non", "ห้ามใช้ SDF"), ("non", "ขอบเขตงานผ่าน UI"), ("non", "วิธีทำงาน"), ("non", "Git"),
+          ("non", "ห้ามใช้ SDF"), ("non", "ขอบเขตงานผ่าน UI"), ("non", "Hotfix JS"), ("non", "วิธีทำงาน"), ("non", "Git"),
           ("dev", "Session memory"), ("dev", "Browser automation")]
 
 HEADER = """> **Reference for a NON-DEV machine** (someone who reads and verifies NetSuite but does not write or deploy code),

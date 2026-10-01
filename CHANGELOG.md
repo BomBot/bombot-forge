@@ -9,6 +9,30 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.27.0 — 2026-10-01
+
+- **`setup-global-instructions-nondev` 202609_04: a narrow lane for an urgent JS hotfix, and level C done by hand.**
+  Maintainer's decisions: level C is something the **user does by hand** (Claude may draft steps/spec and check the result);
+  JS stays banned **except** an on-site hotfix of a real bug that cannot wait. New section "Hotfix JS" in the built text, nine
+  fixed steps: use the file as it is on the account → back it up outside the repo and record its sha256 → edit a local copy
+  with a greppable comment `HOTFIX-NODEV <DD/MM/YYYY> <name> | why | what | original` → re-check the diff, syntax and what uses
+  the file → report to the user (diff, size, checked / inferred / not looked at, risk, rollback, **the warning that a dev may
+  overwrite the file**) and get one OK → **Claude uploads through Claude in Chrome** → verify (download it back and compare
+  sha256, reproduce the bug, Execution Log) → roll back from the backup if wrong → write a .md note for the dev, and remind the
+  user to tell the dev directly. Large changes: Claude offers a .md for the dev first; the user decides.
+- The ban section keeps "no SDF, no XML deploy" with **no exception** and names the hotfix as the **single** exception for JS
+  (existing files only: no new file, script record or deployment). Its heading no longer claims "no exceptions".
+- **Size is "by judgement" as the maintainer chose — it is not enforced** (no line limit); the protection is that the user is
+  told how big it is and decides. Also unenforced: a dev overwriting the file later. Both are written in the skill.
+  **Not tested:** Claude in Chrome uploading to File Cabinet, replacing a file so scripts still point at it, the download-back
+  hash; whether `node --check` exists on a non-dev machine (the text says to report "syntax not checked" otherwise).
+- Tests: 18 for the builder (was 13), including step order (backup before edit, report before upload, upload before verify), the
+  overwrite warning in both the confirmation and the note, and the single-exception wording; six mutations (warning removed,
+  sha256 dropped, tag dropped, heading claims no exceptions, level C no longer by hand, report/upload order swapped) each made
+  a test fail, then were restored.
+
+---
+
 ## v0.26.0 — 2026-10-01
 
 - **`setup-global-instructions-nondev` 202609_03: what a non-dev user can and cannot do through Claude, decided with the
