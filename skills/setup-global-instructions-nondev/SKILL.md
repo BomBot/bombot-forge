@@ -2,21 +2,35 @@
 name: setup-global-instructions-nondev
 description: >-
   Use when setting up or syncing the global `~/.claude/CLAUDE.md` of a NON-DEV NetSuite machine (a
-  consultant, analyst or support person who reads and verifies the system but does not write or deploy
-  code): no SDF at all, no deploy of XML/JS, no upload of JS; work by reading pulled files, the Dev Bridge
-  and the browser. Builds the text from the dev snapshot plus non-dev sections, proposes a section-by-section
+  consultant, analyst or support person who works through the UI and does not write or deploy code): no SDF
+  at all, no deploy of XML/JS, no upload of JS; Claude may read, analyse, and make no-code UI changes
+  (saved searches, reports, custom fields/records, workflows) one confirmed change at a time through Claude
+  in Chrome. Builds the text from the dev snapshot plus non-dev sections, proposes a section-by-section
   merge (never a blind overwrite) and adds `permissions.deny` rules for `suitecloud`. For a developer
   machine use `setup-global-instructions`.
 ---
 
 # Setup Global Instructions — non-dev (read-only, no SDF, no deploy)
 
-**Skill version: `202609_02`**
+**Skill version: `202609_03`**
 
 The dev skill `setup-global-instructions` writes the instructions of someone who deploys code. This one is for
 someone who must **not**: the machine's `~/.claude/CLAUDE.md` forbids the SDF CLI entirely, forbids deploying
 XML/JS and uploading JS, and tells Claude to work by **reading pulled files, the Dev Bridge and the browser**.
 Because a sentence in CLAUDE.md is advice and not a barrier, the skill also proposes `permissions.deny` rules.
+
+**What the user can and cannot do through Claude** (section "ขอบเขตงานผ่าน UI" of the built text):
+
+| Level | What | Rule |
+|---|---|---|
+| **A** read and analyse | look at pages, run searches, read via the Dev Bridge, explain why a search is wrong, find where something is used, draft a spec for a dev | no confirmation needed; changes nothing |
+| **B** no-code UI changes | Saved Search, Report, Dashboard, custom field, custom record, workflow, other no-code settings the user names | allowed in sandbox **and production**, **one chat OK per change**, then 7 fixed steps: plan → ask "is this account live?" (live or unknown = stop) → impact check → record the old state → Claude clicks through **Claude in Chrome** in front of the user → compare before/after → roll back if it is wrong |
+| **C** never | SDF, deploy, upload/edit JS, scripts and script deployments, roles/permissions, import and mass update, edit/delete financial transactions, change subsidiary/accounting setup, delete anything | refuse and hand to a dev |
+
+Decided by the maintainer on 2026-10-01: B runs on production too (most accounts are still in implementation, not live),
+Claude does the clicking (not the user), and custom fields/records/workflows are allowed. The "is it live?" stop is an
+addition that follows from that reasoning, not something the maintainer asked for — remove it from
+`reference/nondev-sections.md` if unwanted.
 
 - Shared sections are **not copied**: `scripts/build_nondev.py` takes them verbatim from the dev snapshot
   (`../setup-global-instructions/reference/global-CLAUDE.snapshot.md`) and adds `reference/nondev-sections.md`.
@@ -31,6 +45,9 @@ Because a sentence in CLAUDE.md is advice and not a barrier, the skill also prop
 | A `permissions.deny` rule set blocks the SDF CLI | **measured** with the real `claude -p` in `bypassPermissions` mode against a fake `suitecloud` that logs any real run: with no rule the command ran; with the rules, `suitecloud …`, `bash -c '…'` and `$(which suitecloud) …` did **not** run |
 | The rules cannot be evaded | **no — measured:** `s=suite; ${s}cloud file:list` ran. Patterns match the command **text**; a name built from a variable, or an npm script whose text does not contain `suitecloud`, gets through. The rules are a fence, not a wall |
 | A deny rule beats an existing allow rule for the same command (dev machines allow `suitecloud file:upload`) | **not tested** — so the skill proposes removing those allow entries too |
+| The rules in the table above are what the maintainer chose | **decided** 2026-10-01 (production allowed with a per-change OK; Claude clicks via Claude in Chrome; field/record/workflow allowed); written into the built text and covered by offline tests |
+| A model actually follows the 7 steps and stops where it should (live account, unexpected dialog) | **not tested** — the text is advice, not enforcement. The real barrier is the user's **NetSuite role permissions**; check them for each non-dev user |
+| Claude in Chrome completes a NetSuite UI customisation, and copes with NetSuite's native dialogs | **not tested** |
 | The "pull files" channels named in the instructions (a project git repo, or a download from File Cabinet in the browser) match how this team really gets files | **assumption** — confirm with the maintainer |
 | Merge onto a real, diverged non-dev machine | **not run** |
 
@@ -87,8 +104,10 @@ conflicting section (**Remove** / **Keep**), the deny rules (**Add** / **Not yet
 6. **Verify after the restart:** ask Claude to run a harmless `suitecloud --version`. Expected: a permission denial
    **before** the command runs (not "command not found"). Then remind the user of the honest limit: a name built from
    a variable or an npm script can slip past a text pattern; the CLAUDE.md ban covers what the rule cannot.
-7. **Offer the tools this workflow leans on:** `setup-browser` (bsk, Dev Bridge trial) and `setup-plugins` if the user
-   wants the team's plugins. Don't start them without a yes.
+7. **Offer the tools this workflow leans on:** `setup-browser` — for a non-dev machine **Claude in Chrome (its Step 3) is
+   required**, because level B changes are clicked through it and never through `bsk`; the Dev Bridge trial covers the
+   read side — and `setup-plugins` if the user wants the team's plugins. Don't start them without a yes. Also remind the
+   maintainer that the real limit on what a user can change is their NetSuite role, not this text.
 
 ## Gotchas
 
@@ -107,5 +126,7 @@ conflicting section (**Remove** / **Keep**), the deny rules (**Add** / **Not yet
 
 ## Status
 
-v0.1 draft — assembler and tests run on macOS; the deny rules measured with a fake binary; not yet applied on a real
-non-dev machine, and the "pull files" channels are the maintainer's to confirm.
+v0.1 draft — assembler and tests run on macOS; the deny rules measured with a fake binary; the A/B/C scope decided by
+the maintainer but never exercised end to end (no run of level B on a real account, no check that Claude in Chrome
+handles NetSuite dialogs); not yet applied on a real non-dev machine, and the "pull files" channels are the maintainer's
+to confirm.

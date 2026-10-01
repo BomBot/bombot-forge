@@ -9,6 +9,27 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.26.0 — 2026-10-01
+
+- **`setup-global-instructions-nondev` 202609_03: what a non-dev user can and cannot do through Claude, decided with the
+  maintainer.** New section "ขอบเขตงานผ่าน UI" in the built text, three levels. **A** read/analyse (no confirmation).
+  **B** no-code UI changes — Saved Search, Report, Dashboard, custom field, custom record, workflow, other no-code settings
+  the user names — allowed in sandbox **and production**, one chat OK per change, then seven fixed steps (plan; ask whether the
+  account is live; impact check; record the old state; Claude clicks through **Claude in Chrome** in front of the user, never
+  `bsk`; compare before/after; roll back if wrong). **C** never: SDF, deploy, upload/edit JS, scripts and deployments,
+  roles/permissions, import and mass update, edit/delete financial transactions, subsidiary/accounting setup, delete anything.
+- The ban section no longer forbids custom fields/records/workflows through the UI (it contradicted the intent); it still bans
+  scripts and deployments. Role rewritten: Claude helps both to analyse and to customise through the UI.
+- **My addition, not requested:** a live or unknown-status account stops level B until the user re-confirms with a rollback
+  plan. Reason: the maintainer's justification for allowing production was "most accounts are not live yet"; one line to
+  remove in `reference/nondev-sections.md` if unwanted.
+- Stated in the skill as not tested: a model following the seven steps, and Claude in Chrome completing a NetSuite
+  customisation or handling its native dialogs. The text is advice; the enforced limit is the user's NetSuite role.
+- Tests: 13 for the builder (was 9); mutations (old UI ban back, live-account stop removed, rollback step dropped, `bsk`-click
+  ban removed) each made a test fail, then were restored.
+
+---
+
 ## v0.25.0 — 2026-09-30
 
 - **The worker must show a source for every claim.** A bare "check your answer again" lets a model answer "correct"
