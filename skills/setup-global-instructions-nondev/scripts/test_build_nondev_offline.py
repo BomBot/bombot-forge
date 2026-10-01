@@ -125,6 +125,14 @@ class BuildNondevTest(unittest.TestCase):
         self.assertIn("ผู้ใช้แก้ด้วยมือเอง", c_line)
         self.assertIn("ยกเว้น hotfix", c_line)
 
+    def test_the_three_lists_come_first_and_the_reply_ends_with_a_next_step_line(self):
+        # a reply that ends in a list left the chat input without a suggested next prompt (reported 2026-10-01);
+        # the rule must say: lists first, then one closing "next step" line, never end on the lists
+        self.assertIn("**ไว้ก่อน** แล้ว**ปิดท้ายคำตอบด้วยบรรทัดเดียว", self.out)
+        self.assertIn("ขั้นถัดไป", self.out)
+        self.assertIn("ห้ามจบคำตอบด้วยรายการ 3 ช่อง", self.out)
+        self.assertNotIn("ท้ายคำตอบสรุปเป็น 3 ช่อง", self.out)
+
     def test_fenced_hash_lines_are_not_headings(self):
         sample = "# A\nx\n```bash\n# not a heading\nls\n```\n# B\ny\n"
         self.assertEqual([h for h, _ in self.m.split_h1(sample) if h], ["A", "B"])

@@ -9,6 +9,21 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.27.1 — 2026-10-01
+
+- **The three-list summary no longer ends the reply.** 0.25.0 told Claude to *end* every answer with "checked (with evidence) /
+  inferred / not looked at". A user then saw that replies ending that way left the chat input **without a suggested next
+  prompt**. The Accuracy rule now says: put the three lists first, then **close with one line "ขั้นถัดไป: …"** (what the user
+  should say or decide next), and never end on the lists. Dev snapshot + non-dev build carry it (`setup-global-instructions`
+  **202609_16**, `setup-global-instructions-nondev` **202609_05**); the user's own `~/.claude/CLAUDE.md` is updated by hand and
+  other machines get it by re-running the setup skill.
+- **Not verified:** that this is the cause of the missing suggestion, or that it brings the suggestion back. The suggestion is a
+  feature of the Claude Code app; how it is produced was being checked against the docs when this was written. A test asserts the
+  wording (lists first, a closing next-step line, no "end with the lists"), not the UI behaviour. The three-list wording that
+  `agent_run.py` sends to DeepSeek is unchanged — its output goes back to Claude, not straight to the user.
+
+---
+
 ## v0.27.0 — 2026-10-01
 
 - **`setup-global-instructions-nondev` 202609_04: a narrow lane for an urgent JS hotfix, and level C done by hand.**
