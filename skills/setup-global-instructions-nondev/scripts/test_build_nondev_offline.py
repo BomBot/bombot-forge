@@ -52,18 +52,24 @@ class BuildNondevTest(unittest.TestCase):
     def nondev(self, prefix):
         return self.m.pick(self.m.split_h1(open(self.m.OVERRIDES, encoding="utf-8").read()), prefix)
 
-    def test_the_ui_scope_has_three_levels_and_the_seven_steps(self):
+    def test_the_ui_scope_has_three_levels_and_the_six_steps(self):
         scope = self.nondev("ขอบเขตงานผ่าน UI")
         for level in ["ระดับ A", "ระดับ B", "ระดับ C"]:
             self.assertIn(level, scope)
-        for word in ["go-live", "ผลกระทบ", "จดสภาพเดิม", "Claude in Chrome", "ย้อนกลับ", "OK"]:
+        for word in ["ผลกระทบ", "จดสภาพเดิม", "Claude in Chrome", "ย้อนกลับ", "OK"]:
             self.assertIn(word, scope)
         steps = [l for l in scope.splitlines() if l[:3] in ("1. ", "2. ", "3. ", "4. ", "5. ", "6. ", "7. ")]
-        self.assertEqual(len(steps), 7, steps)
+        self.assertEqual(len(steps), 6, steps)
 
-    def test_a_live_or_unknown_account_stops_the_run(self):
+    def test_every_change_still_needs_a_plan_and_an_ok_and_there_is_no_live_account_stop(self):
+        # the maintainer cut the "is the account live? stop" step (2026-10-02); the plan + OK before any change stays
         scope = self.nondev("ขอบเขตงานผ่าน UI")
-        self.assertRegex(scope, r"live แล้วหรือไม่รู้ → หยุด")
+        first = [l for l in scope.splitlines() if l.startswith("1. ")][0]
+        for word in ["บอกแผนก่อน", "รอ OK ในแชต", "account และ environment", "ครั้งเดียว"]:
+            self.assertIn(word, first)
+        self.assertNotIn("go-live", scope)
+        self.assertNotIn("live แล้วหรือไม่รู้", scope)
+        self.assertIn("ตามขั้น 6", scope)
 
     def test_ui_customisation_is_allowed_in_B_and_no_longer_banned_in_the_ban_section(self):
         ban, scope = self.nondev("ห้ามใช้ SDF"), self.nondev("ขอบเขตงานผ่าน UI")

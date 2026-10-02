@@ -9,6 +9,34 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.30.0 — 2026-10-02
+
+Three guardrails cut at the maintainer's request (work on production accounts that are not live yet kept hitting them). Committed
+after the maintainer confirmed in chat and changed the session's permission mode, following two blocks by the auto-mode classifier
+(label "Security Weaken"; allow rules for git commit/push do not bypass it):
+
+1. **`ns_write.py`: no `--allow-bsk-prod`.** A `--confirm` write through `bsk` on a non-sandbox account is no longer refused. The flag is
+   still accepted and prints that it is ignored, so old command lines work. Kept: dry-run default, the `--account` guard, the dialog
+   guard (a dialog that still fires aborts), a WARNING on non-sandbox, and exit 3 = outcome unknown. The protection is now the round's
+   confirmation (list the write, get the OK). `ns-record-write` **202609_13**. Why the flag existed: `bsk` auto-accepts dialogs; the
+   write itself is an `N/record` call that opened no dialog in any live test. **Not re-verified live on production** after removing it.
+2. **`ns_read.py`: Claude's own reads of a non-sandbox account need no flag and no extra approval** (a `NOTE` is printed; name the
+   account in the report). **The delegated agent is still gated:** `agent_run.py --profile ns-reader` now runs the agent with
+   `BOMBOT_NS_READ_STRICT=1`, in which `ns_read.py` refuses a non-sandbox account without `--allow-prod-read`, and the agent's permission
+   list lets it pass that only for accounts the user confirmed (`read_accounts`) — because that data goes to an external provider. The
+   agent cannot unset the variable (commands with an env prefix are denied). `ns-live-verify` **202609_12**, `setup-coding-agent`
+   **202609_20**. Live: `ns_read.py whoami` on the sandbox worked in normal and strict mode; the strict refusal of an unconfirmed
+   production account is covered by offline tests only, not by a live agent run.
+3. **Non-dev: the "is the account live? (live/unknown = stop)" step is gone** (it was my addition in 0.26.0). Level B is now **six** steps
+   and still starts with the plan **naming the account and environment** and waits for an **OK in the chat, valid once** — so every change
+   to the system is confirmed before it is made. `setup-global-instructions-nondev` **202609_08**.
+- Also `browser-engines` **202609_19**, `setup-browser` **202609_17**, `setup-global-instructions` **202609_20** (docs and the shared Browser
+  section no longer mention the flags). Tests: ns_read 41 (was 38), ns_write 18, agent_run 47 (incl. one asserting only the ns-reader profile
+  is strict), non-dev builder 21; four mutations (agent drops strict mode, strict ignored, own reads need the flag again, prod write
+  refused again) each made a test fail, then were restored.
+
+---
+
 ## v0.29.1 — 2026-10-02
 
 - **cdp is only named on machines that have it.** The shared Browser rules (global CLAUDE.md snapshot, `browser-engines`,

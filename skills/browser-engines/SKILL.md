@@ -14,7 +14,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0 — the skill covers both engines now (bsk first), so the old name misled.
 
-**Skill version: `202609_18`**
+**Skill version: `202609_19`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -26,7 +26,7 @@ This skill is the policy + verified recipes. Command reference for `bsk` comes f
 | Task | Engine | Why |
 |---|---|---|
 | Read a page, smoke/QA, screenshots, Dev Bridge / SuiteQL reads | **bsk** | Uses the browser you're already logged in to; no separate profile or login |
-| Record write through the scoped `ns_write.py` (no clicks, no dialogs) | **bsk** (production needs `--allow-bsk-prod` + approval) or cdp | The helper adds its own guards: dialog guard, explicit opt-in for non-sandbox on bsk, stop on unknown outcome |
+| Record write through the scoped `ns_write.py` (no clicks, no dialogs) | **bsk** or cdp (production: dry-run, then the round's confirmation) | The helper adds its own guards: dialog guard, a WARNING on non-sandbox, stop on unknown outcome |
 | Any **UI-driven** write (clicking Save, filling forms, buttons) | **bsk or cdp** — see "Changing data in the UI on production" below | `bsk` **auto-accepts every native dialog** (`alert`/`confirm`/`prompt`/`beforeunload`) and can't be told not to (verified below). A step likely to raise a confirm (delete, "leave page?") or sitting in an iframe or popup goes into the round's list as a flagged step, and the user picks the lane (see below) |
 | `lens` / `netlog` / `stub` / `diff`, shadow-DOM piercing (`a11y`), coordinate work | **cdp** | Not in `bsk` |
 | Unattended or long runs | **cdp** (or don't) | A person closing the Agent Window kills a `bsk` run |
@@ -50,7 +50,7 @@ production account that is not live yet could do nothing with `bsk`). The protec
    may raise a confirm, or lives in an iframe or popup, goes into the list as a **flagged step** and the user chooses: carry on
    with `bsk`, use cdp (only if it is installed on this machine), use Claude in Chrome (not verified against native dialogs, so
    treat it as no safer than `bsk`), or click that step themselves.
-5. `ns_write.py` is separate and unchanged: dry-run first, `--allow-bsk-prod` on production, one record at a time.
+5. `ns_write.py` follows the same rule (no flag since 0.30.0): dry-run first, list the write and get the round's OK, one record at a time.
 
 ## Lane priority (per machine)
 
@@ -76,7 +76,7 @@ production account that is not live yet could do nothing with `bsk`). The protec
 - **Stays in the tree:** the cdp lane below, `ns_write.py --engine cdp`, and `netsuite-qa-browser`.
 - **Revisit** once `bsk` has run on more than one machine and over long sessions, and once the
   team decides on production writes through `bsk`. Today: UI clicks/submits on production are allowed after the round's
-  confirmation (see above); `ns_write.py` still needs `--allow-bsk-prod`.
+  confirmation (see above); `ns_write.py` needs no flag either.
 
 ## Measured on this machine (2026-09-29, Apple Silicon Mac, Chrome 152, bsk 0.3.1)
 

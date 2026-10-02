@@ -9,7 +9,7 @@ description: >-
 
 # NetSuite Live Verify (read-only via the TEIBTO Dev Bridge)
 
-**Skill version: `202609_11`**
+**Skill version: `202609_12`**
 
 Run SuiteQL / `record.load().toJSON()` / searches against a live account through a logged-in Chrome
 tab, so you verify against **real state** instead of guessing. Read-only. Pairs with
@@ -95,8 +95,10 @@ always stops. `python3 scripts/ns_read.py <whoami|ping|query|record|lookup|featu
 - **Identity gate every run** (company from `nlapiGetContext()` must equal `--account`), and the request
   goes out only after the endpoint answers the bridge's own `ping` in the expected shape *and* reports the
   same account. A login or "Notice" page is a hard stop (exit 3) — it never logs in, clicks or types.
-- **Sandbox freely; anything else needs `--allow-prod-read`** (the data goes to whichever model runs the
-  script — say so to the user first).
+- **Reading a non-sandbox account needs no flag and no extra approval when Claude does it** (read-only; the output carries a
+  `NOTE`; name the account in your report). The gate remains for the **delegated DeepSeek agent**: `agent_run.py` runs it with
+  `BOMBOT_NS_READ_STRICT=1`, where a non-sandbox account is refused without `--allow-prod-read`, and its permission list lets it
+  pass that only for accounts the user confirmed (`read_accounts`) — that data leaves for an external provider.
 - `query` takes one `SELECT` (validated before any browser call, mirroring the bridge: no `WITH`, no `;`,
   no DML words). Other subcommands validate every argument (ids, comma lists, JSON filters ≤ 5000 chars,
   `--limit` 1–1000).

@@ -13,6 +13,7 @@ import os
 import re
 import tempfile
 import unittest
+from unittest import mock
 from contextlib import redirect_stderr, redirect_stdout
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -94,6 +95,7 @@ class FakeBsk:
 class OfflineReadTest(unittest.TestCase):
     def setUp(self):
         self.mod = load_module()
+        os.environ.pop("BOMBOT_NS_READ_STRICT", None)          # tests start in normal (Claude's own) mode
         self.tmp = tempfile.TemporaryDirectory()
         self.cfg = self._cfg({"engine": "bsk"}, "browser.json")
 
@@ -205,21 +207,45 @@ class OfflineReadTest(unittest.TestCase):
         self.assertEqual(code, 3)
         self.assertTrue(fake.stopped())
 
-    def test_prod_refused_without_flag_and_nothing_fetched(self):
-        code, out, fake = self.run_cmd(["query", "SELECT 1 FROM dual"], FakeBsk(company=PROD_ACCOUNT, env="PRODUCTION"),
-                                       account=PROD_ACCOUNT)
+    # Claude's own reads of a non-sandbox account need no flag and no extra approval (read-only; a NOTE is printed).
+    # STRICT mode (env BOMBOT_NS_READ_STRICT=1, set by agent_run.py for the delegated agent) keeps the old gate,
+    # because that data goes to an external provider.
+    def test_prod_is_read_without_a_flag_in_normal_mode_with_a_note(self):
+        fake = FakeBsk(company=PROD_ACCOUNT, env="PRODUCTION", reply=json.dumps({"ok": True, "rows": []}))
+        code, out, _ = self.run_cmd(["query", "SELECT 1 FROM dual"], fake, account=PROD_ACCOUNT)
+        self.assertEqual(code, 0)
+        self.assertIn("NOTE", out)
+        self.assertIn("NON-sandbox", out)
+        self.assertEqual(len(fake.real_bodies()), 1)
+
+    def test_strict_mode_refuses_prod_without_flag_and_nothing_is_fetched(self):
+        with mock.patch.dict(os.environ, {"BOMBOT_NS_READ_STRICT": "1"}):
+            code, out, fake = self.run_cmd(["query", "SELECT 1 FROM dual"],
+                                           FakeBsk(company=PROD_ACCOUNT, env="PRODUCTION"), account=PROD_ACCOUNT)
         self.assertEqual(code, 2)
         self.assertEqual(fake.bodies, [])
         self.assertIn("--allow-prod-read", out)
         self.assertTrue(fake.stopped())
 
-    def test_prod_allowed_with_flag_warns(self):
+    def test_strict_mode_allows_prod_with_the_flag(self):
+        fake = FakeBsk(company=PROD_ACCOUNT, env="PRODUCTION", reply=json.dumps({"ok": True, "rows": []}))
+        with mock.patch.dict(os.environ, {"BOMBOT_NS_READ_STRICT": "1"}):
+            code, out = self.invoke(["--allow-prod-read", "query", "--account", PROD_ACCOUNT, "--config", self.cfg,
+                                     "SELECT 1 FROM dual"], fake)
+        self.assertEqual(code, 0)
+        self.assertIn("NOTE", out)
+        self.assertEqual(len(fake.real_bodies()), 1)
+
+    def test_strict_mode_does_not_touch_a_sandbox_read(self):
+        with mock.patch.dict(os.environ, {"BOMBOT_NS_READ_STRICT": "1"}):
+            code, out, _ = self.run_cmd(["whoami"], FakeBsk())
+        self.assertEqual(code, 0)
+
+    def test_the_flag_is_still_accepted_in_normal_mode(self):
         fake = FakeBsk(company=PROD_ACCOUNT, env="PRODUCTION", reply=json.dumps({"ok": True, "rows": []}))
         code, out = self.invoke(["--allow-prod-read", "query", "--account", PROD_ACCOUNT, "--config", self.cfg,
                                  "SELECT 1 FROM dual"], fake)
         self.assertEqual(code, 0)
-        self.assertIn("WARNING", out)
-        self.assertEqual(len(fake.real_bodies()), 1)
 
     # ================= the bridge itself is verified before the real request =================
     def test_endpoint_that_does_not_answer_ping_like_the_bridge_is_refused(self):

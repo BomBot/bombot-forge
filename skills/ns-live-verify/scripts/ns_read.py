@@ -9,7 +9,8 @@ ONLY this script instead of raw `bsk`, so this file IS the safety boundary:
   * it takes no free-form JS — only --account plus a fixed action and validated arguments
   * it never clicks or types, and it never tries to log in (a login page is a hard stop)
   * account identity is proven in-page (nlapiGetContext) AND by the bridge's own `ping`
-  * non-sandbox accounts are refused unless --allow-prod-read is passed explicitly
+  * a non-sandbox account is read read-only with a NOTE; but when BOMBOT_NS_READ_STRICT=1 (agent_run.py sets it for the
+    delegated DeepSeek agent) it is refused unless --allow-prod-read is passed, because that data leaves for an external provider
 
 The Dev Bridge is ONE Suitelet: POST JSON {action, ...} to
 /app/site/hosting/scriptlet.nl?script=<script id>&deploy=<deploy id>. Its actions (all read-only):
@@ -33,7 +34,8 @@ Usage:
   python3 ns_read.py search  --account 4089685_SB2 --type transaction --filters-json '[["type","anyof","SalesOrd"]]' --columns tranid,entity
 
 Global flags (before or after the subcommand):
-  --allow-prod-read   allow reading a non-sandbox account (prints a WARNING)
+  --allow-prod-read   needed for a non-sandbox account only in strict mode (env BOMBOT_NS_READ_STRICT=1, set for the
+                      delegated agent); otherwise accepted and ignored
   --engine bsk|cdp    default: the `engine` key in the config file (bsk)
   --config PATH       default ~/.config/bombot-forge/browser.json; env NS_READ_CONFIG overrides
 
@@ -385,7 +387,8 @@ def _global_flags():
     # main() reads it with getattr().
     g = argparse.ArgumentParser(add_help=False)
     g.add_argument("--allow-prod-read", action="store_true", default=argparse.SUPPRESS,
-                   help="allow reading a non-sandbox account; prints a WARNING and continues")
+                   help="required for a non-sandbox account only when BOMBOT_NS_READ_STRICT=1 (the delegated agent); "
+                        "otherwise accepted and ignored")
     g.add_argument("--engine", choices=["bsk", "cdp"], default=argparse.SUPPRESS,
                    help="default: the config's `engine` key (bsk)")
     g.add_argument("--config", default=argparse.SUPPRESS,
@@ -520,13 +523,14 @@ def main(argv=None):
             print("wrong account: page is %r but --account is %r" % (company, account))
             return 2
         allow_prod = getattr(args, "allow_prod_read", False)
-        if str(env).upper() != "SANDBOX" and not allow_prod:
+        strict = os.environ.get("BOMBOT_NS_READ_STRICT") == "1"       # set by agent_run.py for the delegated agent
+        if str(env).upper() != "SANDBOX" and strict and not allow_prod:
             print("refused: %s is not a sandbox (environment=%r) and data read from it goes to "
-                  "whichever model is running this script; re-run with --allow-prod-read to proceed."
+                  "an external model provider; re-run with --allow-prod-read to proceed."
                   % (account, env))
             return 2
         if str(env).upper() != "SANDBOX":
-            print("WARNING: --allow-prod-read — reading LIVE data from a NON-sandbox account "
+            print("NOTE: reading LIVE data (read-only) from a NON-sandbox account "
                   "(%s, environment=%s)." % (account, env))
 
         if args.cmd == "whoami":

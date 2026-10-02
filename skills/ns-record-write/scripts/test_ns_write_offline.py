@@ -93,24 +93,36 @@ class OfflineWriteTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertEqual(self.writes, [])
 
-    # 3. bsk + PRODUCTION + --confirm without --allow-bsk-prod: exit 2, no write, names the flag
-    def test_bsk_production_refused_without_optin(self):
+    # 3. bsk + PRODUCTION + --confirm with NO flag: exit 0, writes, warns (the round's confirmation is the guard)
+    def test_bsk_production_writes_without_any_flag_and_warns(self):
         self.account = "4089685"
         self.env = "PRODUCTION"
         code, out, _ = self.run_main(self.bsk_args() + self.base_args(confirm=True))
-        self.assertEqual(code, 2)
-        self.assertEqual(self.writes, [])
-        self.assertIn("--allow-bsk-prod", out)
+        self.assertEqual(code, 0)
+        self.assertEqual(len(self.writes), 1)
+        self.assertIn("WARNING", out)
+        self.assertIn("NON-sandbox", out)
+        self.assertNotIn("no longer needed", out)
 
-    # 4. bsk + PRODUCTION + --confirm WITH --allow-bsk-prod: exit 0, writes, warns
-    def test_bsk_production_allowed_with_optin(self):
+    # 4. the old flag is still accepted (old command lines keep working) and says it is ignored
+    def test_old_allow_bsk_prod_flag_is_accepted_and_ignored(self):
         self.account = "4089685"
         self.env = "PRODUCTION"
         code, out, _ = self.run_main(
             self.bsk_args() + self.base_args(confirm=True) + ["--allow-bsk-prod"])
         self.assertEqual(code, 0)
         self.assertEqual(len(self.writes), 1)
-        self.assertIn("WARNING", out)
+        self.assertIn("no longer needed", out)
+
+    # 4b. a dry-run still writes nothing and no longer announces a refusal that does not exist
+    def test_bsk_production_dry_run_writes_nothing(self):
+        self.account = "4089685"
+        self.env = "PRODUCTION"
+        code, out, _ = self.run_main(self.bsk_args() + self.base_args(confirm=False))
+        self.assertEqual(code, 0)
+        self.assertEqual(self.writes, [])
+        self.assertNotIn("REFUSED", out)
+        self.assertIn("DRY-RUN", out)
 
     # 5. bsk + SANDBOX + --confirm: exit 0, writes
     def test_bsk_sandbox_writes(self):

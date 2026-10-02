@@ -519,7 +519,9 @@ def run_ns_reader(a):
     if a.dry_run:
         print("DRY-RUN — profile ns-reader; config written to", cfg_path, "\n ", " ".join(cmd[:-1]), "<PREAMBLE + TASK>")
         return
-    env = dict(os.environ, PWD=work, OPENCODE_CONFIG=cfg_path)
+    # strict mode: ns_read.py refuses a non-sandbox account without --allow-prod-read, which the permission list only
+    # lets the agent pass for accounts the user confirmed (the data goes to an external provider)
+    env = dict(os.environ, PWD=work, OPENCODE_CONFIG=cfg_path, BOMBOT_NS_READ_STRICT="1")
     t0 = time.time()
     try:
         r = subprocess.run(cmd, cwd=work, env=env, capture_output=True, text=True,

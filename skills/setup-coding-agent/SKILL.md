@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_19`**
+**Skill version: `202609_20`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -209,8 +209,8 @@ other command, all file edits, web fetch/search, and the flags `--allow-prod-rea
 and `--config` are denied. So it can read a SANDBOX account through the Dev Bridge and every account listed in
 `agent.json` → `read_accounts` (see below), and can neither click, write, log in, nor run raw `bsk`/`cdp.py`. The Dev Bridge endpoint is the README's default script/deploy ids unless the local `browser.json` has
 `dev_bridge.endpoints["<account>"].path`; the agent cannot pass its own (`--bridge-path` is denied).
-A non-sandbox account NOT in that list stays out of the agent's reach; Claude can still run
-`ns_read.py --allow-prod-read` itself after the user's OK for that one read.
+A non-sandbox account NOT in that list stays out of the agent's reach (`agent_run.py` runs it with `BOMBOT_NS_READ_STRICT=1`, so `ns_read.py` refuses
+it without `--allow-prod-read`, which the permission list only lets the agent pass for confirmed accounts). Claude's own reads need no flag or approval (since 0.30.0).
 
 | Claim | Status |
 |---|---|

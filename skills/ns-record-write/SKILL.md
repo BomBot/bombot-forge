@@ -4,13 +4,13 @@ description: >-
   Use when writing to a live NetSuite record from a logged-in browser tab (updating a field,
   fixing a bad value, a scoped submitFields or load/save), instead of allow-listing raw
   `cdp.py eval`. Covers the scoped `ns_write.py` helper (structured args only, submit + save
-  modes, account guard, dry-run default), its two engines (bsk: sandbox freely, production only with an explicit `--allow-bsk-prod`; cdp: anywhere),
+  modes, account guard, dry-run default), its two engines (bsk or cdp, sandbox or production — on production the round's confirmation and a dry-run come first; `--allow-bsk-prod` is no longer needed),
   the exact `permissions.allow` line it needs, and a validator that checks each machine.
 ---
 
 # NetSuite Record Write (scoped ns_write helper)
 
-**Skill version: `202609_12`**
+**Skill version: `202609_13`**
 
 Writing to a live NetSuite record from a logged-in browser tab. The **only** sanctioned
 write channel here is `scripts/qa/ns_write.py` — a helper that takes **structured args**
@@ -22,7 +22,7 @@ Two engines drive the tab (**the caller owns the tab**; the helper never opens o
 
 | Engine | Flags | Where writes are allowed |
 |---|---|---|
-| `bsk` (BrowserSkill) | `--bsk-session <id> --bsk-tab <id>` | **Sandbox freely.** `bsk` auto-accepts native dialogs, so `--confirm` on any other environment is refused unless you add `--allow-bsk-prod` (see the iron rule below) |
+| `bsk` (BrowserSkill) | `--bsk-session <id> --bsk-tab <id>` | **Any environment.** `bsk` auto-accepts native dialogs, so on a non-sandbox account the helper prints a WARNING and the caller must have listed the write and got the user's OK for the round (see the rule below) |
 | `cdp` (Chrome for Testing) | `--tab <TARGET_ID>` | Sandbox or production (needs a claimed lane — see `browser-engines`) |
 | `auto` (default) | — | `bsk` if `--bsk-session` is given, else `cdp` |
 
@@ -50,15 +50,13 @@ Two modes, one script:
   Use `save` only when you need sourcing or user-event scripts to fire. Sublist edits are
   NOT supported yet — do not force them through `--set`.
 - **No credentials, ever.** The browser session cookie authenticates the write.
-- **bsk on production needs `--allow-bsk-prod`.** With `--engine bsk` the helper installs a page-level
-  dialog guard first (a dialog that still fires aborts the run) and refuses `--confirm` unless the
-  live environment is `SANDBOX` **or** `--allow-bsk-prod` is passed. Why it is safe enough: the
-  in-page write is an `N/record` call — it clicks nothing and opened no dialog in any live test.
-  Why it is still explicit: `bsk` cannot be told to refuse a dialog, so a dialog that appears
-  anyway is answered "OK" by the browser. Rules for using it on production: dry-run first and
-  read BEFORE; the user approves that round of writes; one record per call; keep the WARNING line
-  in the report; `OUTCOME UNKNOWN` still means stop. Do **not** use `bsk` to *click* things on
-  production — only this helper.
+- **bsk on production: confirm the round, no flag.** (Until 0.30.0 `--confirm` through `bsk` was refused on a non-sandbox
+  account unless `--allow-bsk-prod` was passed; the flag is still accepted and ignored.) With `--engine bsk` the helper
+  installs a page-level dialog guard first (a dialog that still fires aborts the run). Why that is enough: the in-page
+  write is an `N/record` call — it clicks nothing and opened no dialog in any live test. Why it still matters: `bsk` cannot
+  be told to refuse a dialog, so a dialog that appears anyway is answered "OK" by the browser. Rules on production: dry-run
+  first and read BEFORE; **list the write for the user and get the OK for that round**; one record per call; keep the
+  WARNING line in the report; `OUTCOME UNKNOWN` still means stop.
 - **`OUTCOME UNKNOWN` (exit 3) means stop.** If the transport fails or times out *during* the
   write (bsk `session_busy` / window closed / timeout; cdp timeout), the write may have happened.
   **Never re-run blind** — dry-run the same record and read the current values first.
@@ -95,7 +93,7 @@ Two modes, one script:
    }
    ```
 3. **Engine lane (at least one):**
-   - **bsk** (sandbox; production with `--allow-bsk-prod`): CLI + extension + daemon per the `browser-engines` skill; start your own
+   - **bsk** (any environment; on production after the round's confirmation): CLI + extension + daemon per the `browser-engines` skill; start your own
      session and pinned tab, open a **record page** on the target account, then pass
      `--bsk-session`/`--bsk-tab`. Stop the session when done.
    - **cdp** (anywhere): `cdp.py` on CDP port 9333 with a claimed lane (see `browser-engines` and

@@ -243,6 +243,7 @@ if sys.argv[1:3] == ["session", "delete"]:
 if sys.argv[1:3] == ["debug", "paths"]:
     print("home  /x"); print("db    " + os.environ.get("FAKE_DB", "/nonexistent.db")); sys.exit(0)
 SID = "ses_fake123"
+open(os.environ.get("FAKE_ENV_LOG", os.devnull), "a").write(str(os.environ.get("BOMBOT_NS_READ_STRICT")) + "\\n")
 open(os.environ.get("FAKE_ARGV_LOG", os.devnull), "a").write(json.dumps(sys.argv[1:]) + "\\n")
 if os.environ.get("FAKE_WRITE"):
     open(os.path.join(os.environ["PWD"], "new.txt"), "w").write("hi\\n")
@@ -320,6 +321,8 @@ class LedgerTest(unittest.TestCase):
         env.pop("BOMBOT_FORGE_LOG", None)
         env.setdefault("FAKE_DEL_LOG", os.path.join(self.tmp, "del.log"))
         env.setdefault("FAKE_ARGV_LOG", os.path.join(self.tmp, "argv.log"))
+        env.setdefault("FAKE_ENV_LOG", os.path.join(self.tmp, "env.log"))
+        env.pop("BOMBOT_NS_READ_STRICT", None)
         if fake_write:
             env["FAKE_WRITE"] = "1"
         r = subprocess.run([_sys.executable, os.path.join(_HERE, "agent_run.py")] + list(args), env=env,
@@ -491,6 +494,18 @@ class LedgerTest(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             argv = [json.loads(l) for l in open(os.path.join(self.tmp, "argv.log")) if '"run"' in l][0]
             self.assertIn(core, argv[-1], prof)             # the prompt the agent really received
+
+    def test_only_the_delegated_ns_reader_runs_in_strict_read_mode(self):
+        # ns_read.py asks for --allow-prod-read on a non-sandbox account only when this is set; Claude's own reads and the other
+        # profiles must NOT be strict, the DeepSeek ns-reader must be (the data goes to an external provider)
+        repo = self.repo()
+        envlog = os.path.join(self.tmp, "env.log")
+        for prof, extra, want in [("ns-reader", [], "1"), ("analyze", ["--repo", repo], "None"), ("code", ["--agent", "opencode", "--repo", repo], "None")]:
+            open(envlog, "w").close()
+            r, _ = self.cli("--profile", prof, "--task-file", os.path.join(self.tmp, "ask.md"), "--model", "p/deepseek/deepseek-flash", *extra)
+            self.assertEqual(r.returncode, 0, prof + r.stdout + r.stderr)
+            seen = open(envlog).read().split()
+            self.assertEqual(seen, [want], (prof, seen))
 
     def test_purge_still_works_on_a_database_without_a_title_column(self):
         import sqlite3

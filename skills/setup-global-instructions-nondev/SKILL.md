@@ -12,7 +12,7 @@ description: >-
 
 # Setup Global Instructions — non-dev (read-only, no SDF, no deploy)
 
-**Skill version: `202609_07`**
+**Skill version: `202609_08`**
 
 The dev skill `setup-global-instructions` writes the instructions of someone who deploys code. This one is for
 someone who must **not**: the machine's `~/.claude/CLAUDE.md` forbids the SDF CLI entirely, forbids deploying
@@ -24,16 +24,15 @@ Because a sentence in CLAUDE.md is advice and not a barrier, the skill also prop
 | Level | What | Rule |
 |---|---|---|
 | **A** read and analyse | look at pages, run searches, read via the Dev Bridge, explain why a search is wrong, find where something is used, draft a spec for a dev | no confirmation needed; changes nothing |
-| **B** no-code UI changes | Saved Search, Report, Dashboard, custom field, custom record, workflow, other no-code settings the user names | allowed in sandbox **and production**, **one chat OK per change**, then 7 fixed steps: plan → ask "is this account live?" (live or unknown = stop) → impact check → record the old state → Claude clicks through **Claude in Chrome** in front of the user → compare before/after → roll back if it is wrong |
+| **B** no-code UI changes | Saved Search, Report, Dashboard, custom field, custom record, workflow, other no-code settings the user names | allowed in sandbox **and production**, **one chat OK per change**, then 6 fixed steps: plan (naming the account and environment) and wait for the OK → impact check → record the old state → Claude clicks through **Claude in Chrome** in front of the user → compare before/after → roll back if it is wrong |
 | **H** JS hotfix (one narrow exception) | edit an **existing** JS file on the account to fix a real bug the site cannot wait on | only when the user says "hotfix" in chat; size by judgement (no line limit) — a big change is better written as a .md for the dev, and the user is told how big it is and decides; **9 fixed steps**: take the file from the account → back it up (+ sha256) → edit a local copy with a greppable `HOTFIX-NODEV` comment (why / what / original) → re-check the diff and syntax → report to the user (diff, size, checked / inferred / not looked at, risk, rollback, **"a dev may overwrite this file"**) and get one OK → Claude uploads through Claude in Chrome → verify by downloading it back and comparing sha256, reproducing the bug, reading the Execution Log → roll back from the backup if wrong → write a .md note for the dev |
 | **C** Claude does not do it | SDF, deploy, upload/edit JS (except H), scripts and script deployments, roles/permissions, import and mass update, edit/delete financial transactions, change subsidiary/accounting setup, delete anything | **the user does it by hand**; Claude may draft the steps or spec and check the result afterwards |
 
 Decided by the maintainer on 2026-10-01: B runs on production too (most accounts are still in implementation, not live),
 Claude does the clicking (not the user), and custom fields/records/workflows are allowed. Added the same day: the H lane
 ("open a small gap for urgent fixes on site"), **Claude uploads the file itself** through Claude in Chrome, the size limit is
-"by judgement" with the user always told and deciding, and level C is done by hand by the user. The "is it live?" stop is an
-addition that follows from that reasoning, not something the maintainer asked for — remove it from
-`reference/nondev-sections.md` if unwanted.
+"by judgement" with the user always told and deciding, and level C is done by hand by the user. The "is the account live?" stop that was added on 2026-10-01 was **cut on 2026-10-02** at the maintainer's request:
+what remains before any change is the plan (account, environment, what, expected result) and one OK in the chat.
 
 - Shared sections are **not copied**: `scripts/build_nondev.py` takes them verbatim from the dev snapshot
   (`../setup-global-instructions/reference/global-CLAUDE.snapshot.md`) and adds `reference/nondev-sections.md`.
@@ -49,7 +48,7 @@ addition that follows from that reasoning, not something the maintainer asked fo
 | The rules cannot be evaded | **no — measured:** `s=suite; ${s}cloud file:list` ran. Patterns match the command **text**; a name built from a variable, or an npm script whose text does not contain `suitecloud`, gets through. The rules are a fence, not a wall |
 | A deny rule beats an existing allow rule for the same command (dev machines allow `suitecloud file:upload`) | **not tested** — so the skill proposes removing those allow entries too |
 | The rules in the table above are what the maintainer chose | **decided** 2026-10-01 (production allowed with a per-change OK; Claude clicks via Claude in Chrome; field/record/workflow allowed); written into the built text and covered by offline tests |
-| A model actually follows the 7 steps and stops where it should (live account, unexpected dialog) | **not tested** — the text is advice, not enforcement. The real barrier is the user's **NetSuite role permissions**; check them for each non-dev user |
+| A model actually follows the 6 steps and stops where it should (unexpected dialog) | **not tested** — the text is advice, not enforcement. The real barrier is the user's **NetSuite role permissions**; check them for each non-dev user |
 | Claude in Chrome completes a NetSuite UI customisation, and copes with NetSuite's native dialogs | **not tested** |
 | A hotfix survives a later deploy by a dev | **it does not by itself** — a dev who deploys from the repo overwrites the account file and the fix is lost. The lane only reduces the risk (greppable tag, dev note, a warning to the user in the confirmation); it needs the user to tell the dev |
 | "By judgement" keeps hotfixes small | **not enforced** — there is no line limit, so the protection is the report-and-decide step, not a rule a test can check |
