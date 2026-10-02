@@ -9,6 +9,23 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.29.1 — 2026-10-02
+
+- **cdp is only named on machines that have it.** The shared Browser rules (global CLAUDE.md snapshot, `browser-engines`,
+  `setup-browser`) talked about cdp as the fallback and, since 0.29.0, as the "safer" lane for dialog-prone steps — even on a
+  machine whose owner chose bsk only. Now the first thing is to read `~/.config/bombot-forge/browser.json` (`engine`,
+  `also_installed`, `claude_in_chrome`) and suggest only a lane that is present. A bsk-only machine goes **bsk → Claude in Chrome
+  (when connected) → the user on the screen**, and is never pointed at cdp (nor offered an install unless asked).
+- **Honest limit:** Claude in Chrome is the right *next lane*, but it has never been verified against native dialogs, so it is
+  **no safer than `bsk`** for a step that may raise a confirm. Such a step now goes into the round's list as a **flagged step** and
+  the user chooses: carry on with bsk, cdp (if installed), Claude in Chrome, or click it themselves. The round's confirmation
+  stays the protection; nothing was added that blocks.
+- `browser-engines` **202609_18**, `setup-browser` **202609_16**, `setup-global-instructions` **202609_19** (and with it the non-dev
+  build, **202609_07**). A test asserts the built text reads the prefs file, forbids sending a bsk-only machine to cdp, and no longer
+  contains "cdp is safer" or the stale "write on production" label. Mutation-checked.
+
+---
+
 ## v0.29.0 — 2026-10-02
 
 - **Removed: "no data-changing clicks on production through `bsk`".** The maintainer was working on a production account that is

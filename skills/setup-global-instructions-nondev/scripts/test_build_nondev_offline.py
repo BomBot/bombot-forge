@@ -140,6 +140,15 @@ class BuildNondevTest(unittest.TestCase):
         self.assertIn("list ให้ฉันเห็นว่ารอบนี้จะ process/คลิก/submit/update อะไรบ้าง", self.out)
         self.assertIn("dialog ที่ไม่อยู่ใน list", self.out)
 
+    def test_browser_lanes_are_read_from_the_machine_and_cdp_is_never_assumed(self):
+        # a machine that chose bsk only must not be sent to cdp: lanes come from browser.json, escalation is Claude in Chrome then the user
+        self.assertIn("~/.config/bombot-forge/browser.json", self.out)
+        self.assertIn("เฉพาะ lane ที่เครื่องนั้นมีจริง", self.out)
+        self.assertIn("เครื่องที่เลือก bsk อย่างเดียวห้ามพูดถึงหรือสลับไป cdp", self.out)
+        self.assertIn("fallback (เฉพาะเครื่องที่ติดตั้ง)", self.out)
+        self.assertNotIn("ใช้ cdp แทนจะปลอดภัยกว่า", self.out)
+        self.assertNotIn("(fallback / write บน production)", self.out)
+
     def test_fenced_hash_lines_are_not_headings(self):
         sample = "# A\nx\n```bash\n# not a heading\nls\n```\n# B\ny\n"
         self.assertEqual([h for h, _ in self.m.split_h1(sample) if h], ["A", "B"])

@@ -12,7 +12,7 @@ description: >-
 
 # Setup Global Instructions — non-dev (read-only, no SDF, no deploy)
 
-**Skill version: `202609_06`**
+**Skill version: `202609_07`**
 
 The dev skill `setup-global-instructions` writes the instructions of someone who deploys code. This one is for
 someone who must **not**: the machine's `~/.claude/CLAUDE.md` forbids the SDF CLI entirely, forbids deploying

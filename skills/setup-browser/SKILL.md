@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (engine choice, install, Dev Bridge, login consent)
 
-**Skill version: `202609_15`**
+**Skill version: `202609_16`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -62,7 +62,7 @@ Show this table and recommend **bsk** for anyone who works in their everyday Chr
 | Browser | Your **everyday Chrome/Edge**, already logged in | A **separate** Chrome for Testing with its own profile (log in once there) |
 | Speed per command | Fast (measured ~22× per command vs cdp) | Slower per command |
 | Setup | CLI + extension you turn on + daemon | Chrome for Testing + fixed profile + `cdp.py` (yours, not bundled) |
-| Native dialogs | **Auto-accepts every one, can't be turned off** — so on production list every click/submit in the round's confirmation and stop at any dialog not on the list (the guard covers the top window only); a step likely to raise a confirm is safer on cdp | You control them; popup-blocker off is a false-positive risk for popup checks |
+| Native dialogs | **Auto-accepts every one, can't be turned off** — so on production list every click/submit in the round's confirmation and stop at any dialog not on the list (the guard covers the top window only); a step likely to raise a confirm goes into that list so you choose (carry on, cdp if installed, Claude in Chrome, or click it yourself) | You control them; popup-blocker off is a false-positive risk for popup checks |
 | Extras | — | `lens`, `netlog`, `stub`, `diff`, shadow-DOM piercing, unattended runs |
 | Risk | Third-party (Tencent) daemon that **auto-updates** (~30 min; `BSK_AUTO_UPDATE=off` to pin); verified on one Mac only here | Can't drive your everyday Chrome (Chrome 136+ ignores the debug port on the default profile) |
 | Production writes | UI clicks/submits after the round's confirmation, or `ns_write.py --allow-bsk-prod` after dry-run + your approval | `ns_write.py --engine cdp`, and UI-driven writes |
@@ -100,7 +100,7 @@ through?* Link:
 After they install, test it: load the tools (`ToolSearch` → `select:mcp__claude-in-chrome__tabs_context_mcp`)
 and call `tabs_context_mcp`. Record `claude_in_chrome: true|false|declined`.
 
-Lane priority to state at the end: **1. bsk or cdp · 2. Claude in Chrome · 3. you act on the
+Lane priority to state at the end (name only the lanes this machine actually has; a bsk-only machine goes bsk → Claude in Chrome → you, never to cdp): **1. bsk or cdp · 2. Claude in Chrome · 3. you act on the
 screen** (the last resort, or when you prefer to click).
 
 ## Step 4 — offer a Dev Bridge trial

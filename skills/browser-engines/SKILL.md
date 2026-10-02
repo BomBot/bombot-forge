@@ -14,7 +14,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0 — the skill covers both engines now (bsk first), so the old name misled.
 
-**Skill version: `202609_17`**
+**Skill version: `202609_18`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -27,11 +27,13 @@ This skill is the policy + verified recipes. Command reference for `bsk` comes f
 |---|---|---|
 | Read a page, smoke/QA, screenshots, Dev Bridge / SuiteQL reads | **bsk** | Uses the browser you're already logged in to; no separate profile or login |
 | Record write through the scoped `ns_write.py` (no clicks, no dialogs) | **bsk** (production needs `--allow-bsk-prod` + approval) or cdp | The helper adds its own guards: dialog guard, explicit opt-in for non-sandbox on bsk, stop on unknown outcome |
-| Any **UI-driven** write (clicking Save, filling forms, buttons) | **bsk or cdp** — see "Changing data in the UI on production" below | `bsk` **auto-accepts every native dialog** (`alert`/`confirm`/`prompt`/`beforeunload`) and can't be told not to (verified below). Prefer **cdp** when a step is likely to raise a confirm (delete, "leave page?") or sits in an iframe or popup |
+| Any **UI-driven** write (clicking Save, filling forms, buttons) | **bsk or cdp** — see "Changing data in the UI on production" below | `bsk` **auto-accepts every native dialog** (`alert`/`confirm`/`prompt`/`beforeunload`) and can't be told not to (verified below). A step likely to raise a confirm (delete, "leave page?") or sitting in an iframe or popup goes into the round's list as a flagged step, and the user picks the lane (see below) |
 | `lens` / `netlog` / `stub` / `diff`, shadow-DOM piercing (`a11y`), coordinate work | **cdp** | Not in `bsk` |
 | Unattended or long runs | **cdp** (or don't) | A person closing the Agent Window kills a `bsk` run |
 
-When in doubt about a dialog-prone step, use cdp. NetSuite record-form QA belongs to a dedicated skill, not here.
+When in doubt about a dialog-prone step, put it in the round's list and let the user choose the lane. NetSuite record-form QA belongs to a dedicated skill, not here.
+
+**Which lanes exist is per machine.** Read `~/.config/bombot-forge/browser.json` (`engine`, `also_installed`, `claude_in_chrome`) and only ever suggest a lane that is present there. A machine that chose `bsk` only is never pointed at cdp; its next lane is Claude in Chrome (when `claude_in_chrome` is true), then the user on the screen. The cdp rows in this skill apply to machines that have cdp.
 
 ### Changing data in the UI on production (`bsk` or cdp) — confirm the round, then go
 
@@ -45,7 +47,9 @@ production account that is not live yet could do nothing with `bsk`). The protec
 3. **Stop** if a dialog shows up that was not in the list (the `dialogs` field of a result must stay empty), or if an
    outcome is unknown. Report; do not click on.
 4. The guard is a seat belt, not a barrier (see "Dialog guard — what it does NOT cover": top window only). So a step that
-   may raise a confirm, or lives in an iframe or popup, is safer on cdp.
+   may raise a confirm, or lives in an iframe or popup, goes into the list as a **flagged step** and the user chooses: carry on
+   with `bsk`, use cdp (only if it is installed on this machine), use Claude in Chrome (not verified against native dialogs, so
+   treat it as no safer than `bsk`), or click that step themselves.
 5. `ns_write.py` is separate and unchanged: dry-run first, `--allow-bsk-prod` on production, one record at a time.
 
 ## Lane priority (per machine)
@@ -65,9 +69,10 @@ production account that is not live yet could do nothing with `bsk`). The protec
 - **Deprecated: cdp for read-only checks, QA and screenshots.** New read/QA work starts on `bsk`.
 - **Not deprecated:** cdp for dialog-sensitive work (steps that raise a confirm, popup or iframe dialog),
   `lens`/`netlog`/`stub`/`diff`, shadow-DOM piercing, unattended runs.
-- **Fallback rule:** use the cdp lane whenever `bsk` is unusable on the machine — `bsk` not
+- **Fallback rule:** on a machine that has cdp installed, use the cdp lane whenever `bsk` is unusable — `bsk` not
   installed, `BSK_AUTO_START=0 bsk status --json` fails (no daemon / no extension connected),
-  no Chrome/Edge extension allowed, an unsupported OS/arch, or a broken auto-update.
+  no Chrome/Edge extension allowed, an unsupported OS/arch, or a broken auto-update. On a machine **without** cdp, go to
+  Claude in Chrome (if connected), then the user; do not suggest installing cdp unless the user asks.
 - **Stays in the tree:** the cdp lane below, `ns_write.py --engine cdp`, and `netsuite-qa-browser`.
 - **Revisit** once `bsk` has run on more than one machine and over long sessions, and once the
   team decides on production writes through `bsk`. Today: UI clicks/submits on production are allowed after the round's
