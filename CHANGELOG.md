@@ -9,6 +9,30 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.29.0 — 2026-10-02
+
+- **Removed: "no data-changing clicks on production through `bsk`".** The maintainer was working on a production account that is
+  not live yet and could do nothing with `bsk` (had to switch to cdp or Claude in Chrome). **Why the rule existed:** `bsk`
+  auto-accepts every native dialog and that cannot be turned off, so a click that raises `confirm()` is "OK"-ed without a human.
+  **What replaces it:** a **confirmation of the round** — before any production click, fill or submit, list for the user which
+  pages, buttons, records, values and which step might raise a confirm, and wait for the OK (valid for that round only). While
+  running: dialog guard after every navigation, identity gate, and **stop** if a dialog appears that was not in the list (the
+  `dialogs` field) or an outcome is unknown. Steps likely to raise a confirm, or inside an iframe or popup, are recommended on
+  cdp instead (advice, not a ban). `browser-engines` **202609_17** (new section "Changing data in the UI on production"),
+  `setup-browser` **202609_15**, and the Browser automation section of the global CLAUDE.md snapshot / the non-dev build
+  (`setup-global-instructions` **202609_18**).
+- **Unchanged on purpose:** the dialog hazard itself (measured 2026-09-30: the guard covers the top window only; a same-origin
+  iframe's `confirm()` is still accepted and a popup's dialog hangs the session), and `ns_write.py` — still dry-run first and
+  `--allow-bsk-prod` on production (a separate, code-level guard; whether to drop it is the maintainer's call).
+- **Non-dev** (`setup-global-instructions-nondev` **202609_06**): level B and the hotfix lane still click through **Claude in
+  Chrome in front of the user**, as chosen earlier, but the stated reason is now "`bsk` works in a background window the user
+  cannot see" instead of "bsk must not click". Tests: 20 for the builder (was 19), incl. one asserting the kept Browser section no
+  longer bans `bsk` clicks and asks for the round's confirmation.
+- **Not tested:** a real production click through `bsk` under the new rule. The risk it leaves is a confirm that appears where
+  the list did not predict it and the guard does not reach (iframe/popup).
+
+---
+
 ## v0.28.0 — 2026-10-01
 
 - **Per-project delegation level.** `setup-coding-agent` **202609_19** adds `delegation_level.py` and a section "Delegation level

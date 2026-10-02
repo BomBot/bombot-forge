@@ -75,9 +75,10 @@ class BuildNondevTest(unittest.TestCase):
         self.assertIn("script record และ script deployment", ban)
         self.assertIn("ขอบเขตงานผ่าน UI", ban)
 
-    def test_changes_through_bsk_clicks_stay_forbidden_and_deletion_is_level_C(self):
+    def test_ui_changes_go_through_claude_in_chrome_in_front_of_the_user_and_deletion_is_level_C(self):
         scope = self.nondev("ขอบเขตงานผ่าน UI")
-        self.assertIn("ห้ามใช้ `bsk` คลิก/กรอกเพื่อเปลี่ยนค่า", scope)
+        self.assertIn("ใช้ Claude in Chrome ไม่ใช่ `bsk`", scope)
+        self.assertIn("ฉันไม่เห็น", scope)          # the reason is visibility, not a ban on bsk clicking
         c_line = [l for l in scope.splitlines() if l.startswith("**ระดับ C")][0]
         for thing in ["SDF", "JS", "role/permission", "ลบอะไรก็ตาม"]:
             self.assertIn(thing, c_line)
@@ -132,6 +133,12 @@ class BuildNondevTest(unittest.TestCase):
         self.assertIn("ขั้นถัดไป", self.out)
         self.assertIn("ห้ามจบคำตอบด้วยรายการ 3 ช่อง", self.out)
         self.assertNotIn("ท้ายคำตอบสรุปเป็น 3 ช่อง", self.out)
+
+    def test_the_kept_browser_section_confirms_the_round_instead_of_banning_bsk_clicks(self):
+        self.assertNotIn("ห้ามใช้ bsk *คลิก*", self.out)
+        self.assertIn("ต้องยืนยันก่อนทุกรอบ", self.out)
+        self.assertIn("list ให้ฉันเห็นว่ารอบนี้จะ process/คลิก/submit/update อะไรบ้าง", self.out)
+        self.assertIn("dialog ที่ไม่อยู่ใน list", self.out)
 
     def test_fenced_hash_lines_are_not_headings(self):
         sample = "# A\nx\n```bash\n# not a heading\nls\n```\n# B\ny\n"

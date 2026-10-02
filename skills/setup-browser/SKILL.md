@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (engine choice, install, Dev Bridge, login consent)
 
-**Skill version: `202609_14`**
+**Skill version: `202609_15`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -62,13 +62,13 @@ Show this table and recommend **bsk** for anyone who works in their everyday Chr
 | Browser | Your **everyday Chrome/Edge**, already logged in | A **separate** Chrome for Testing with its own profile (log in once there) |
 | Speed per command | Fast (measured ~22× per command vs cdp) | Slower per command |
 | Setup | CLI + extension you turn on + daemon | Chrome for Testing + fixed profile + `cdp.py` (yours, not bundled) |
-| Native dialogs | **Auto-accepts every one, can't be turned off** — so: never click data-changing UI on production; the scoped `ns_write.py` helper is fine (no clicks) | You control them; popup-blocker off is a false-positive risk for popup checks |
+| Native dialogs | **Auto-accepts every one, can't be turned off** — so on production list every click/submit in the round's confirmation and stop at any dialog not on the list (the guard covers the top window only); a step likely to raise a confirm is safer on cdp | You control them; popup-blocker off is a false-positive risk for popup checks |
 | Extras | — | `lens`, `netlog`, `stub`, `diff`, shadow-DOM piercing, unattended runs |
 | Risk | Third-party (Tencent) daemon that **auto-updates** (~30 min; `BSK_AUTO_UPDATE=off` to pin); verified on one Mac only here | Can't drive your everyday Chrome (Chrome 136+ ignores the debug port on the default profile) |
-| Production writes | `ns_write.py --allow-bsk-prod` only, after dry-run + your approval | `ns_write.py --engine cdp`, and UI-driven writes |
+| Production writes | UI clicks/submits after the round's confirmation, or `ns_write.py --allow-bsk-prod` after dry-run + your approval | `ns_write.py --engine cdp`, and UI-driven writes |
 
 Ask with the bullets above and a picker: **bsk (Recommended if they work in everyday Chrome)** — fast,
-already logged in, but it auto-accepts dialogs so no data-changing clicks on production · **cdp** — full
+already logged in, but it auto-accepts dialogs, so every click on production is listed and confirmed first · **cdp** — full
 control, but a separate Chrome for Testing profile and it cannot drive everyday Chrome · **Both** — a
 fallback, but two things to keep working. Record `engine` (primary) and `also_installed`.
 
@@ -101,7 +101,7 @@ After they install, test it: load the tools (`ToolSearch` → `select:mcp__claud
 and call `tabs_context_mcp`. Record `claude_in_chrome: true|false|declined`.
 
 Lane priority to state at the end: **1. bsk or cdp · 2. Claude in Chrome · 3. you act on the
-screen** (the last resort, and the only choice for a data-changing click a dialog could hit).
+screen** (the last resort, or when you prefer to click).
 
 ## Step 4 — offer a Dev Bridge trial
 
@@ -230,7 +230,7 @@ means "ask about the new keys", never "start over".
 
 Finish with a short table: what is installed and tested, the lane priority, what changed versus the
 previous file (or "no change"), and the one rule to remember —
-**no data-changing clicks on production through bsk**.
+**on production, list every click/submit and get the user's OK for the round first** (bsk or cdp).
 
 ## Gotchas
 

@@ -12,7 +12,7 @@ description: >-
 
 # Setup Global Instructions — non-dev (read-only, no SDF, no deploy)
 
-**Skill version: `202609_05`**
+**Skill version: `202609_06`**
 
 The dev skill `setup-global-instructions` writes the instructions of someone who deploys code. This one is for
 someone who must **not**: the machine's `~/.claude/CLAUDE.md` forbids the SDF CLI entirely, forbids deploying
@@ -112,7 +112,7 @@ conflicting section (**Remove** / **Keep**), the deny rules (**Add** / **Not yet
    **before** the command runs (not "command not found"). Then remind the user of the honest limit: a name built from
    a variable or an npm script can slip past a text pattern; the CLAUDE.md ban covers what the rule cannot.
 7. **Offer the tools this workflow leans on:** `setup-browser` — for a non-dev machine **Claude in Chrome (its Step 3) is
-   required**, because level B changes are clicked through it and never through `bsk`; the Dev Bridge trial covers the
+   required**, because level B changes are clicked through it in front of the user (not through `bsk`, which works in a background window the user cannot see); the Dev Bridge trial covers the
    read side — and `setup-plugins` if the user wants the team's plugins. Don't start them without a yes. Also remind the
    maintainer that the real limit on what a user can change is their NetSuite role, not this text.
 
