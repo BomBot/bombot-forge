@@ -9,6 +9,36 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.31.0 — 2026-10-05
+
+The GPU box moved from `bombot-gaming` (retired) to `bombot-pc`. Two skills pointed at the old box; both rewritten from a real run, not
+from the old design. **video-transcribe 202609_02**, **setup-local-llm 202609_03**.
+
+- **video-transcribe.** No SSH on `bombot-pc` (no sshd), so files go by Taildrop (`tailscale file cp`) to `D:\User Files\Downloads\`, and
+  `transcribe_video` takes that absolute path (no inbox copy). Box paths confirmed by calling `list_transcribe_inbox` through the bridge and by
+  the box's own Claude session: inbox/outbox under `H:\Local-LLM\video_transcription\`. New iron rules from one real run (87-minute Thai
+  meeting, 548 MB):
+  - **Call `transcribe_video` once.** The bridge client gives up after 600 s but the job keeps running; the first attempt timed out, a
+    second session on the box also called it 49 s later, and two whisper runs shared the 12 GB GPU (VRAM about 10 GB, two outbox folders).
+    After a timeout: look in the outbox, never re-call. Never kill `bridge_server.py` (it is the bridge).
+  - **The `.md` is a summary written by `qwen3:8b`, not a transcript** (7.6 KB from 123 KB; opens with "from the conversation you
+    described"). Use `.txt` / `.srt`; whisper mishears names and NetSuite terms.
+  - Sending a recording to the box needs the user's OK. Run time was about 50 minutes for 87 minutes of video.
+  - The shipped `install.sh` had CRLF line endings and failed on macOS (`set: pipefail: invalid option`); the Mac copy of
+    `mcp_bridge_client.py` no longer advertises the expired `ask_9arm` / `list_9arm_models`.
+  - Results came back by Taildrop from the box; the Tailscale app saved them into `~/Downloads` on its own and `tailscale file get`
+    received nothing. Sizes matched on both legs. Transcript accuracy over the whole file was **not** checked (only the opening).
+- **setup-local-llm.** Ollama on `bombot-pc` listens on 127.0.0.1 only (on purpose), so the direct `ollama` MCP can no longer work, yet it
+  still shows `✔ Connected` (a stdio process pointing at the offline box). The agent now uses the bridge tools `mcp__bombot__ask_ollama` /
+  `list_ollama_models` / `unload_ollama` and must pass `model: "gpt-oss:20b"` (the bridge default `deepseek-coder-v2:16b` is not pulled).
+  `check-local-llm.sh` rewritten: tailscale, `bombot` connected, bridge `/health`, model pulled (one authenticated call, token never
+  printed), agent matches canonical, NOTE for a leftover `ollama` MCP. Checked on this machine: all pass except agent DRIFT (the installed
+  agent is the old one; not replaced without the user's OK), the model check fails for a missing model, and one `ask_ollama` call with
+  `gpt-oss:20b` through the bridge returned `OK`. Not verified: the `local-llm` subagent end to end, a fresh machine, Windows.
+  `scripts/ollama_mcp_server.py` kept for a machine whose Ollama is directly reachable.
+
+---
+
 ## v0.30.1 — 2026-10-02
 
 - **CHANGELOG correction only (no skill or script changed).** The 0.30.0 entry stated that its commit passed "after the maintainer
