@@ -9,6 +9,20 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.32.0 — 2026-10-16
+
+New skill **capture-artifact 202610_01** (manual `/bombot-forge:capture-artifact`, `disable-model-invocation`), moved in from a
+personal `~/.claude/skills/` copy so it travels with the plugin.
+
+- Flow: capture each changed screen from the live environment (read-only, `bsk`) with red numbered boxes and "was -> now" captions
+  -> new Drive subfolder + README (local `cp`, never the Drive MCP for images) -> wide gallery in the decision-log artifact
+  (images in the publish `files` map, no links around images) -> Slack summary drafted in chat, sent only after the user's OK.
+- Generalised on the way in: the original named a customer, a stakeholder and a fixed Drive path (the repo's redaction check
+  rejects the customer name), and pointed at two memory files of another project. Now the Drive base, project folder and Slack
+  recipient are inputs read from the project's local config or asked, and the two memory notes are merged into
+  `references/capture-style.md`; the overlay helper ships as `scripts/annotate-overlay.js`.
+- Not pressure-tested yet (no baseline-vs-with-skill run).
+
 ## v0.31.0 — 2026-10-05
 
 The GPU box moved from `bombot-gaming` (retired) to `bombot-pc`. Two skills pointed at the old box; both rewritten from a real run, not
