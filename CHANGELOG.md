@@ -9,6 +9,23 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.33.0 — 2026-10-17
+
+Slack drafting rules rewritten in the global instructions and carried into the skills. **setup-global-instructions 202610_01**,
+**capture-artifact 202610_02**.
+
+- **Snapshot `# Slack` section** (setup-global-instructions reference, and through it the non-dev build, which takes the section
+  byte for byte): split into four parts. Never send (draft shown in chat as a code block, no Slack draft tool, the Slack link of the
+  thread to be replied in is shown with every draft); before drafting (read the whole thread, then re-check for newer messages that
+  contradict what was done: if so ask first and do not draft yet; reply in the same thread with `thread_ts`); draft format (concise
+  summary line + as many bullets as the content needs, whole draft as a `> ` blockquote with `•` bullets and a lone `>` for blank
+  lines, standard markdown links, business language for a manager, lettered options for open decisions); and which questions the user
+  should answer themselves.
+- **capture-artifact step 5** now points at those global rules and restates the ones that matter there.
+- Folded in from a project memory note: read the whole thread first, `thread_ts` from a permalink, short bullet replies. The memory note's
+  "or use `slack_send_message_draft`" is dropped: it contradicted the global rule.
+- `test_build_nondev_offline.py` still passes (21 tests).
+
 ## v0.32.0 — 2026-10-16
 
 New skill **capture-artifact 202610_01** (manual `/bombot-forge:capture-artifact`, `disable-model-invocation`), moved in from a

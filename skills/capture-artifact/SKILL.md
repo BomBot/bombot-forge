@@ -10,7 +10,7 @@ disable-model-invocation: true
 
 # capture-artifact
 
-**Skill version: `202610_01`**
+**Skill version: `202610_02`**
 
 Turns "what we just deployed" into red-boxed screenshots with captions, put in Drive and in the artifact the
 stakeholder reads, plus a Slack summary **drafted for the user to approve**. Slash command: `/bombot-forge:capture-artifact`.
@@ -49,11 +49,17 @@ user one question.
    shots as `files` (`img/sNN.jpg`, JPEG q80 from the 2x). Add `section.shots` after the status table, wider than the
    reading column, `<figure>` + `<figcaption>`. No links around images; no Drive image links. Update the status
    table / decision log for this round on the same page if not done yet.
-5. **Slack draft - never send yourself.** After publishing, print the draft **in chat as a code block** and wait
-   for the user's OK. Do not use the Slack draft tool (it leaves a draft in Slack the user has to find).
-   - Reader is a manager: business language, no field ids, SQL, file names or function names.
-   - 3-6 lines: what changed (in words the user sees on screen), the key number now, the artifact link and that the
-     pictures are in its screenshots section, and any open decision as lettered options (a / b / c).
+5. **Slack draft - never send yourself.** Follow the Slack rules in the user's global `~/.claude/CLAUDE.md`
+   (section "Slack / การสื่อสารกับทีม"); the points that matter here:
+   - Before drafting, re-read the thread, including messages that arrived after the work. If a new message
+     contradicts what was done, or more work is needed first, **tell the user and ask; do not draft yet**.
+   - Show the **Slack link of the thread you would reply in**, above the draft.
+   - The draft goes **in chat as a code block**, written as a blockquote: every line starts with `> ` (a lone `>`
+     for a blank line, never an empty line), bullets as `> • ...`. Do not use the Slack draft tool. Wait for the OK.
+   - Reader is a manager: business language, no field ids, SQL, file names or function names. One summary line,
+     then as many bullets as the content needs (one point per bullet): what changed (in words the user sees on
+     screen), the key number now, the artifact link and that the pictures are in its screenshots section, and any
+     open decision as lettered options (a / b / c).
    - Tell the user which questions they should answer or propose themselves.
    - Only after the OK: send in the work's existing thread and give the message link.
 6. **Close.** Tell the user the Drive folder, the artifact URL (version), and `SendUserFile` shot `00`. If you found
