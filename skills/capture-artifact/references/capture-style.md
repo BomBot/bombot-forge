@@ -29,7 +29,9 @@ Both: pack = `00` summary sheet (what the page is + numbered list of the changes
 `README.md`.
 
 **Keep "before" shots from now on.** Once a change is live the old screen cannot be re-shot. At every deploy's smoke
-test, also screenshot the changed screens and copy them to `<DRIVE_BASE>/<PROJECT>/_shots/<module>/<YYYYMMDD-HHMM>/`.
+test, also screenshot the changed screens and copy them to `<DRIVE_BASE>/<PROJECT>/_shots/<module>/<YYYYMMDD-HHMM>/`
+(or `.captures/_shots/<module>/<YYYYMMDD-HHMM>/` in `--local` mode). A "before" is only valid if it is the last deploy before
+this change: check the folder's timestamp.
 The scratchpad dies with the session, so it cannot hold "before" shots for another session.
 
 ## Technique
@@ -41,7 +43,7 @@ The scratchpad dies with the session, so it cannot hold "before" shots for anoth
   screenshot.
 - **Overlay failures seen:**
   - A box whose element is scrolled off-screen just disappears, and the numbering stops matching the panel.
-  - Collapsed accordions must be opened first.
+  - Collapsed accordions must be opened first (a UI-only click: allowed; never press anything that writes).
   - The caption panel can cover the last box: move it (`pos:'tr'`).
   - A sticky header or summary dock hides about 60px at the top: scroll first.
   - Labels near the right edge or on full-width blocks get cut off: box a fixed width and put the label inside or below.

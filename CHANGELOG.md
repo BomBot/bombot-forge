@@ -9,6 +9,26 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.34.0 — 2026-10-21
+
+**capture-artifact 202610_03.** Review of the skill: two modes, a Slack-less path, and guards for the gaps found.
+
+- **`--local` ("capture แต่รูป").** Capture + red boxes + shot `00`, saved in `<project>/.captures/<date>-<module>-<issue>/`
+  with a README; no Drive, artifact or Slack. Kept out of git on this machine through `.git/info/exclude` (found with
+  `git rev-parse --git-path info/exclude`, so it works in a worktree), never the project's `.gitignore`. It is a convenience,
+  not a gate: if the folder is not ignored, say so and keep capturing. After a local run, publishing later reuses the shots.
+- **No Slack thread is a valid case.** Step 6 is skipped; offer one standalone draft to a channel/DM the user names (never
+  chosen by the skill). The README "asked" column falls back to the issue text or `-`, never an invented quote.
+- **`bsk` is a hard prerequisite** (`BSK_AUTO_START=0 bsk status --json`; fail = stop and point to `setup-browser`). No cdp or
+  Claude in Chrome fallback; the latter cannot write a screenshot file.
+- **Guards added:** Drive must be mounted (`test -d`, else `mkdir -p` makes a local folder that never syncs); a capture plan the
+  user confirms before shooting; environment stated and printed in every sheet footer (no PROD label on sandbox shots);
+  preview check for data not needed to show the change; "before" must be the last deploy before this change (timestamp check,
+  source in the footer); never overwrite an existing folder (`-2` suffix); artifact not found = ask, never create; 16 MB page
+  limit; session expiry follows the global auto-login rule.
+- **Contradiction fixed:** the guardrail said "do not click" while the style note says to open collapsed accordions. Now:
+  UI-only clicks are fine; nothing that writes; any dialog = stop and report.
+
 ## v0.33.0 — 2026-10-17
 
 Slack drafting rules rewritten in the global instructions and carried into the skills. **setup-global-instructions 202610_01**,
