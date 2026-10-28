@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (engine choice, install, Dev Bridge, login consent)
 
-**Skill version: `202609_17`**
+**Skill version: `202610_01`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -82,7 +82,7 @@ fallback, but two things to keep working. Record `engine` (primary) and `also_in
 3. `bsk daemon start`, then `bsk doctor` (redirect to a file rather than piping) → expect all `ok`.
 4. `bsk install-skill --harness claude-code`.
 5. Verify: `BSK_AUTO_START=0 bsk status --json` lists a connected browser; open a throwaway session
-   (`bsk session start --no-focus`, own tab on `about:blank`, `bsk session stop`) and confirm
+   (`bsk session start --no-focus`, use the one `about:blank` tab it opens, `bsk session stop`) and confirm
    your session id is gone from `bsk session list` — stop only your own id, never `--all`, and do not expect the count to be 0 (another Claude session may be using the same daemon). Details and per-run rules: skill `browser-engines`.
 
 ## Step 2b — install cdp (if chosen)

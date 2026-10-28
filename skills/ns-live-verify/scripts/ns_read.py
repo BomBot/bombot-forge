@@ -296,6 +296,15 @@ def _bsk_run(cmd_args, timeout=60):
     return d, None
 
 
+def _initial_agent_tab(session):
+    """The one tab `bsk session start` opened in this session's Agent Window, or None if there is not exactly one."""
+    d, err = _bsk_run(["tab", "list", "--session", session, "--scope", "agent", "--json"])
+    if err or not isinstance(d, dict):
+        return None
+    tabs = [t for t in d.get("tabs", []) if isinstance(t, dict) and t.get("tab_id") is not None]
+    return str(tabs[0]["tab_id"]) if len(tabs) == 1 else None
+
+
 def _bsk_eval(expr, timeout=60):
     """One `bsk evaluate` on this run's pinned tab. Returns the value; raises SessionProblem."""
     d, err = _bsk_run(["evaluate", expr, "--session", ST["session"], "--tab-id", ST["tab"], "--json"],
@@ -491,15 +500,19 @@ def main(argv=None):
             return 3
         ST["session"] = session
 
-        d, err = _bsk_run(["tab", "create", "--no-active", "--url", "about:blank",
-                           "--session", session, "--json"])
-        if err:
-            print("could not create bsk tab:", err)
-            return 3
-        tab = _pick(d, "tab_id", "tabId", "id")
+        # `session start` already opens the Agent Window with one about:blank tab: use it, so no second tab appears.
+        tab = _initial_agent_tab(session)
         if not tab:
-            print("could not create bsk tab: no tab id")
-            return 3
+            # No single initial tab to adopt (older bsk?): open our own, as before.
+            d, err = _bsk_run(["tab", "create", "--no-active", "--url", "about:blank",
+                               "--session", session, "--json"])
+            if err:
+                print("could not create bsk tab:", err)
+                return 3
+            tab = _pick(d, "tab_id", "tabId", "id")
+            if not tab:
+                print("could not create bsk tab: no tab id")
+                return 3
         tab = str(tab)  # bsk returns a JSON number; subprocess argv must be str
         ST["tab"] = tab
 

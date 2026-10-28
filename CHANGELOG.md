@@ -9,6 +9,22 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.35.0 — 2026-10-28
+
+One tab instead of two in the bsk Agent Window. **browser-engines 202610_01**, **ns-live-verify 202610_01**,
+**setup-browser 202610_01**, **setup-global-instructions 202610_02**.
+
+- **Cause (measured, bsk 0.3.3 on this Mac):** `bsk session start` already opens the Agent Window with one `about:blank` tab
+  (`tab list --scope agent` showed exactly one). The recipe's `tab create --no-active --url about:blank` added a second.
+- **Fix:** adopt the initial tab: `bsk tab list --session <id> --scope agent --json`, pass its `tab_id` as `--tab-id`, navigate
+  that tab. `--scope agent` lists only the session's own window, so the user's tabs are not read. Verified live: navigate +
+  evaluate on that tab worked, one agent tab stayed, own session stopped and gone from `session list`. If the list does not show
+  exactly one tab, fall back to `tab create`.
+- **`ns_read.py`** (ns-live-verify) now adopts the initial tab (`_initial_agent_tab`) and falls back to `tab create`; offline tests
+  43/43 (two new: no `tab create` call, fallback on 0 or 2 tabs). `ns_write.py` takes the session/tab from its caller and was not
+  changed.
+- Recipe lines updated in browser-engines, ns-live-verify (Option A), setup-browser (Step 5) and the global-instructions snapshot.
+
 ## v0.34.0 — 2026-10-21
 
 **capture-artifact 202610_03.** Review of the skill: two modes, a Slack-less path, and guards for the gaps found.

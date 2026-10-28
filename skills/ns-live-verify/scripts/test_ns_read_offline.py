@@ -43,11 +43,12 @@ class FakeBsk:
     """Records every bsk command; answers with canned JSON. Never a subprocess."""
 
     def __init__(self, company=ACCOUNT, env="SANDBOX", ping=None, reply=None, dialogs=None,
-                 start_error=None, identity=None, int_tab=False):
+                 start_error=None, identity=None, int_tab=False, initial_tabs=1):
         self.company, self.env = company, env
         self.ping = json.dumps(ping_reply(company, env)) if ping is None else ping
         self.reply = json.dumps({"ok": True}) if reply is None else reply
         self.dialogs, self.start_error, self.identity, self.int_tab = dialogs, start_error, identity, int_tab
+        self.initial_tabs = initial_tabs      # agent tabs `session start` already opened (real bsk: 1, about:blank)
         self.calls = []
         self.bodies = []      # decoded POST bodies, in order
         self.paths = []       # the scriptlet path of each fetch
@@ -65,6 +66,9 @@ class FakeBsk:
             return (None, self.start_error) if self.start_error else ({"ok": True, "session_id": "sess-read"}, None)
         if c == "session" and cmd_args[1] == "stop":
             return {"ok": True}, None
+        if c == "tab" and cmd_args[1] == "list":
+            tid = 4242 if self.int_tab else "tab-read"
+            return {"ok": True, "tabs": [{"tab_id": tid, "scope": "agent"} for _ in range(self.initial_tabs)]}, None
         if c == "tab":
             return {"ok": True, "tab_id": 4242 if self.int_tab else "tab-read"}, None
         if c == "navigate":
@@ -416,6 +420,22 @@ class OfflineReadTest(unittest.TestCase):
         self.assertTrue(fake.stopped())
         code, out, fake = self.run_cmd(["ping"], FakeBsk(reply="x", ping="<html>Notice</html>"))
         self.assertTrue(fake.stopped())
+
+    def test_adopts_the_initial_tab_and_opens_no_second_one(self):
+        code, out, fake = self.run_cmd(["whoami"])
+        self.assertEqual(code, 0)
+        self.assertFalse([c for c in fake.calls if c[:2] == ["tab", "create"]], fake.calls)
+        lists = [c for c in fake.calls if c[:2] == ["tab", "list"]]
+        self.assertEqual(len(lists), 1)
+        self.assertEqual(lists[0][lists[0].index("--scope") + 1], "agent")
+        self.assertEqual([c[c.index("--tab-id") + 1] for c in fake.calls if c[0] == "navigate"], ["tab-read"])
+
+    def test_falls_back_to_tab_create_when_no_single_initial_tab(self):
+        for n in (0, 2):
+            with self.subTest(initial_tabs=n):
+                code, out, fake = self.run_cmd(["whoami"], FakeBsk(initial_tabs=n))
+                self.assertEqual(code, 0)
+                self.assertEqual(len([c for c in fake.calls if c[:2] == ["tab", "create"]]), 1)
 
     def test_session_start_failure_is_exit_3(self):
         code, out, fake = self.run_cmd(["ping"], FakeBsk(start_error="bsk transport: down"))

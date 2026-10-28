@@ -14,7 +14,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0 — the skill covers both engines now (bsk first), so the old name misled.
 
-**Skill version: `202609_19`**
+**Skill version: `202610_01`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -119,8 +119,11 @@ end-to-end time — the win is per-command overhead and not needing a second log
    least intrusive `bsk` can be. If the user must SEE the page or log in, use a real tab instead (step 5).
 1. **Own session, always stopped:** `bsk session start --no-focus --name <job> --json` → `session_id`.
    `bsk session stop <id>` at the end **even on failure**. **Never `bsk session stop --all`, and never expect `session_count` to be 0.** The daemon is shared: another Claude session of the same person may be using `bsk` right now, and `--all` would kill its run (this happened once). Stop only YOUR id; confirm with `bsk session list` that your id is gone and leave every other session alone.
-2. **Own tab, pinned:** `bsk tab create --no-active --url about:blank --session <id> --json` →
-   `tab_id`; pass `--tab-id` on every command. Without it a command follows the active tab, which a
+2. **Own tab, pinned - the one `session start` already opened:** the new Agent Window starts with exactly one
+   `about:blank` tab (measured on this Mac, bsk 0.3.3), so do **not** `tab create` (that adds a second tab). Read its
+   id: `bsk tab list --session <id> --scope agent --json` -> the single `tab_id`; pass `--tab-id` on every command
+   and `navigate` that tab. (`--scope agent` lists only your own window, not the user's tabs.) If the list does not
+   show exactly one tab, fall back to `bsk tab create --no-active --url about:blank --session <id> --json`. Without it a command follows the active tab, which a
    peer can move. One command per session at a time (a second is refused with `session_busy`).
 3. **Dialog guard after every navigation** (the page changes, the guard is gone):
    ```bash
@@ -274,7 +277,7 @@ login) for those — Access denied.
 
 | Need | bsk | cdp |
 |---|---|---|
-| Session / tab | `bsk session start --no-focus --json` · `bsk tab create --no-active --url about:blank …` | `cdp.py ns-session tab <compid>` |
+| Session / tab | `bsk session start --no-focus --json` · `bsk tab list --session <id> --scope agent --json` (use the one tab it opened; `tab create` only as fallback) | `cdp.py ns-session tab <compid>` |
 | Navigate | `bsk navigate <url> --wait-until domcontentloaded …` | `cdp.py nav <url>` |
 | Run JS | `bsk evaluate "<js>" …` (awaits promises) | `cdp.py eval "<js>"` |
 | Bounded page view | `bsk observe --max-tokens 600 …` | `cdp.py a11y <query>` |

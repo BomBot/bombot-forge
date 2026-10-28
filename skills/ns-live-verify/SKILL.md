@@ -9,7 +9,7 @@ description: >-
 
 # NetSuite Live Verify (read-only via the TEIBTO Dev Bridge)
 
-**Skill version: `202609_12`**
+**Skill version: `202610_01`**
 
 Run SuiteQL / `record.load().toJSON()` / searches against a live account through a logged-in Chrome
 tab, so you verify against **real state** instead of guessing. Read-only. Pairs with
@@ -64,7 +64,7 @@ Say it first (one line: what for, which account, a background Agent Window close
 ```bash
 export BSK_AUTO_START=0
 bsk session start --no-focus --name lv --json > s.json          # note session_id
-bsk tab create --no-active --url about:blank --session <sid> --json > t.json   # note tab_id
+bsk tab list --session <sid> --scope agent --json > t.json         # note the single tab_id (session start opened it; no tab create)
 # open a CLASSIC NetSuite page first — fetch from about:blank fails
 bsk navigate "https://<host>/app/center/card.nl?sc=-29&whence=" --wait-until domcontentloaded --session <sid> --tab-id <tab> --json
 # guards from browser-engines: dialog guard + identity gate (company + SANDBOX), then:
