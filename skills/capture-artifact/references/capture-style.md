@@ -68,6 +68,36 @@ The scratchpad dies with the session, so it cannot hold "before" shots for anoth
    Slack upload, which confuses the reader.
 3. `SendUserFile` the `00` sheet so the user sees it in chat.
 
+## Overview flow diagram (top of the artifact)
+
+Why: the gallery shows screens one by one; the diagram says where each one sits in the flow and who owns it. One
+sentence the picture must prove, e.g. "orders flow from the warehouse to the books and the management pages".
+
+**Content**
+- **Title** = that one sentence.
+- **Lanes** = horizontal rows read left to right (e.g. one per business area). **Boxes** in each lane in process order.
+- **Cross-lane arrows** where one lane feeds another (e.g. a lane-2 box sends to a lane-3 box, labelled "monthly").
+- **Collector box** on the right (optional, e.g. a dashboards group): dashed "read" arrows from the end of every lane.
+- Names and order come from code, docs or work notes. An arrow with no source: ask the user first.
+
+**Look**
+- Box fill = owner: solid green = we built it, dashed green = cloned from another module, orange = another team's, white
+  with grey border = NetSuite / existing system. If a box is a screen in this pack, say so in the legend or with the
+  number badge of its shot.
+- Every arrow has a label of at most 4-5 characters saying what happens ("pack", "post", "auto"), never just "to".
+  Dashed arrow = read only.
+- Boxes all the same size on an even grid; at most 2 text lines per box.
+- Labels never touch a box border; no line crosses text.
+
+**Build (inline SVG)**
+- `<figure>` holding an `<svg role="img" aria-label="...">`, then a legend in HTML (not in the SVG), then a
+  `<figcaption>` of 1-2 sentences on what the diagram shows.
+- All colours are CSS variables of the page, with both light and dark values. No hard-coded hex in the SVG.
+- The wrapper has `overflow-x:auto` so it scrolls sideways on a phone.
+- **Render it and look**: screenshot the published page (`bsk screenshot`, own tab, then close it) or a local preview, at
+  desktop and at ~390px. Labels overlapping borders or lines hitting text = fix and re-check before telling the user.
+- Mechanics (arrowheads, text fitting, theming) are in the `artifact-diagramming` skill; load it first.
+
 ## Artifact gallery recipe
 
 - Put the images **inside the artifact** with the publish `files` map (`{"img/s01.jpg": "<dir>/s01.jpg", ...}` +

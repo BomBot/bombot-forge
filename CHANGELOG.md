@@ -9,6 +9,18 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.36.0 — 2026-11-02
+
+Overview flow diagram at the top of the artifact. **capture-artifact 202611_01**.
+
+- Full mode now puts one inline-SVG data-flow diagram **above the status table and the gallery**: lanes read left to right,
+  boxes coloured by owner (built by us / cloned / another team / existing system), short labels on every arrow, dashed
+  read-only arrows into a collector box, HTML legend + figcaption, page CSS variables for light and dark, `overflow-x:auto`.
+- Every box and arrow needs a source (code, docs, work notes, issue); an arrow without one means ask the user, not guess.
+  The box/arrow list is shown to the user before drawing, and the diagram is rendered and looked at (desktop and ~390px)
+  before publishing. Recipe in `references/capture-style.md` ("Overview flow diagram"); mechanics via `artifact-diagramming`.
+- `--local` is unchanged (no artifact, so no diagram).
+
 ## v0.35.0 — 2026-10-28
 
 One tab instead of two in the bsk Agent Window. **browser-engines 202610_01**, **ns-live-verify 202610_01**,

@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 # capture-artifact
 
-**Skill version: `202610_03`**
+**Skill version: `202611_01`**
 
 Turns "what we just deployed" into red-boxed screenshots with captions. Slash command: `/bombot-forge:capture-artifact`.
 
@@ -26,6 +26,7 @@ ask the user one question.
 | Plan, capture, red boxes, shot `00` | yes | yes |
 | Save in `<project>/.captures/<YYYYMMDD>-<module>-<issue>/` + `README.md` | no | yes (kept out of git, see step 4) |
 | Drive subfolder + README | yes | no |
+| Overview flow diagram at the top of the artifact (step 5) | yes | no |
 | Decision-log artifact gallery | yes | no |
 | Slack draft | yes, if there is a thread (step 6) | no |
 
@@ -47,6 +48,7 @@ unless they are stale.
 | `<DRIVE_BASE>` - local Google Drive sync folder for AI material (full mode) | the project's `CLAUDE.local.md` or memory; else ask. Looks like `~/Library/CloudStorage/GoogleDrive-<account>/My Drive/<folder>/` |
 | `<PROJECT>` - the project's subfolder under it (full mode) | same; else ask |
 | Decision-log artifact URL (full mode) | `$ARGUMENTS`, the work's earlier artifact, or ask. If it cannot be found, ask: never create a new one silently |
+| Flow for the overview diagram (full mode): lanes, boxes in order, cross-lane arrows, who owns each box | the code, the docs, this session's work notes, the issue. **Every box name and arrow needs a source; an arrow without one -> ask the user, never guess** |
 | Slack thread (optional) | the user, or the thread the work was raised in. **No thread is a valid case** (step 6) |
 
 ## Steps
@@ -91,8 +93,13 @@ unless they are stale.
      else the issue text, else `-`, never invent a quote), what it was changed to, artifact link.
    - **Folder exists already** (same day, same slug): do not overwrite; add a `-2`, `-3` suffix.
 5. **Artifact (full mode).** Read the decision-log artifact first, then publish over the same URL (never a new one) with
-   the shots as `files` (`img/sNN.jpg`, JPEG q80 from the 2x). Add `section.shots` after the status table, wider than the
-   reading column, `<figure>` + `<figcaption>`. No links around images; no Drive image links. Update the status table /
+   the shots as `files` (`img/sNN.jpg`, JPEG q80 from the 2x).
+   - **Overview diagram first:** put one inline-SVG data-flow diagram at the **top of the page, above the status table and
+     the gallery**, so a reader sees where the changed screens sit in the flow before looking at them. Load the
+     `artifact-diagramming` skill, follow "Overview flow diagram" in `references/capture-style.md`, and show the user the
+     box/arrow list (with the source of each) before drawing. If the page already has one, update it instead of adding a
+     second.
+   - Add `section.shots` after the status table, wider than the reading column, `<figure>` + `<figcaption>`. No links around images; no Drive image links. Update the status table /
    decision log for this round on the same page if not done yet. Page limit is 16 MB (about 30 shots at ~400 KB): above
    that, lower the JPEG quality or split the gallery.
 6. **Slack draft (full mode) - never send yourself.** Follow the Slack rules in the user's global `~/.claude/CLAUDE.md`
@@ -120,6 +127,8 @@ unless they are stale.
 
 - The live-environment capture is read-only on data. UI-only clicks are fine (expand an accordion, switch a tab, scroll,
   close a panel). Never submit, save, delete or press anything that writes. Any dialog that appears = stop and report.
+- The overview diagram shows only what a source backs: no invented box, step or arrow. Render it and look at it before
+  publishing (labels off box borders, no line through text).
 - Drafting is not sending: nothing goes to Slack, email, or anyone else until the user says OK in this chat.
 - Customer names, record ids and account numbers stay in the user's own Drive/artifact/`.captures`; none of that belongs
   in this repo.
