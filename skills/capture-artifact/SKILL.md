@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 # capture-artifact
 
-**Skill version: `202611_01`**
+**Skill version: `202611_02`**
 
 Turns "what we just deployed" into red-boxed screenshots with captions. Slash command: `/bombot-forge:capture-artifact`.
 
@@ -111,7 +111,9 @@ unless they are stale.
      contradicts what was done, or more work is needed first, **tell the user and ask; do not draft yet**.
    - Show the **Slack link of the thread you would reply in**, above the draft.
    - The draft goes **in chat as a code block**, written as a blockquote: every line starts with `> ` (a lone `>` for a
-     blank line, never an empty line), bullets as `> • ...`. Do not use the Slack draft tool. Wait for the OK.
+     blank line, never an empty line), bullets as `> - ...` and sub-bullets as `>     - ...` (4 spaces). Never the
+     `•` character (Slack shows it as plain text, not a bullet) and no ` · ` joining several facts in one line: one point per
+     bullet, its details as sub-bullets. Do not use the Slack draft tool. Wait for the OK.
    - Reader is a manager: business language, no field ids, SQL, file names or function names. One summary line, then as
      many bullets as the content needs (one point per bullet): what changed (in words the user sees on screen), the key
      number now, the artifact link and that the pictures are in its screenshots section, and any open decision as

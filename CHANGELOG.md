@@ -9,6 +9,19 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.38.0 — 2026-11-02
+
+Slack drafts use `- ` bullets and sub-bullets, not `•` or ` · `. **setup-global-instructions 202611_01**, **capture-artifact 202611_02**.
+
+- **Why:** `> • ` arrives in Slack as the plain character `•`, not a bullet, so each line had to be turned into a bullet by hand
+  while editing the text. `> - ` becomes a bullet when pasted (plain paste, Cmd+Shift+V, with "Format messages with markup" on).
+- **Rule now (global Slack section, snapshot and capture-artifact step 6):** top level `> - item`, sub-bullet `>     - detail`
+  (4 spaces after `> `, third level 8); never `•`; no ` · ` joining several facts in one line (one point per bullet, its details
+  as sub-bullets). Replaces the 0.33.0 rule `> • item`.
+- Not tested: how nested `- ` renders when sent through `slack_send_message` (the nested format was verified only for paste).
+- `setup-global-instructions-nondev` builds from the snapshot; its 21 offline tests pass. Other machines re-run
+  `setup-global-instructions` to get the new text.
+
 ## v0.37.0 — 2026-11-03
 
 bsk daemon at log on on Windows, with no window. **setup-browser 202611_01**, **browser-engines 202611_01**.
