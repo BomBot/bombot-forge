@@ -14,7 +14,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0 — the skill covers both engines now (bsk first), so the old name misled.
 
-**Skill version: `202610_01`**
+**Skill version: `202611_01`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -104,6 +104,10 @@ end-to-end time — the win is per-command overhead and not needing a second log
 3. **Daemon** — `bsk daemon start` (survived after the command returned on macOS). For agent
    commands set `BSK_AUTO_START=0`, redirect output to a file instead of piping (the team saw a
    hang from `bsk doctor | tail`, inferred), then run `bsk doctor` → expect all `ok`.
+   After `bsk update`, compare `daemon_version` in `bsk status --json` with `bsk --version` (and `version_skew`). On Windows
+   (0.4.1) the old daemon kept running after an update; the macOS 0.3.3 help suggests update restarts it, conflict not
+   resolved. A daemon that is behind: ask the user before stopping it (shared by sessions, never kill it yourself; see
+   `setup-browser/references/windows-daemon-hidden.md`).
 4. **Skill** — `bsk install-skill --harness claude-code` puts the upstream `browser-skill` in
    `~/.claude/skills`. It carries no network/telemetry instructions (read on install) but it
    **updates itself with the CLI**; the daemon also auto-updates every ~30 min unless

@@ -9,6 +9,20 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.37.0 — 2026-11-03
+
+bsk daemon at log on on Windows, with no window. **setup-browser 202611_01**, **browser-engines 202611_01**.
+
+- New `setup-browser/references/windows-daemon-hidden.md`: runbook (read-only look -> plan + OK -> backup + Disable old Task ->
+  .vbs launcher + Task `bsk-daemon` -> verify) and the after-`bsk update` caveat. Step 5b now points to it.
+- Source: a read-only report from a session on a Windows machine (bsk 0.4.1): Task at log on, `wscript.exe //B //Nologo`
+  + .vbs (window style 0), `--foreground --daemon-idle 1440m`, `MainWindowHandle` 0, `LastTaskResult` 0. The older Task that
+  opened cmd was Disabled, not deleted. Marked in the files as observed on one machine; Task Settings XML and a log off/on
+  check are not captured, and the doc says so.
+- Open conflict, written down instead of resolved: Windows 0.4.1 `bsk update` did not restart the daemon (reported); macOS
+  0.3.3 `bsk update --help` has `--no-restart-daemon`. `browser-engines` says to compare `daemon_version` with `bsk --version`
+  after an update and to ask before stopping a daemon.
+
 ## v0.36.0 — 2026-11-02
 
 Overview flow diagram at the top of the artifact. **capture-artifact 202611_01**.

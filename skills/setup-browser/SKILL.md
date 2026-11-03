@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (engine choice, install, Dev Bridge, login consent)
 
-**Skill version: `202610_01`**
+**Skill version: `202611_01`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -159,25 +159,16 @@ before the first command, or they saw the daemon missing after a reboot.
   — a daemon already answering means there is nothing to do. On Windows also check whether the task exists:
   `Get-ScheduledTask -TaskName 'bsk-daemon' -ErrorAction SilentlyContinue`.
 - **Ask first** (see *How to ask*): creating a login task is a persistent change on the machine. Default: **No**.
-- **Windows — Task Scheduler.** A Windows *service* is not recommended: the daemon uses the user's own `~/.bsk`
-  folder (reasoning, not tested). The task is: trigger *At log on* of this user · action `bsk.exe daemon start
-  --foreground` (a flag `bsk` documents as "owned by the current terminal or supervisor") · **no execution time
-  limit** (a finite limit would stop the daemon) · *do not start a new instance* if one is already running · run as
-  the logged-in user, no elevation. Example (PowerShell, cmdlets from Microsoft's docs — **not run by the author**):
-
-  ```powershell
-  $bsk = (Get-Command bsk.exe).Source
-  $act = New-ScheduledTaskAction -Execute $bsk -Argument 'daemon start --foreground'
-  $trg = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-  $set = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
-           -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -StartWhenAvailable
-  Register-ScheduledTask -TaskName 'bsk-daemon' -Action $act -Trigger $trg -Settings $set -RunLevel Limited
-  ```
-
-  Undo: `Unregister-ScheduledTask -TaskName 'bsk-daemon' -Confirm:$false`. `bsk.exe` is a console program, so a
-  console window may show at logon; how to hide it was **not verified**. Don't stop or restart a daemon that is
-  already running to "test" the task — it takes effect at the next login (BrowserSkill's guide says a shared
-  daemon may belong to another session).
+- **Windows — Task Scheduler with a hidden launcher.** A Windows *service* is not recommended (the daemon uses the user's
+  own `~/.bsk` folder; reasoning, not tested). Observed on one machine (bsk 0.4.1, reported by a session after a read-only
+  inspection): Task `bsk-daemon`, trigger *At log on* of the user, action `wscript.exe //B //Nologo "<...>\bsk-hidden.vbs"`,
+  where the .vbs runs `bsk.exe daemon start --foreground --daemon-idle 1440m` with window style 0. Result: `LastTaskResult`
+  0, daemon up ~12 s after log on, `MainWindowHandle` 0 (no window). Running `bsk.exe` straight from the Task opens a
+  console window. An older Task that opened a cmd window was left **Disabled, not deleted**. **Full runbook (look, plan +
+  OK, create, verify, undo) and the exact .vbs: `references/windows-daemon-hidden.md`.** Not captured: the Task's
+  Settings XML and whether a window flashes at log on. Don't stop or restart a daemon that is already running to "test"
+  the task (it may belong to another session; ask the user first).
+  After `bsk update` on that machine the old daemon kept running; see the reference.
 - **macOS (LaunchAgent) / Linux (`systemd --user`):** the same `bsk daemon start --foreground` under that
   OS's supervisor is possible, **not tested**. One known risk: the daemon **replaces itself on auto-update** (the
   old process exits after spawning its successor — seen in `~/.bsk/daemon.log*`), so a supervisor set to restart
@@ -245,6 +236,5 @@ previous file (or "no change"), and the one rule to remember —
 
 v0.1 draft — written from the flow the maintainer specified; not yet run end to end on a clean
 machine. Steps 4–5 depend on a Dev Bridge deployment the user already has.
-Step 5b (daemon at login): the maintainer reported on 2026-09-30 that a Windows Task Scheduler task works; the
-exact settings were not captured, so the example above is from Microsoft's cmdlet docs and untested. macOS/Linux
-untested.
+Step 5b (daemon at login): Windows layout observed on one machine on 2026-11-03 (bsk 0.4.1, `wscript` + .vbs, no window) from a
+session's read-only report; Task Settings XML not captured, log off/on not tried. macOS/Linux untested.
