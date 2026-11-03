@@ -9,6 +9,16 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.38.1 — 2026-11-02
+
+Docs only; no skill body changed (skill versions stay as in 0.38.0).
+
+- Verified on screen by the user: the new Slack draft format (`> - ` top level, `>     - ` sub-bullet, 8 spaces for level 3)
+  renders as a proper nested list both when pasted plain (Cmd+Shift+V) and when sent by Claude with `slack_send_message`
+  (test message to the user's own DM). This closes the "not tested" note in v0.38.0.
+- README: `setup-browser` row now describes the Windows hidden-launcher daemon recipe (0.37.0) instead of "example untested";
+  `setup-global-instructions` row mentions the Slack drafting rules.
+
 ## v0.38.0 — 2026-11-02
 
 Slack drafts use `- ` bullets and sub-bullets, not `•` or ` · `. **setup-global-instructions 202611_01**, **capture-artifact 202611_02**.
@@ -18,7 +28,7 @@ Slack drafts use `- ` bullets and sub-bullets, not `•` or ` · `. **setup-glob
 - **Rule now (global Slack section, snapshot and capture-artifact step 6):** top level `> - item`, sub-bullet `>     - detail`
   (4 spaces after `> `, third level 8); never `•`; no ` · ` joining several facts in one line (one point per bullet, its details
   as sub-bullets). Replaces the 0.33.0 rule `> • item`.
-- Not tested: how nested `- ` renders when sent through `slack_send_message` (the nested format was verified only for paste).
+- Sending through `slack_send_message` was checked in 0.38.1: nested `- ` renders as a real nested list (see v0.38.1).
 - `setup-global-instructions-nondev` builds from the snapshot; its 21 offline tests pass. Other machines re-run
   `setup-global-instructions` to get the new text.
 
