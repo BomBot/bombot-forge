@@ -9,6 +9,21 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.38.2 — 2026-11-04
+
+Docs only; no skill body changed (skill versions stay as in 0.38.0).
+
+- New `docs/onboarding/windows-dev-bsk-devbridge.md`: a prompt written to be read by another developer's Claude. Steps 1-6:
+  set up `bsk` on Windows (daemon at log on, hidden), try Dev Bridge, teach every action, read-only on production. Step 7: an
+  intensive lesson converting a Saved Search to SuiteQL: live definition (`filterExpression`, not only `filters[]`), clause-by-clause
+  semantic map, ids checked against the system (Records Catalog, `record` meta, real SELECTs), funnel test, OLD -> NEW -> OLD run,
+  edge probes, five pass criteria.
+- `docs/onboarding/windows-dev-bsk-devbridge.notes.md` (for the maintainer): sources (project memory notes and the code of one
+  past conversion), evidence level, open points. Not meant for the other developer's Claude.
+- README gets an "Onboarding prompts" section; `CLAUDE.md` repo-structure block lists `docs/onboarding/`.
+- Not verified: the prompt has not been run on a Windows machine; Records Catalog and a saved search through `--search-id` are
+  marked in the prompt as "try and report".
+
 ## v0.38.1 — 2026-11-02
 
 Docs only; no skill body changed (skill versions stay as in 0.38.0).

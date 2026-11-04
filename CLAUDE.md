@@ -31,6 +31,7 @@ skills/<name>/scripts/       # optional per-skill support scripts (ns-record-wri
 agents/<name>.md             # plugin subagents, auto-installed with the plugin (teibto-agent)
 README.md                    # skill index table + status checklist
 docs/benchmarks/             # dated model comparisons (one file per run; don't edit old runs)
+docs/onboarding/             # prompts to hand to another developer's Claude (+ .notes.md for the maintainer; no skill version)
 CHANGELOG.md                 # versioned history, see convention above
 ```
 
