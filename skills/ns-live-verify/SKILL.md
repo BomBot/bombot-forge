@@ -9,7 +9,7 @@ description: >-
 
 # NetSuite Live Verify (read-only via the TEIBTO Dev Bridge)
 
-**Skill version: `202610_01`**
+**Skill version: `202611_01`**
 
 Run SuiteQL / `record.load().toJSON()` / searches against a live account through a logged-in Chrome
 tab, so you verify against **real state** instead of guessing. Read-only. Pairs with
@@ -67,7 +67,10 @@ bsk session start --no-focus --name lv --json > s.json          # note session_i
 bsk tab list --session <sid> --scope agent --json > t.json         # note the single tab_id (session start opened it; no tab create)
 # open a CLASSIC NetSuite page first — fetch from about:blank fails
 bsk navigate "https://<host>/app/center/card.nl?sc=-29&whence=" --wait-until domcontentloaded --session <sid> --tab-id <tab> --json
-# guards from browser-engines: dialog guard + identity gate (company + SANDBOX), then:
+# bsk 0.4+ only (check `bsk --version`): every evaluate needs a fresh sync first, see browser-engines step 2b
+bsk cooperate sync --session <sid> --tab-id <tab> --json > sync.json   # -> top-level context_id + observation_id
+# guards from browser-engines: dialog guard + identity gate (company + SANDBOX), then
+# (on 0.4+ add: --context <context_id> --observation <observation_id>, from a new sync for each evaluate):
 bsk evaluate "fetch('/app/site/hosting/scriptlet.nl?script=customscript_teibto_dev_bridge&deploy=customdeploy_teibto_dev_bridge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'query',q:'<SELECT ...>',params:[]})}).then(r=>r.text())" --session <sid> --tab-id <tab> --json
 bsk session stop <sid>                                            # always, even on failure
 ```
@@ -108,6 +111,10 @@ always stops. `python3 scripts/ns_read.py <whoami|ping|query|record|lookup|featu
 - It announces itself on stderr (`[ns_read] using bsk: opening a background Agent Window …`); stdout stays pure JSON.
 - Engine `bsk` only. `cdp` prints "not implemented" (exit 2) — no lane is bound on the machine it was
   written on, so it could not be tested.
+- **bsk 0.4+ (cooperate sync):** each `evaluate` is tried; a refusal that asks for a sync (`effect_state: none`) gets
+  `bsk cooperate sync` and a retry with `--context`/`--observation` (up to 5 times; NetSuite re-renders, so
+  `observation_changed` is common); any other refusal is exit 3. It never calls `cooperate wait` and stops if someone
+  else is driving the tab. **Verified live on bsk 0.4.2 (2026-11-06, sandbox):** `whoami`, `ping`, `query` (a `COUNT(*)`).
 - **Verified live on a sandbox** with the default ids: `ping`, `query` (a `COUNT(*)`), `record` (a field
   subset and a full dump, cut by `--max-chars`), `lookup`, `feature`, `search` (ad-hoc), a bad column
   (bridge `ok:false` → exit 1), and the local refusals. **Not verified live:** a saved search

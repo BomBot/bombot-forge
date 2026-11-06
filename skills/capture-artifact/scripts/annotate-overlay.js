@@ -1,5 +1,6 @@
 // Red-box overlay for change-summary screenshots.
 // Inject with: bsk evaluate "$(cat annotate-overlay.js)"   (or cdp.py evalf annotate-overlay.js)
+// bsk 0.4+: each evaluate needs a fresh `bsk cooperate sync` and its --context/--observation (browser-engines step 2b).
 // Then per shot: scroll to the spot, call __A({...}), take the screenshot.
 //
 //   __A({

@@ -96,6 +96,48 @@ class FakeBsk:
         return [b for b in self.bodies if b.get("action") != "ping"]
 
 
+class Refusal(str):
+    """What the real _bsk_run returns for a bsk refusal: the message plus bsk's JSON reply."""
+
+    def __new__(cls, reason, effect="none"):
+        s = str.__new__(cls, "bsk transport: rc=1 permission_denied (%s)" % reason)
+        s.reply = {"code": "permission_denied", "data": {"reason": reason, "effect_state": effect}}
+        return s
+
+
+class CoopFakeBsk(FakeBsk):
+    """bsk 0.4+: evaluate is refused until `cooperate sync`, and each observation id works once
+    (measured on bsk 0.4.2). `refuse_effect` makes the refusal claim something may have run;
+    `state` is what sync reports (editing=True = a person is using the tab)."""
+
+    def __init__(self, refuse_effect="none", state=None, **kw):
+        super().__init__(**kw)
+        self.refuse_effect = refuse_effect
+        self.state = state if state is not None else {"mode": "ready", "editing": False, "revision": 1}
+        self.syncs = 0
+        self.used = set()
+
+    def __call__(self, cmd_args, timeout=60):
+        if cmd_args[:2] == ["cooperate", "sync"]:
+            self.calls.append(list(cmd_args))
+            self.syncs += 1
+            return {"context_id": "ctx", "observation_id": "obs-%d" % self.syncs,
+                    "observation": {"observation_id": "nested-%d" % self.syncs}, "state": self.state}, None
+        if cmd_args[0] == "evaluate":
+            obs = cmd_args[cmd_args.index("--observation") + 1] if "--observation" in cmd_args else None
+            if "--context" not in cmd_args or obs is None:
+                self.calls.append(list(cmd_args))
+                return None, Refusal("cooperation_sync_required", self.refuse_effect)
+            if obs in self.used:
+                self.calls.append(list(cmd_args))
+                return None, Refusal("observation_required", self.refuse_effect)
+            self.used.add(obs)
+        return super().__call__(cmd_args, timeout)
+
+    def evaluates(self):
+        return [c for c in self.calls if c[0] == "evaluate"]
+
+
 class OfflineReadTest(unittest.TestCase):
     def setUp(self):
         self.mod = load_module()
@@ -481,6 +523,71 @@ class OfflineReadTest(unittest.TestCase):
         self.assertEqual(code, 3)
         self.assertIn("never logs in", out)
         self.assertIn(":-webkit-autofill", out)
+
+    # ================= bsk 0.4+ cooperate sync =================
+    def test_bsk03_never_calls_cooperate(self):
+        code, out, fake = self.run_cmd(["query", "SELECT 1 FROM dual"])
+        self.assertEqual(code, 0)
+        self.assertFalse(any(c[:2] == ["cooperate", "sync"] for c in fake.calls))
+
+    def test_bsk04_syncs_and_every_evaluate_carries_a_fresh_observation(self):
+        fake = CoopFakeBsk()
+        code, out, fake = self.run_cmd(["query", "SELECT 1 FROM dual"], fake)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(len(fake.real_bodies()), 1)
+        ok = [c for c in fake.evaluates() if "--observation" in c]
+        obs = [c[c.index("--observation") + 1] for c in ok]
+        self.assertEqual(len(obs), len(set(obs)))                    # single-use: never the same id twice
+        self.assertTrue(all(o.startswith("obs-") for o in obs))      # the top-level id, not observation.observation_id
+        # only the very first evaluate goes out bare; after that every one is synced first
+        bare = [c for c in fake.evaluates() if "--context" not in c]
+        self.assertEqual(len(bare), 1)
+        self.assertTrue(fake.stopped())
+
+    def test_bsk04_refusal_that_may_have_run_is_never_retried(self):
+        fake = CoopFakeBsk(refuse_effect="unknown")
+        code, out, fake = self.run_cmd(["query", "SELECT 1 FROM dual"], fake)
+        self.assertEqual(code, 3)
+        self.assertEqual(len(fake.evaluates()), 1)
+        self.assertEqual(fake.syncs, 0)
+        self.assertEqual(fake.bodies, [])
+        self.assertTrue(fake.stopped())
+
+    def test_bsk04_stops_when_someone_else_is_using_the_tab(self):
+        fake = CoopFakeBsk(state={"mode": "user_control", "editing": True})
+        code, out, fake = self.run_cmd(["query", "SELECT 1 FROM dual"], fake)
+        self.assertEqual(code, 3)
+        self.assertIn("not ours", out)
+        self.assertEqual(fake.bodies, [])
+        self.assertTrue(fake.stopped())
+
+    def test_bsk04_page_rerender_between_sync_and_action_is_retried(self):
+        # seen live on a NetSuite page (bsk 0.4.2): the page re-renders after the sync -> observation_changed
+        class Rerender(CoopFakeBsk):
+            changed = False
+
+            def __call__(self, cmd_args, timeout=60):
+                if cmd_args[0] == "evaluate" and "--observation" in cmd_args and not self.changed:
+                    self.changed = True
+                    self.calls.append(list(cmd_args))
+                    return None, Refusal("observation_changed")
+                return super().__call__(cmd_args, timeout)
+        code, out, fake = self.run_cmd(["query", "SELECT 1 FROM dual"], Rerender())
+        self.assertEqual(code, 0, out)
+        self.assertEqual(len(fake.real_bodies()), 1)
+
+    def test_bsk04_gives_up_after_a_few_syncs(self):
+        class Stubborn(CoopFakeBsk):
+            def __call__(self, cmd_args, timeout=60):
+                if cmd_args[0] == "evaluate":
+                    self.calls.append(list(cmd_args))
+                    return None, Refusal("observation_required")
+                return super().__call__(cmd_args, timeout)
+        code, out, fake = self.run_cmd(["query", "SELECT 1 FROM dual"], Stubborn())
+        self.assertEqual(code, 3)
+        self.assertEqual(fake.syncs, self.mod.SYNC_TRIES)
+        self.assertEqual(fake.bodies, [])
+        self.assertTrue(fake.stopped())
 
 
 if __name__ == "__main__":

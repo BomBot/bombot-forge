@@ -59,8 +59,15 @@ import os, sys, json, time, argparse, subprocess
 CDP = os.environ.get("CDP_SCRIPT", "/Users/bombot/.claude/skills/netsuite-qa-browser/references/cdp.py")
 PORT = os.environ.get("CDP_PORT", "9333")
 
-# Selected engine, set once in main(): the caller owns the tab for both engines.
-ST = {"engine": "cdp", "session": None, "tab": None}
+# Selected engine, set once in main(): the caller owns the tab for both engines. "coop" turns on once
+# bsk (0.4+) has asked for a cooperate sync, so later commands sync first.
+ST = {"engine": "cdp", "session": None, "tab": None, "coop": False}
+
+# bsk 0.4+ refuses a tab action until `bsk cooperate sync` has run, and an observation id works once.
+# Only these refusals are retried, and only when bsk says nothing ran (data.effect_state "none").
+SYNC_REASONS = ("cooperation_sync_required", "observation_required", "control_context_invalid",
+                "observation_changed")      # the page re-rendered between sync and action (NetSuite does)
+SYNC_TRIES = 5
 
 # A page-level dialog guard: bsk answers every native dialog with "accept" and cannot be told not
 # to, so confirm() must never reach it. Reinstalled per run (a navigation drops it).
@@ -68,20 +75,60 @@ DIALOG_GUARD_JS = ("window.alert=function(){};window.confirm=function(){return f
                    "window.prompt=function(){return null};window.onbeforeunload=null;'guard'")
 
 
-def _bsk_eval(expr, timeout=60):
-    """One `bsk evaluate` on the caller's pinned tab. Returns (value, error)."""
+def _bsk_cmd(args, timeout=60):
+    """One `bsk ...` command. Returns (reply, error, refusal) where refusal is bsk's JSON on a refusal."""
     env = dict(os.environ, BSK_AUTO_START="0")
-    cmd = ["bsk", "evaluate", expr, "--session", ST["session"], "--tab-id", ST["tab"], "--json"]
     try:
-        r = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run(["bsk"] + list(args), env=env, capture_output=True, text=True, timeout=timeout)
     except (OSError, subprocess.TimeoutExpired) as e:
-        return None, "bsk transport: %s" % e
+        return None, "bsk transport: %s" % e, None
     try:
         d = json.loads(r.stdout)
     except ValueError:
-        return None, "bsk transport: rc=%s %s" % (r.returncode, (r.stderr or r.stdout).strip()[:200])
+        return None, "bsk transport: rc=%s %s" % (r.returncode, (r.stderr or r.stdout).strip()[:200]), None
     if r.returncode != 0 or d.get("ok") is False:
-        return None, "bsk transport: rc=%s %s" % (r.returncode, json.dumps(d)[:200])
+        return None, "bsk transport: rc=%s %s" % (r.returncode, json.dumps(d)[:200]), d
+    return d, None, None
+
+
+def _cooperate_sync():
+    """`bsk cooperate sync` on the caller's tab -> (flags for the next action, error).
+    Never waits for or takes over a tab someone else is driving."""
+    d, err, _r = _bsk_cmd(["cooperate", "sync", "--session", ST["session"], "--tab-id", ST["tab"], "--json"])
+    if err:
+        return None, "cooperate sync failed: %s" % err
+    state = d.get("state") or {}
+    if state.get("editing") or state.get("mode", "ready") != "ready":
+        return None, "tab is not ours to drive right now (cooperate state %s)" % json.dumps(state)[:120]
+    ctx, obs = d.get("context_id"), d.get("observation_id")     # top-level ids, not observation.observation_id
+    if not ctx or not obs:
+        return None, "cooperate sync returned no context/observation id"
+    return ["--context", str(ctx), "--observation", str(obs)], None
+
+
+def _bsk_eval(expr, timeout=60):
+    """One `bsk evaluate` on the caller's pinned tab. Returns (value, error).
+    On bsk 0.4+ each evaluate needs a fresh cooperate sync. A refusal is retried ONLY when bsk says
+    nothing ran (effect_state "none"); anything else is returned as an error, never replayed."""
+    base = ["evaluate", expr, "--session", ST["session"], "--tab-id", ST["tab"], "--json"]
+    extra = []
+    if ST.get("coop"):
+        extra, serr = _cooperate_sync()
+        if serr:
+            return None, serr
+    for _ in range(SYNC_TRIES):
+        d, err, refusal = _bsk_cmd(base + extra, timeout)
+        if not err:
+            break
+        data = (refusal or {}).get("data") or {}
+        if data.get("reason") not in SYNC_REASONS or data.get("effect_state") != "none":
+            return None, err
+        ST["coop"] = True
+        extra, serr = _cooperate_sync()
+        if serr:
+            return None, serr
+    else:
+        return None, "bsk kept refusing after %d cooperate syncs: %s" % (SYNC_TRIES, err)
     if d.get("dialogs"):
         return None, "native dialog fired (guard leaked): %s" % json.dumps(d["dialogs"])[:200]
     return d.get("value"), None

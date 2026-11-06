@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 # capture-artifact
 
-**Skill version: `202611_02`**
+**Skill version: `202611_03`**
 
 Turns "what we just deployed" into red-boxed screenshots with captions. Slash command: `/bombot-forge:capture-artifact`.
 

@@ -69,8 +69,15 @@ FORBIDDEN_RE = re.compile(
     re.I)
 FIRST_WORD_RE = re.compile(r"^([A-Za-z]+)")
 
-# Selected session/tab, set once per run. The script owns both.
-ST = {"session": None, "tab": None}
+# Selected session/tab, set once per run. The script owns both. "coop" turns on once bsk (0.4+) has
+# asked for a cooperate sync, so later commands sync first instead of failing once each.
+ST = {"session": None, "tab": None, "coop": False}
+
+# bsk 0.4+ refuses a tab action until `bsk cooperate sync` has run, and an observation id works once.
+# These are the refusals a fresh sync fixes; bsk reports them with data.effect_state "none" (nothing ran).
+SYNC_REASONS = ("cooperation_sync_required", "observation_required", "control_context_invalid",
+                "observation_changed")      # the page re-rendered between sync and action (NetSuite does)
+SYNC_TRIES = 5      # NetSuite pages re-render, which can invalidate a sync between two calls
 
 # A page-level dialog guard installed right after navigation: bsk answers every native dialog with
 # "accept" and cannot be told not to, so confirm() must never reach it.
@@ -88,6 +95,15 @@ IDENTITY_JS = ("(function(){try{if(typeof nlapiGetContext!=='function'){"
 
 class SessionProblem(Exception):
     """exit 3: session/transport/dialog problem — stop, do not retry blindly."""
+
+
+class BskError(str):
+    """An error message that also keeps bsk's JSON reply (empty dict when there was none)."""
+
+    def __new__(cls, text, reply=None):
+        s = str.__new__(cls, text)
+        s.reply = reply if isinstance(reply, dict) else {}
+        return s
 
 
 # ---- config --------------------------------------------------------------------
@@ -292,7 +308,7 @@ def _bsk_run(cmd_args, timeout=60):
     except ValueError:
         return None, "bsk transport: rc=%s %s" % (r.returncode, (r.stderr or r.stdout).strip()[:200])
     if r.returncode != 0 or d.get("ok") is False:
-        return None, "bsk transport: rc=%s %s" % (r.returncode, json.dumps(d)[:200])
+        return None, BskError("bsk transport: rc=%s %s" % (r.returncode, json.dumps(d)[:200]), d)
     return d, None
 
 
@@ -305,12 +321,46 @@ def _initial_agent_tab(session):
     return str(tabs[0]["tab_id"]) if len(tabs) == 1 else None
 
 
-def _bsk_eval(expr, timeout=60):
-    """One `bsk evaluate` on this run's pinned tab. Returns the value; raises SessionProblem."""
-    d, err = _bsk_run(["evaluate", expr, "--session", ST["session"], "--tab-id", ST["tab"], "--json"],
-                      timeout)
+def _sync_reason(err):
+    """The refusal reason when a fresh cooperate sync would fix it and bsk says nothing ran; else None."""
+    data = getattr(err, "reply", {}).get("data") or {}
+    if data.get("reason") in SYNC_REASONS and data.get("effect_state") == "none":
+        return data["reason"]
+    return None
+
+
+def _cooperate_sync():
+    """`bsk cooperate sync` on this run's tab -> the --context/--observation flags for the next action.
+    Never waits for or takes over a tab someone else is driving: that is a stop, not a retry."""
+    d, err = _bsk_run(["cooperate", "sync", "--session", ST["session"], "--tab-id", ST["tab"], "--json"])
     if err:
-        raise SessionProblem(err)
+        raise SessionProblem("cooperate sync failed: %s" % err)
+    state = d.get("state") or {}
+    if state.get("editing") or state.get("mode", "ready") != "ready":
+        raise SessionProblem("tab is not ours to drive right now (cooperate state %s); stopped"
+                             % json.dumps(state)[:120])
+    ctx, obs = d.get("context_id"), d.get("observation_id")     # top-level ids, not observation.observation_id
+    if not ctx or not obs:
+        raise SessionProblem("cooperate sync returned no context/observation id")
+    return ["--context", str(ctx), "--observation", str(obs)]
+
+
+def _bsk_eval(expr, timeout=60):
+    """One `bsk evaluate` on this run's pinned tab. Returns the value; raises SessionProblem.
+    On bsk 0.4+ each evaluate needs a fresh cooperate sync; a refusal is retried only when bsk says
+    nothing ran (effect_state "none"), so a call that may have had an effect is never replayed."""
+    base = ["evaluate", expr, "--session", ST["session"], "--tab-id", ST["tab"], "--json"]
+    extra = _cooperate_sync() if ST["coop"] else []
+    for _ in range(SYNC_TRIES):
+        d, err = _bsk_run(base + extra, timeout)
+        if not err:
+            break
+        if not _sync_reason(err):
+            raise SessionProblem(err)
+        ST["coop"] = True
+        extra = _cooperate_sync()
+    else:
+        raise SessionProblem("bsk kept refusing after %d cooperate syncs: %s" % (SYNC_TRIES, err))
     if d.get("dialogs"):
         raise SessionProblem("native dialog fired (guard leaked): %s" % json.dumps(d["dialogs"])[:200])
     return d.get("value")

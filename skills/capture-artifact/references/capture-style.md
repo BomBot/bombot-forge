@@ -40,7 +40,8 @@ The scratchpad dies with the session, so it cannot hold "before" shots for anoth
   screenshot does not write a file to disk, so it cannot feed this workflow. Browser handling (own session, pinned
   tab, dialog guard, identity gate) is in `browser-engines`.
 - **Overlay:** inject `scripts/annotate-overlay.js` with `bsk evaluate`, then per shot: scroll, `__A({...})`,
-  screenshot.
+  screenshot. On bsk 0.4+ every `evaluate` (inject, scroll, `__A`) needs a fresh `bsk cooperate sync` and its
+  `--context` + `--observation` (`browser-engines` step 2b); `screenshot` does not.
 - **Overlay failures seen:**
   - A box whose element is scrolled off-screen just disappears, and the numbering stops matching the panel.
   - Collapsed accordions must be opened first (a UI-only click: allowed; never press anything that writes).

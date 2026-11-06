@@ -10,7 +10,7 @@ description: >-
 
 # NetSuite Record Write (scoped ns_write helper)
 
-**Skill version: `202609_13`**
+**Skill version: `202611_01`**
 
 Writing to a live NetSuite record from a logged-in browser tab. The **only** sanctioned
 write channel here is `scripts/qa/ns_write.py` — a helper that takes **structured args**
@@ -73,6 +73,10 @@ Two modes, one script:
    mkdir -p scripts/qa
    cp "<this-skill>/scripts/ns_write.py" scripts/qa/ns_write.py
    ```
+   **Re-copy after plugin 0.39.1** if the machine's `bsk` is 0.4 or newer (`bsk --version`): older copies send
+   `evaluate` without the `cooperate sync` that bsk 0.4 requires and fail with `permission_denied` before writing
+   anything. The new copy syncs first and retries only a refusal that bsk says did not run (`effect_state: none`);
+   anything else is still exit 3, never replayed. `validate-setup.sh` reports a copy that drifted from this one.
 2. **Allow rule (per machine, personal):** add this ONE line to the project's
    `.claude/settings.local.json` (not committed — so it is per-machine and must be added on
    each of your computers). Merge into the existing `permissions.allow` array, don't overwrite:

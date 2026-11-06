@@ -9,6 +9,35 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.39.1 — 2026-11-06
+
+bsk 0.4 broke every `evaluate`: support `cooperate sync`. **browser-engines 202611_02**, **ns-live-verify 202611_01**,
+**ns-record-write 202611_01**, **setup-browser 202611_02**, **capture-artifact 202611_03**, **setup-global-instructions 202611_02**.
+
+- **Symptom (reported from a Windows machine, reproduced on this Mac):** `ns_read.py ping` exited 3 with
+  `permission_denied: This action requires the context returned by the latest cooperate sync`. The bsk daemon updates itself;
+  this Mac went from 0.3.3 to 0.4.2 without anyone noticing.
+- **Measured on bsk 0.4.2 (example.com, own sessions, all stopped):** `evaluate`, `click` and every `navigate` after the first
+  need `bsk cooperate sync` and then both `--context` and the sync reply's **top-level** `observation_id` (not
+  `observation.observation_id`). An observation works once (`observation_required` when reused); the context stays valid while
+  the page does not change. Not needed: the first `navigate` from `about:blank` (where `sync` fails with
+  `frame_unobservable`), `screenshot`, `observe`. Every refusal carried `data.effect_state: "none"`.
+- **`ns_read.py` / `ns_write.py`:** `evaluate` is tried; a refusal whose reason asks for a sync and whose `effect_state` is
+  `none` gets `cooperate sync` + a retry (up to 5); after the first such refusal later calls sync first. The retryable reasons
+  are `cooperation_sync_required`, `observation_required`, `control_context_invalid` and `observation_changed` (a NetSuite page
+  re-rendered between the sync and the action: seen on the first live run, not on example.com). Any other refusal is
+  an error (exit 3) and is never replayed, which matters for the write path. It never calls `cooperate wait` and stops when the
+  sync reply shows someone else driving the tab (`editing: true` or `mode` not `ready`). `ns_read.py` keeps bsk's JSON on an
+  error (`BskError`) so the reason can be read. bsk 0.3.x is unaffected (no refusal, no sync).
+- Tests: `ns_read` 49 (6 new: 0.3 never syncs; 0.4 syncs with a fresh top-level observation each time; a page re-render after
+  the sync is retried; a refusal that may have run is not retried; someone else on the tab stops it; gives up after 5 syncs).
+  `ns_write` 22 (4 new, same cases on `_bsk_eval`). **Live on bsk 0.4.2, sandbox, read-only:** `whoami`, `ping` and
+  `query` (`SELECT COUNT(*) ... FROM account`) all exit 0; every session stopped. **A write on bsk 0.4 is not verified yet.**
+- Docs: `browser-engines` step 2b (the rules above, plus: parse bsk JSON from a file or Python, not zsh `echo`, which turns `\n`
+  into line breaks); raw-`bsk` recipe in `ns-live-verify`; Login click in `setup-browser`; overlay injection in `capture-artifact`;
+  the bsk line in the global instructions snapshot (and this machine's `~/.claude/CLAUDE.md`, backed up first).
+- **Projects that copied `ns_write.py` into `scripts/qa/` must copy it again** (note added to `ns-record-write` Setup).
+
 ## v0.39.0 — 2026-11-06
 
 New skill **slack-daily-recap 202611_01**: end-of-day Slack recap, read-only.

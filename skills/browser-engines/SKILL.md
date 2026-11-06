@@ -14,7 +14,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0 — the skill covers both engines now (bsk first), so the old name misled.
 
-**Skill version: `202611_01`**
+**Skill version: `202611_02`**
 
 Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
 This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
@@ -129,7 +129,25 @@ end-to-end time — the win is per-command overhead and not needing a second log
    and `navigate` that tab. (`--scope agent` lists only your own window, not the user's tabs.) If the list does not
    show exactly one tab, fall back to `bsk tab create --no-active --url about:blank --session <id> --json`. Without it a command follows the active tab, which a
    peer can move. One command per session at a time (a second is refused with `session_busy`).
-3. **Dialog guard after every navigation** (the page changes, the guard is gone):
+2b. **bsk 0.4+: `cooperate sync` before every page action** (measured on bsk 0.4.2, 2026-11-06; the daemon updates
+   itself, so a machine set up on 0.3.x can be on 0.4 without anyone noticing - check `bsk --version`):
+   - `evaluate` (and `click`, and every `navigate` after the first) is refused with `permission_denied` /
+     `cooperation_sync_required` until you run `bsk cooperate sync --session <id> --tab-id <tab> --json` and pass
+     **both** `--context <context_id>` and `--observation <observation_id>` from that reply. Use the **top-level**
+     `observation_id`, not `observation.observation_id` (a different id). Missing either -> `observation_required` /
+     `control_context_invalid`.
+   - An observation works **once**: sync again before the next action (a reused one -> `observation_required`). The
+     context stays valid while the page does not change. NetSuite pages re-render between the sync and the action
+     (`observation_changed`, seen live on a sandbox), so allow a few sync-and-retry rounds.
+   - Not needed: the **first** `navigate` from `about:blank` (and `sync` fails there with `frame_unobservable`, so
+     navigate first), `screenshot`, `observe`, `tab list`, `session start/stop`.
+   - Retry a refused action only when the reply says `data.effect_state: "none"` (nothing ran). Never call
+     `cooperate wait` and never act when the sync reply's `state` shows `editing: true` or a `mode` other than
+     `ready`: someone else is driving that tab - stop and tell the user.
+   - Parse the JSON from a file or with Python. Piping it through zsh `echo` turns the `\n` inside strings into real
+     line breaks and the ids come out empty (this cost a test run).
+   - `ns_read.py` / `ns_write.py` do all of this themselves (try, sync on a sync refusal, retry); this is for raw `bsk`.
+3. **Dialog guard after every navigation** (the page changes, the guard is gone; on bsk 0.4+ add the sync flags, step 2b):
    ```bash
    bsk evaluate "window.alert=function(){};window.confirm=function(){return false};window.prompt=function(){return null};window.onbeforeunload=null" --session <id> --tab-id <tab>
    ```
@@ -283,7 +301,7 @@ login) for those — Access denied.
 |---|---|---|
 | Session / tab | `bsk session start --no-focus --json` · `bsk tab list --session <id> --scope agent --json` (use the one tab it opened; `tab create` only as fallback) | `cdp.py ns-session tab <compid>` |
 | Navigate | `bsk navigate <url> --wait-until domcontentloaded …` | `cdp.py nav <url>` |
-| Run JS | `bsk evaluate "<js>" …` (awaits promises) | `cdp.py eval "<js>"` |
+| Run JS | `bsk evaluate "<js>" …` (awaits promises; 0.4+: after a fresh `cooperate sync`, step 2b) | `cdp.py eval "<js>"` |
 | Bounded page view | `bsk observe --max-tokens 600 …` | `cdp.py a11y <query>` |
 | Screenshot | `bsk screenshot --out f.png …` | `cdp.py shot f.png` |
 | Cleanup | `bsk session stop <id>` · `bsk status` | close only your own tab |

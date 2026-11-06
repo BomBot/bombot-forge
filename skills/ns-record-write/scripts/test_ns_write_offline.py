@@ -236,5 +236,66 @@ class OfflineWriteTest(unittest.TestCase):
         self.assertEqual(bsk_js, cdp_js)
 
 
+class Bsk04EvalTest(unittest.TestCase):
+    """bsk 0.4+ (measured on 0.4.2): evaluate is refused until `cooperate sync`, and each observation
+    id works once. These drive the real _bsk_eval with `_bsk_cmd` stubbed, so nothing shells out."""
+
+    def setUp(self):
+        self.mod = load_module()
+        self.mod.ST = {"engine": "bsk", "session": "S", "tab": "T", "coop": False}
+        self.calls, self.syncs, self.used = [], 0, set()
+        self.effect = "none"
+        self.state = {"mode": "ready", "editing": False}
+
+        def fake_cmd(args, timeout=60):
+            self.calls.append(list(args))
+            if args[:2] == ["cooperate", "sync"]:
+                self.syncs += 1
+                return {"context_id": "ctx", "observation_id": "obs-%d" % self.syncs,
+                        "observation": {"observation_id": "nested"}, "state": self.state}, None, None
+            obs = args[args.index("--observation") + 1] if "--observation" in args else None
+            if "--context" not in args or obs is None or obs in self.used:
+                reason = "observation_required" if obs in self.used else "cooperation_sync_required"
+                return None, "bsk transport: rc=1 refused", {"code": "permission_denied",
+                                                            "data": {"reason": reason, "effect_state": self.effect}}
+            self.used.add(obs)
+            return {"ok": True, "value": "ran"}, None, None
+
+        self.mod._bsk_cmd = fake_cmd
+
+    def evaluates(self):
+        return [c for c in self.calls if c[0] == "evaluate"]
+
+    def test_syncs_then_runs_and_never_reuses_an_observation(self):
+        self.assertEqual(self.mod._bsk_eval("1"), ("ran", None))
+        self.assertEqual(self.mod._bsk_eval("2"), ("ran", None))     # second call syncs first, no bare try
+        obs = [c[c.index("--observation") + 1] for c in self.evaluates() if "--observation" in c]
+        self.assertEqual(obs, ["obs-1", "obs-2"])                    # top-level id, fresh each time
+        self.assertEqual(len([c for c in self.evaluates() if "--context" not in c]), 1)
+
+    def test_a_refusal_that_may_have_run_is_never_replayed(self):
+        # the write path goes through _bsk_eval: if bsk cannot say nothing ran, it must not run it again
+        self.effect = "unknown"
+        value, err = self.mod._bsk_eval("write()")
+        self.assertIsNone(value)
+        self.assertTrue(err)
+        self.assertEqual(len(self.evaluates()), 1)
+        self.assertEqual(self.syncs, 0)
+
+    def test_stops_when_someone_else_is_using_the_tab(self):
+        self.state = {"mode": "user_control", "editing": True}
+        value, err = self.mod._bsk_eval("write()")
+        self.assertIsNone(value)
+        self.assertIn("not ours", err)
+        self.assertEqual(len(self.evaluates()), 1)                   # the bare try only; nothing after the sync
+
+    def test_gives_up_after_a_few_syncs(self):
+        self.used = type("All", (), {"__contains__": lambda s, x: True, "add": lambda s, x: None})()
+        value, err = self.mod._bsk_eval("1")
+        self.assertIsNone(value)
+        self.assertIn("kept refusing", err)
+        self.assertEqual(self.syncs, self.mod.SYNC_TRIES)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
