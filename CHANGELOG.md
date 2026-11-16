@@ -9,6 +9,29 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.40.0 — 2026-11-16
+
+New-machine setup in one place. **setup-init 202611_01** (new), **setup-cli 202611_01** (new), **setup-browser 202611_03**.
+
+- **setup-init (new):** the front door for a new machine. Suggests Bypass (or Auto) permission mode, detects Windows or
+  macOS, checks every piece as one checklist (git/gh, this plugin, global instructions, bsk + Claude in Chrome, Dev Bridge,
+  team plugins, Python, SuiteCloud CLI + SDF) with what each is for, asks dev or non-dev, then runs the setup skills in
+  order and ends with what a new session needs to know (nothing extra: `CLAUDE.md` and `browser.json` carry it).
+- **setup-cli (new):** one preset. Part A git + GitHub CLI for everyone (winget/brew, web login in the user's own terminal,
+  `gh auth setup-git`, username format and Teibto repos checked). Part B for devs: SuiteCloud CLI (requirements read from
+  Oracle's docs, never from memory), clone a Teibto repo or `project:create` into a subfolder and move it into the current
+  folder, auth id `<ACCOUNT>-Adm-Prod` / `<ACCOUNT>_SB1-Adm-Sand` (the format on the maintainer's machine; Administrator only),
+  `suitecloud account:setup -i` run by the user because SuiteCloud CLI 3.0.0 has no flag for the auth id, then a read-only
+  `file:list`. A non-dev machine (deny rules for `suitecloud`) runs Part A only.
+- **setup-browser:** bsk plus optional Claude in Chrome only; cdp is no longer offered. Step 0 looks for an old cdp setup and
+  Step 1 offers to move it to the Trash (never automatic, a tracked `cdp.py` is left to the user). bsk explained by use case.
+  Dev Bridge step says what it is and when it helps, and asks for the Home page URL **at that step** (after bsk works and
+  the user is logged in), with an example of the URL and why bsk cannot read it itself; the trial adds a `COUNT(*)` query.
+  OS detected in Step 0. `browser-engines` and `ns_write.py` keep their cdp lane for machines that still have it.
+- **docs/onboarding/new-member-starter.md:** install the plugin, `/reload-plugins`, run `setup-init`. **README:** starter
+  section without the GitHub-invite steps, numbered setup order, rows for the two new skills.
+- Not run end to end on a clean machine; Windows commands untested here.
+
 ## v0.39.1 — 2026-11-06
 
 bsk 0.4 broke every `evaluate`: support `cooperate sync`. **browser-engines 202611_02**, **ns-live-verify 202611_01**,

@@ -1,16 +1,16 @@
 ---
 name: setup-browser
 description: >-
-  Use when setting up browser automation on a machine for the first time or changing it: choose
-  between bsk (BrowserSkill, everyday Chrome) and cdp (Chrome for Testing) with the trade-offs,
-  install the chosen one, optionally connect Claude in Chrome, then offer a Dev Bridge trial and
-  record whether Claude may click the NetSuite Login button for you. Interactive — asks before
-  each step; saves the choices to a per-machine prefs file.
+  Use when setting up browser automation on a machine for the first time or changing it: install bsk
+  (BrowserSkill, drives your everyday logged-in Chrome), optionally connect Claude in Chrome, offer to
+  remove an old cdp (Chrome for Testing) setup if one is found, then a read-only Dev Bridge trial and
+  whether Claude may click the NetSuite Login button for you. Interactive — asks before each step;
+  saves the choices to a per-machine prefs file.
 ---
 
-# Setup Browser (engine choice, install, Dev Bridge, login consent)
+# Setup Browser (bsk, Claude in Chrome, Dev Bridge, login consent)
 
-**Skill version: `202611_02`**
+**Skill version: `202611_03`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -47,32 +47,41 @@ A choice is never buried in a paragraph. Do these, in this order:
 
 ## Step 0 — look before asking (read-only)
 
-Check what already exists: `command -v bsk`, `BSK_AUTO_START=0 bsk status --json`,
-`ls ~/Applications/"Google Chrome for Testing.app"`, an existing `~/.config/bombot-forge/browser.json`,
-and whether the `mcp__claude-in-chrome__*` tools are available. Report it in two lines and skip
-any step that is already done and working. **If `browser.json` exists this is an UPDATE run** — see
+Detect the OS first (`uname -s`; on Windows `$env:OS` / `[System.Environment]::OSVersion` in PowerShell) and use
+that OS's commands from here on. Then check what already exists: `bsk` on the PATH (`command -v bsk` / PowerShell
+`Get-Command bsk -ErrorAction SilentlyContinue`), `BSK_AUTO_START=0 bsk status --json`, an existing
+`~/.config/bombot-forge/browser.json`, whether the `mcp__claude-in-chrome__*` tools are available, and **leftovers of the
+old cdp lane**: `~/Applications/"Google Chrome for Testing.app"` (macOS), `~/.qa-chrome/`, `cdp.py` copies under the user's
+projects (`scripts/qa/cdp.py`), `engine: "cdp"` or `"cdp"` in `also_installed` in `browser.json`. Report it in two lines and
+skip any step that is already done and working. **If `browser.json` exists this is an UPDATE run** — see
 *Re-running: update, don't overwrite* below; never treat the machine as blank.
 
-## Step 1 — pick the engine
+## Step 1 — explain bsk (and the old cdp lane, if found)
 
-Show this table and recommend **bsk** for anyone who works in their everyday Chrome:
+This plugin's browser lane is **bsk** (BrowserSkill). cdp (Chrome for Testing + `cdp.py`) is no longer set up on new
+machines: bsk drives the Chrome the user already works in, is ~22× faster per command (measured), and needs no second
+profile to log in to. Tell the user, in plain words, **what it is for**:
 
-| | **bsk** (BrowserSkill) | **cdp** (Chrome for Testing + `cdp.py`) |
-|---|---|---|
-| Browser | Your **everyday Chrome/Edge**, already logged in | A **separate** Chrome for Testing with its own profile (log in once there) |
-| Speed per command | Fast (measured ~22× per command vs cdp) | Slower per command |
-| Setup | CLI + extension you turn on + daemon | Chrome for Testing + fixed profile + `cdp.py` (yours, not bundled) |
-| Native dialogs | **Auto-accepts every one, can't be turned off** — so on production list every click/submit in the round's confirmation and stop at any dialog not on the list (the guard covers the top window only); a step likely to raise a confirm goes into that list so you choose (carry on, cdp if installed, Claude in Chrome, or click it yourself) | You control them; popup-blocker off is a false-positive risk for popup checks |
-| Extras | — | `lens`, `netlog`, `stub`, `diff`, shadow-DOM piercing, unattended runs |
-| Risk | Third-party (Tencent) daemon that **auto-updates** (~30 min; `BSK_AUTO_UPDATE=off` to pin); verified on one Mac only here | Can't drive your everyday Chrome (Chrome 136+ ignores the debug port on the default profile) |
-| Production writes | UI clicks/submits after the round's confirmation, or `ns_write.py` after dry-run + your approval | `ns_write.py --engine cdp`, and UI-driven writes |
+- Claude reads a NetSuite page you point at (a record, a saved search result, a script deployment) without you copying
+  screens into the chat.
+- QA after a change: open the page, check a value, take a screenshot (`capture-artifact` builds before/after packs).
+- The Dev Bridge (step 4) runs through it: read-only SuiteQL / record reads from your logged-in tab.
+- It runs in a separate background **Agent Window** that is closed when done; it cannot use the tabs you have open.
+- One caution to say out loud: bsk **auto-accepts every browser dialog** (cannot be turned off), so on production
+  Claude lists every click/submit and waits for your OK for that round.
 
-Ask with the bullets above and a picker: **bsk (Recommended if they work in everyday Chrome)** — fast,
-already logged in, but it auto-accepts dialogs, so every click on production is listed and confirmed first · **cdp** — full
-control, but a separate Chrome for Testing profile and it cannot drive everyday Chrome · **Both** — a
-fallback, but two things to keep working. Record `engine` (primary) and `also_installed`.
+**cdp found (Step 0)?** Recommend removing it, and ask (picker: **Remove it (Recommended)** / **Keep it for now**):
 
-## Step 2a — install bsk (if chosen)
+- Remove: list exactly what will go (Chrome for Testing app, each `~/.qa-chrome/<name>` profile, each `cdp.py` copy) and
+  that `ns_write.py --engine cdp` and the cdp lane of `browser-engines` stop working on this machine. Move to the
+  Trash (macOS `~/.Trash`, Windows Recycle Bin), never `rm`. Quit Chrome for Testing first. A `cdp.py` that is tracked
+  in a project's git is **not** deleted here — tell the user which project and leave it to them.
+- Keep: record it in `also_installed` as today; nothing else changes.
+
+Record `engine: "bsk"`. Never set `engine: "cdp"` on a new machine; an existing `"cdp"` value changes only if the user
+agrees.
+
+## Step 2 — install bsk
 
 1. Read upstream `install.sh` (`Tencent/BrowserSkill`; macOS/Linux → `~/.local/bin`), show the user
    what it does, run it on OK. Windows: follow upstream `AGENT_INSTALL.md`; don't improvise.
@@ -85,42 +94,50 @@ fallback, but two things to keep working. Record `engine` (primary) and `also_in
    (`bsk session start --no-focus`, use the one `about:blank` tab it opens, `bsk session stop`) and confirm
    your session id is gone from `bsk session list` — stop only your own id, never `--all`, and do not expect the count to be 0 (another Claude session may be using the same daemon). Details and per-run rules: skill `browser-engines`.
 
-## Step 2b — install cdp (if chosen)
-
-Follow the `browser-engines` skill's cdp lane: Chrome for Testing, a fixed profile under
-`~/.qa-chrome/<name>`, port 9333, `cdp.py` supplied by the user. Verify with `cdp.py tabs`.
-
 ## Step 3 — Claude in Chrome (optional)
 
-Say it is **optional** and that it is the second-priority lane (after bsk/cdp) — useful when the
-first lane is missing, or for sites that need your main Chrome/Google session. Ask (picker: **I'll install it myself** /
+Say it is **optional** and that it is the second-priority lane (after bsk) — useful when bsk is down, for a
+step that will raise a native dialog you want handled in a real tab, or for sites that need your main Chrome/Google
+session (Google Sheets, Drive). Ask (picker: **I'll install it myself** /
 **Walk me through it** / **Skip — it's optional**): *install it yourself from the link, or want me to walk you
 through?* Link:
 `https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn`.
 After they install, test it: load the tools (`ToolSearch` → `select:mcp__claude-in-chrome__tabs_context_mcp`)
 and call `tabs_context_mcp`. Record `claude_in_chrome: true|false|declined`.
 
-Lane priority to state at the end (name only the lanes this machine actually has; a bsk-only machine goes bsk → Claude in Chrome → you, never to cdp): **1. bsk or cdp · 2. Claude in Chrome · 3. you act on the
-screen** (the last resort, or when you prefer to click).
+Lane priority to state at the end (name only the lanes this machine actually has; never mention cdp on a machine
+without it): **1. bsk · 2. Claude in Chrome · 3. you act on the screen** (the last resort, or when you prefer to click).
 
 ## Step 4 — offer a Dev Bridge trial
 
-Explain: *Dev Bridge (`Teibto/TEIBTO-Dev-Bridge`) is a read-only Suitelet in your NetSuite account.
-Through the logged-in browser tab it runs SELECT-only SuiteQL, loads a record as JSON, looks up fields,
-checks features and runs searches, so Claude can check the real state of records, GL and script
-deployments instead of guessing — nothing is written. Administrator role only.* Ask with a picker (**Try it now** / **Later** / **Skip**) — the bullets carry what it does and that it is
-Administrator-only and read-only.
+Explain in plain words:
+
+- **What it is:** a read-only Suitelet (`Teibto/TEIBTO-Dev-Bridge`) deployed in the NetSuite account. Claude calls it
+  through the logged-in bsk tab: SELECT-only SuiteQL, a record as JSON, field lookups, feature checks, searches.
+  Nothing is written. **Administrator role only.**
+- **When it helps:** "is this script deployment active?", "what is in this field on SO 1234?", "which transactions
+  post to this account?", converting a Saved Search to SuiteQL and proving the rows match, checking the real state
+  before and after a change instead of guessing.
+- **Needs:** bsk working (step 2) and the user logged in to that account in the same Chrome profile.
+
+Ask with a picker (**Try it now** / **Later** / **Skip**). Skip this step without asking when step 2 did not pass.
 
 If yes:
-1. Ask the user to **copy the URL of the Home page of the account they work in** and paste it.
-   Derive the host and account id from it (`<ACCOUNT>` / `<ACCOUNT>-sb2` style) — don't guess.
+1. **Now (not earlier) ask for the Home page URL.** Tell the user exactly: *in your everyday Chrome, log in to the
+   account you work in, click the NetSuite logo / Home, then copy the whole address bar and paste it here.* It looks
+   like `https://<ACCOUNT>.app.netsuite.com/app/center/card.nl?sc=-29...` (a sandbox has `-sb1` / `-sb2` in the host).
+   Why it is needed: the host and account id come from it, and bsk cannot see the user's own tabs to read it.
+   Derive host and account from the URL (`<ACCOUNT>` / `<ACCOUNT>_SB2` style); don't guess. More than one account →
+   one now, the rest by re-running this step later.
 2. The bridge is addressed by a script id + deploy id. The repo's README recommends
    `customscript_teibto_dev_bridge` / `customdeploy_teibto_dev_bridge`, and `ns_read.py` tries those. If the
    account uses other ids, ask the user for them (from the script record). If the bridge isn't deployed in
    that account, say so and stop — deploying it is a separate decision.
-3. Test it: `python3 <plugin>/skills/ns-live-verify/scripts/ns_read.py ping --account <ACCOUNT>` (bsk lane).
-   Confirm `account` and `envType` match what they expect and `user.isAdmin` is true. Non-sandbox
-   accounts are read read-only with a NOTE; name the account in what you tell the user. (Only the delegated agent is gated, see `setup-coding-agent`.)
+3. Test it: `python3 <plugin>/skills/ns-live-verify/scripts/ns_read.py ping --account <ACCOUNT>` (on Windows `python`
+   or `py` if `python3` is missing). Confirm `account` and `envType` match what they expect and `user.isAdmin` is true.
+   Then one `query` with `SELECT COUNT(*) AS n FROM script` to show a real read. Non-sandbox accounts are read
+   read-only with a NOTE; name the account in what you tell the user. (Only the delegated agent is gated, see
+   `setup-coding-agent`.)
 4. Save under `dev_bridge` in the prefs file (`enabled`, `host`, `account`; and, only when the ids are not
    the defaults, `endpoints["<account>"] = {"path": "/app/site/hosting/scriptlet.nl?script=<id>&deploy=<id>"}`).
 
@@ -146,7 +163,7 @@ How the helper works when consented (this is the exact rule):
    screen**, to trigger blur so the button enables. Re-check.
 4. Click **Login / เข้าสู่ระบบ**. If it was never disabled, just click it.
 5. A 2FA / trusted-device prompt or any change in the page → stop and ask.
-The click: `bsk click '#login-submit'` (on bsk 0.4+ after a fresh `cooperate sync`, `browser-engines` step 2b; logged in on SB2 with the hidden autofilled values, 2026-09-30 — still verify the URL left the login page), Claude in Chrome's click on a real tab, or `cdp.py click`; if none works, the user presses Login in their own tab.
+The click: `bsk click '#login-submit'` (on bsk 0.4+ after a fresh `cooperate sync`, `browser-engines` step 2b; logged in on SB2 with the hidden autofilled values, 2026-09-30 — still verify the URL left the login page), or Claude in Chrome's click on a real tab; if neither works, the user presses Login in their own tab.
 
 ## Step 5b — keep the `bsk` daemon running from login (optional, `bsk` only)
 
@@ -187,9 +204,9 @@ A machine that was set up before keeps its choices. On every re-run (also from a
 2. **Ask per key: keep or change?** (a picker per key: **Keep** (default) / **Change**). Ask only about a key the user brought up,
    plus any key that is **new** in this skill version and missing from the file. Never re-ask
    what is already answered.
-3. **Verify, don't reinstall.** Re-check that what the file says is still true (`bsk status`,
-   `cdp.py tabs`, the extension connected). Fix only what is actually broken. Never reinstall a
-   working `bsk`/Chrome for Testing, and never change a version pin, unless the user asks.
+3. **Verify, don't reinstall.** Re-check that what the file says is still true (`bsk status`, the extension
+   connected). Fix only what is actually broken. Never reinstall a working `bsk`, and never change a version pin,
+   unless the user asks.
 4. **Merge, don't replace.** Keep keys this skill doesn't know (another skill or the user may have
    added them). Only touch keys the user chose to change.
 5. **Back up, then write atomically.** `cp browser.json browser.json.bak.<YYYYMMDD_HHMMSS>` first;
@@ -197,8 +214,8 @@ A machine that was set up before keeps its choices. On every re-run (also from a
    you read it (another session ran setup meanwhile), re-read, re-merge, and tell the user.
 6. **Nothing to change → write nothing** and say so.
 
-Engine change (bsk ↔ cdp) is a change like any other: ask, install only the missing side, keep
-the other installed (`also_installed`) unless the user wants it removed — removal is never automatic.
+A machine whose file still says `engine: "cdp"` or lists `cdp` in `also_installed`: offer the Step 1 removal once;
+if the user keeps it, leave the keys as they are. Removal is never automatic.
 
 ## Step 6 — write the prefs and summarize
 
@@ -221,7 +238,7 @@ means "ask about the new keys", never "start over".
 
 Finish with a short table: what is installed and tested, the lane priority, what changed versus the
 previous file (or "no change"), and the one rule to remember —
-**on production, list every click/submit and get the user's OK for the round first** (bsk or cdp).
+**on production, list every click/submit and get the user's OK for the round first.**
 
 ## Gotchas
 
