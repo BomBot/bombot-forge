@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (bsk, Claude in Chrome, Dev Bridge, login consent)
 
-**Skill version: `202611_03`**
+**Skill version: `202611_04`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -89,7 +89,9 @@ agrees.
    (macOS; use the platform's opener elsewhere). Tell them: *Add to Chrome, then open the
    extension popup and turn the connection on.*
 3. `bsk daemon start`, then `bsk doctor` (redirect to a file rather than piping) → expect all `ok`.
-4. `bsk install-skill --harness claude-code`.
+4. `bsk install-skill --harness claude-code` (the upstream `browser-skill`; it updates itself with the CLI). Tell the
+   user the daemon **auto-updates** about every 30 minutes (`BSK_AUTO_UPDATE=off` pins it) — after an update, follow
+   `browser-engines` *After a `bsk` update*.
 5. Verify: `BSK_AUTO_START=0 bsk status --json` lists a connected browser; open a throwaway session
    (`bsk session start --no-focus`, use the one `about:blank` tab it opens, `bsk session stop`) and confirm
    your session id is gone from `bsk session list` — stop only your own id, never `--all`, and do not expect the count to be 0 (another Claude session may be using the same daemon). Details and per-run rules: skill `browser-engines`.
@@ -148,22 +150,10 @@ the login screen, may I click **Login / เข้าสู่ระบบ** for 
 autofill the email + password on its own, without asking you to type or unlock anything at fill
 time. Record `auto_login_click: true|false`.
 
-**Reading the form.** Check whether Chrome filled it with `:-webkit-autofill` (a boolean on the email field), **never
-by the value length**: Chrome hides an autofilled value from page scripts until the user interacts with the page, so
-the length is 0 even when the form is filled (measured in a `bsk` Agent Window, foreground and background, and in a
-hidden Claude in Chrome tab). Reading the length is what used to make agents stop with "email is empty". Whether a
-`bsk` click on Login submits those hidden values has **not** been tested; if it does not leave the login page, hand
-off to a real tab (`browser-engines` step 5).
-
-How the helper works when consented (this is the exact rule):
-1. Check that Chrome **filled** the email field: `:-webkit-autofill` matches (never touch the password field, never
-   read a value). Not filled → stop and tell the user; do not type anything.
-2. Check whether the **Login button is disabled**.
-3. If disabled: click the **page background outside the white panel, on the right side of the
-   screen**, to trigger blur so the button enables. Re-check.
-4. Click **Login / เข้าสู่ระบบ**. If it was never disabled, just click it.
-5. A 2FA / trusted-device prompt or any change in the page → stop and ask.
-The click: `bsk click '#login-submit'` (on bsk 0.4+ after a fresh `cooperate sync`, `browser-engines` step 2b; logged in on SB2 with the hidden autofilled values, 2026-09-30 — still verify the URL left the login page), or Claude in Chrome's click on a real tab; if neither works, the user presses Login in their own tab.
+How the click works when consented (check `:-webkit-autofill`, never the value length; never touch the password
+field; disabled button → click the background once; stop on MFA or any change; verify the URL left the login page) is
+the per-run rule in **`browser-engines` step 5** — follow it there, don't restate it. Tested: a `bsk` click on
+`#login-submit` with hidden autofilled values logged in on SB2 (2026-09-30).
 
 ## Step 5b — keep the `bsk` daemon running from login (optional, `bsk` only)
 
@@ -239,6 +229,13 @@ means "ask about the new keys", never "start over".
 Finish with a short table: what is installed and tested, the lane priority, what changed versus the
 previous file (or "no change"), and the one rule to remember —
 **on production, list every click/submit and get the user's OK for the round first.**
+
+## Step 7 — first-run walkthrough (automatic)
+
+When bsk passed step 2, go straight on (no question) to **`browser-engines` → *First run — walkthrough*** so the user sees
+how a real run works: Agent Window, dialog guard, identity gate, what Claude sees, a Dev Bridge read (when step 4 set it
+up), clean stop. Read-only. Invoke the `browser-engines` skill (or read its `SKILL.md` from the plugin cache when slash
+commands are not loaded yet). bsk not working → skip it and say why.
 
 ## Gotchas
 

@@ -9,6 +9,28 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.41.0 — 2026-11-17
+
+browser-engines and setup-browser no longer overlap or contradict. **browser-engines 202611_03**, **setup-browser 202611_04**.
+
+- **Split:** `setup-browser` = install and configure once; `browser-engines` = the rules for every run. Removed the
+  duplicates (bsk install steps, the login-click rule written twice, two lane lists).
+- **Contradictions fixed:** browser-engines' opening rule and description still sent production and dialog-prone writes to
+  cdp although 0.29.0 allowed them through bsk after the round's confirmation; its lane list still said "bsk or cdp" and
+  "cdp not deprecated" while setup-browser 202611_03 stopped installing cdp. setup-browser said a bsk Login click was
+  "not tested" two paragraphs before saying it worked on SB2 (2026-09-30).
+- **browser-engines:** lanes are bsk → Claude in Chrome → the user. The cdp lane, the bsk-vs-cdp measurements and the cdp
+  quick reference moved to `docs/history/cdp-lane.md` as information only (how it worked, why bsk replaced it); it is no
+  longer a skill or a lane. The `cdp-browser` redirect stub (deprecated since 0.22.0) is removed.
+  New **How the Dev Bridge works** (what it is, how a call travels with the session cookie, actions and limits, where the
+  ids/host come from, `ns_read.py` and its exit codes, failure modes) and **First run — walkthrough** (read-only demo:
+  Agent Window, guard, identity gate, what Claude sees, a Dev Bridge read, clean stop, how to ask). The disabled-Login
+  "click the background" detail now lives in step 5.
+- **setup-browser:** Step 5 asks for consent and points at browser-engines step 5; Step 2 notes the auto-update; new Step 7
+  runs the browser-engines walkthrough automatically when bsk works.
+- `ns-record-write` points its cdp rows at the legacy reference; README row rewritten.
+- Walkthrough not yet run end to end.
+
 ## v0.40.0 — 2026-11-16
 
 New-machine setup in one place. **setup-init 202611_01** (new), **setup-cli 202611_01** (new), **setup-browser 202611_03**.

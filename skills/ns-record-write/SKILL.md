@@ -23,7 +23,7 @@ Two engines drive the tab (**the caller owns the tab**; the helper never opens o
 | Engine | Flags | Where writes are allowed |
 |---|---|---|
 | `bsk` (BrowserSkill) | `--bsk-session <id> --bsk-tab <id>` | **Any environment.** `bsk` auto-accepts native dialogs, so on a non-sandbox account the helper prints a WARNING and the caller must have listed the write and got the user's OK for the round (see the rule below) |
-| `cdp` (Chrome for Testing) | `--tab <TARGET_ID>` | Sandbox or production (needs a claimed lane — see `browser-engines`) |
+| `cdp` (Chrome for Testing) | `--tab <TARGET_ID>` | Sandbox or production (legacy; needs a claimed lane — see `docs/history/cdp-lane.md`) |
 | `auto` (default) | — | `bsk` if `--bsk-session` is given, else `cdp` |
 
 The helper only runs `N/record` / `N/search` in the page — it clicks nothing, so no dialog is
@@ -100,7 +100,7 @@ Two modes, one script:
    - **bsk** (any environment; on production after the round's confirmation): CLI + extension + daemon per the `browser-engines` skill; start your own
      session and pinned tab, open a **record page** on the target account, then pass
      `--bsk-session`/`--bsk-tab`. Stop the session when done.
-   - **cdp** (anywhere): `cdp.py` on CDP port 9333 with a claimed lane (see `browser-engines` and
+   - **cdp** (anywhere): `cdp.py` on CDP port 9333 with a claimed lane (see `docs/history/cdp-lane.md` and
      `netsuite-qa-browser`); pass `--tab`. The QA Chrome must be logged into the target account.
    `scripts/validate-setup.sh` passes when **either** lane is usable.
 

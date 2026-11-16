@@ -1,41 +1,42 @@
 ---
 name: browser-engines
 description: >-
-  Use when driving a browser: BrowserSkill (`bsk`) is the default for read-only checks, QA,
-  screenshots and Dev Bridge reads in the browser you're already logged in to; the cdp lane
-  (Chrome for Testing + `cdp.py`, port 9333) is for writes, anything where a native dialog matters,
-  and `lens`/`netlog`/`stub`/`diff`. Covers which engine to pick (with measured numbers), the bsk
-  safety recipes verified on a Mac (own session + pinned tab, dialog guard, NetSuite identity gate,
-  bounded observe), and the cdp launch/commands/coordinator rules. For NetSuite session recovery
-  (black screen, SSO loop, permission gates) pair with `netsuite-qa-browser`.
+  Use when driving a browser or reading live NetSuite data through one: BrowserSkill (`bsk`) in the user's
+  everyday logged-in Chrome is the lane for reading pages, QA, screenshots, Dev Bridge reads and (after the round's
+  confirmation) UI changes on production; Claude in Chrome is the second lane; the user on the screen is the last.
+  Covers the per-run bsk rules verified on a Mac (own session + pinned tab, bsk 0.4 cooperate sync, dialog guard,
+  NetSuite identity gate, expired-session login click, bounded observe), how the Dev Bridge works, and a first-run
+  walkthrough that `setup-browser` runs at its end. The old cdp lane is recorded in docs/history only.
 ---
 
-# Browser engines: bsk for read/QA, cdp for the rest
+# Browser: bsk + Claude in Chrome (and how the Dev Bridge works)
 
-> Renamed from `cdp-browser` in 0.22.0 — the skill covers both engines now (bsk first), so the old name misled.
+> Renamed from `cdp-browser` in 0.22.0. The old cdp lane is history, not a lane: `docs/history/cdp-lane.md` in this plugin.
 
-**Skill version: `202611_02`**
+**Skill version: `202611_03`**
 
-Two engines, one rule: **read/QA → `bsk`; UI-driven writes, production writes and anything a dialog could touch → cdp.** (The scoped `ns_write.py` helper clicks nothing, so it may write through `bsk` on a sandbox — see `ns-record-write`.)
-This skill is the policy + verified recipes. Command reference for `bsk` comes from the upstream
-`browser-skill` (installed by `bsk install-skill --harness claude-code`); `cdp.py` is your own tool
-(not bundled — large, and its `login` subcommand reads credentials from a local env file).
+This skill is the **per-run rules**. Installing and configuring the browser is `setup-browser` (once per machine).
+Command reference for `bsk` comes from the upstream `browser-skill` (installed by `bsk install-skill --harness claude-code`).
 
-## Pick the engine
+## Which lane
 
-| Task | Engine | Why |
-|---|---|---|
-| Read a page, smoke/QA, screenshots, Dev Bridge / SuiteQL reads | **bsk** | Uses the browser you're already logged in to; no separate profile or login |
-| Record write through the scoped `ns_write.py` (no clicks, no dialogs) | **bsk** or cdp (production: dry-run, then the round's confirmation) | The helper adds its own guards: dialog guard, a WARNING on non-sandbox, stop on unknown outcome |
-| Any **UI-driven** write (clicking Save, filling forms, buttons) | **bsk or cdp** — see "Changing data in the UI on production" below | `bsk` **auto-accepts every native dialog** (`alert`/`confirm`/`prompt`/`beforeunload`) and can't be told not to (verified below). A step likely to raise a confirm (delete, "leave page?") or sitting in an iframe or popup goes into the round's list as a flagged step, and the user picks the lane (see below) |
-| `lens` / `netlog` / `stub` / `diff`, shadow-DOM piercing (`a11y`), coordinate work | **cdp** | Not in `bsk` |
-| Unattended or long runs | **cdp** (or don't) | A person closing the Agent Window kills a `bsk` run |
+**Which lanes exist is per machine.** Read `~/.config/bombot-forge/browser.json` (`engine`, `also_installed`,
+`claude_in_chrome`) and only ever suggest a lane that is present there.
 
-When in doubt about a dialog-prone step, put it in the round's list and let the user choose the lane. NetSuite record-form QA belongs to a dedicated skill, not here.
+1. **`bsk`** — the default for everything: reading a page, smoke/QA, screenshots, Dev Bridge / SuiteQL reads, record
+   writes through `ns_write.py` (dry-run, then the round's confirmation), and UI-driven changes on production after the
+   round's confirmation (below). It uses the browser you're already logged in to, in a separate background Agent Window.
+2. **Claude in Chrome** (`mcp__claude-in-chrome__*`, everyday Chrome, real tabs) — when `bsk` is down, for a step you want
+   in a tab the user can see, or for sites that need the main Google session (Sheets, Drive under the work account). Not
+   verified against native dialogs: treat it like `bsk` for anything that changes data.
+3. **The user acts on the screen** — the last resort, or when the user prefers to click. Say exactly what to click and
+   check the result afterwards through a read lane.
 
-**Which lanes exist is per machine.** Read `~/.config/bombot-forge/browser.json` (`engine`, `also_installed`, `claude_in_chrome`) and only ever suggest a lane that is present there. A machine that chose `bsk` only is never pointed at cdp; its next lane is Claude in Chrome (when `claude_in_chrome` is true), then the user on the screen. The cdp rows in this skill apply to machines that have cdp.
+cdp (Chrome for Testing + `cdp.py`) is no longer a lane of these skills; how it worked is recorded in
+`docs/history/cdp-lane.md`. Don't suggest it or installing it. A machine whose `browser.json` still lists it: offer the
+removal in `setup-browser` Step 1.
 
-### Changing data in the UI on production (`bsk` or cdp) — confirm the round, then go
+### Changing data in the UI on production — confirm the round, then go
 
 There is **no ban** on clicking, filling or submitting on production through `bsk` (removed in 0.29.0: a user working on a
 production account that is not live yet could do nothing with `bsk`). The protection is the **confirmation of the round**:
@@ -47,73 +48,23 @@ production account that is not live yet could do nothing with `bsk`). The protec
 3. **Stop** if a dialog shows up that was not in the list (the `dialogs` field of a result must stay empty), or if an
    outcome is unknown. Report; do not click on.
 4. The guard is a seat belt, not a barrier (see "Dialog guard — what it does NOT cover": top window only). So a step that
-   may raise a confirm, or lives in an iframe or popup, goes into the list as a **flagged step** and the user chooses: carry on
-   with `bsk`, use cdp (only if it is installed on this machine), use Claude in Chrome (not verified against native dialogs, so
-   treat it as no safer than `bsk`), or click that step themselves.
-5. `ns_write.py` follows the same rule (no flag since 0.30.0): dry-run first, list the write and get the round's OK, one record at a time.
+   may raise a confirm, or lives in an iframe or popup, goes into the list as a **flagged step** and the user chooses: carry
+   on with `bsk`, use Claude in Chrome (no safer than `bsk` for dialogs), or click that step themselves.
+5. `ns_write.py` follows the same rule (no flag since 0.30.0): dry-run first, list the write and get the round's OK, one
+   record at a time.
 
-## Lane priority (per machine)
-
-1. **`bsk` or `cdp.py`** — whichever the machine chose in `setup-browser` (recorded in
-   `~/.config/bombot-forge/browser.json`, key `engine`). `cdp.py` drives only **Chrome for Testing
-   with its own profile**: Chrome 136+ ignores `--remote-debugging-port` on the default profile, so
-   it cannot drive your everyday Chrome. A machine on everyday Chrome uses `bsk`.
-2. **Claude in Chrome** (MCP, everyday Chrome) — optional; when the lane above is missing or
-   unsuitable. Not verified here against native dialogs — treat it like `bsk` for anything that
-   changes data.
-3. **The user acts on the screen** — the last resort, or when the user prefers to click. Say exactly what to click
-   and check the result afterwards through a read lane.
-
-## Deprecation status (soft — nothing is removed)
-
-- **Deprecated: cdp for read-only checks, QA and screenshots.** New read/QA work starts on `bsk`.
-- **Not deprecated:** cdp for dialog-sensitive work (steps that raise a confirm, popup or iframe dialog),
-  `lens`/`netlog`/`stub`/`diff`, shadow-DOM piercing, unattended runs.
-- **Fallback rule:** on a machine that has cdp installed, use the cdp lane whenever `bsk` is unusable — `bsk` not
-  installed, `BSK_AUTO_START=0 bsk status --json` fails (no daemon / no extension connected),
-  no Chrome/Edge extension allowed, an unsupported OS/arch, or a broken auto-update. On a machine **without** cdp, go to
-  Claude in Chrome (if connected), then the user; do not suggest installing cdp unless the user asks.
-- **Stays in the tree:** the cdp lane below, `ns_write.py --engine cdp`, and `netsuite-qa-browser`.
-- **Revisit** once `bsk` has run on more than one machine and over long sessions, and once the
-  team decides on production writes through `bsk`. Today: UI clicks/submits on production are allowed after the round's
-  confirmation (see above); `ns_write.py` needs no flag either.
-
-## Measured on this machine (2026-09-29, Apple Silicon Mac, Chrome 152, bsk 0.3.1)
-
-| What | bsk | cdp.py |
-|---|---|---|
-| `eval 1+1`, one process per command, n=10 (median, min–max) | **18 ms** (15–33) | 409 ms (256–1401) |
-| Screenshot to file, n=3 | 210 ms | 709 ms (different browsers — not the same pixels) |
-| `navigate` example.com, n=5 | 352 ms | 3,688 ms — cdp looks like a built-in wait; **not comparable** |
-| `evaluate` awaiting a `fetch()` (Dev Bridge `ping`) | one command, 1.2 s | needs the two-call `window.__r` pattern |
-
-Read these with the caveats: cdp side ran as a throwaway headless Chrome for Testing (the shared
-browser's coordinator refuses tab creation), one process per command (how these skills call it —
-not the runner's JSONL session), small n, no NetSuite. **On real NetSuite pages the page dominates:**
-Home took 14–19 s to `load` (8.9 s to `domcontentloaded`) with bsk, so engine speed barely moves
-end-to-end time — the win is per-command overhead and not needing a second logged-in browser.
+Why bsk and not cdp: ~22x less overhead per command and no second browser to log in to (numbers in `docs/history/cdp-lane.md`);
+on real NetSuite pages the page load dominates either way.
 
 ## bsk lane
 
-### Setup (once per machine)
+### After a `bsk` update (the daemon updates itself)
 
-1. **CLI** — upstream `install.sh` (macOS/Linux; installs to `~/.local/bin`, verifies a checksum).
-   Read it before running. Repo: `Tencent/BrowserSkill`.
-2. **Extension** — the user installs it in Chrome/Edge (Chrome Web Store link is in the upstream
-   `AGENT_INSTALL.md`) and turns the connection on in its popup. An agent can't do this.
-3. **Daemon** — `bsk daemon start` (survived after the command returned on macOS). For agent
-   commands set `BSK_AUTO_START=0`, redirect output to a file instead of piping (the team saw a
-   hang from `bsk doctor | tail`, inferred), then run `bsk doctor` → expect all `ok`.
-   After `bsk update`, compare `daemon_version` in `bsk status --json` with `bsk --version` (and `version_skew`). On Windows
-   (0.4.1) the old daemon kept running after an update; the macOS 0.3.3 help suggests update restarts it, conflict not
-   resolved. A daemon that is behind: ask the user before stopping it (shared by sessions, never kill it yourself; see
-   `setup-browser/references/windows-daemon-hidden.md`).
-4. **Skill** — `bsk install-skill --harness claude-code` puts the upstream `browser-skill` in
-   `~/.claude/skills`. It carries no network/telemetry instructions (read on install) but it
-   **updates itself with the CLI**; the daemon also auto-updates every ~30 min unless
-   `BSK_AUTO_UPDATE=off`.
-5. **Pin caveat** — Teibto's `flow-runner.py` refuses anything but daemon **and** extension `0.3.0`.
-   `0.3.1` works with direct `bsk` commands, not with that runner.
+Compare `daemon_version` in `bsk status --json` with `bsk --version` (and `version_skew`). On Windows (0.4.1) the old
+daemon kept running after an update; the macOS 0.3.3 help suggests update restarts it, conflict not resolved. A daemon that
+is behind: ask the user before stopping it (shared by sessions, never kill it yourself; see
+`setup-browser/references/windows-daemon-hidden.md`). The upstream `browser-skill` updates itself with the CLI. Teibto's
+`flow-runner.py` refuses anything but daemon **and** extension `0.3.0`; direct `bsk` commands work on later versions.
 
 ### Every run
 
@@ -168,8 +119,10 @@ end-to-end time — the win is per-command overhead and not needing a second log
    time it read 20 was in a tab the user had just clicked — consistent with the rule, not proven. So "the email looks empty" from `value.length` says nothing, and an agent that stopped on it was
    stopping for no reason. (An earlier version of this skill said the Agent Window "does not get autofill"; that
    was wrong — it came from reading the length only.)
-   Then, with the user's consent (`auto_login_click`) and the flag on: click `#login-submit` once (never read or
-   type a credential; stop on an MFA prompt) and check that the URL left the login page. **Tested (2026-09-30, SB2):** a `bsk`
+   Then, with the user's consent (`auto_login_click`) and the flag on: if the Login button is disabled, click the page
+   background outside the white login panel (right side of the screen) once so `blur` enables it; click `#login-submit`
+   once (on 0.4+ after a fresh sync, step 2b; never read or type a credential; stop on an MFA prompt or any page change)
+   and check that the URL left the login page. **Tested (2026-09-30, SB2):** a `bsk`
    click on `#login-submit` with both fields `:-webkit-autofill` (values hidden, length 0) submitted them and landed on
    the Home page (`SANDBOX`, no MFA). Repeated after the user logged out (a real expired session): `ns_read.py` stopped at the login page without logging in, then the same click landed on Home again. If it does not leave the login page, or there is no consent,
    hand off to a **real tab** (the user's own Chrome, where they can see it and press Login):
@@ -230,85 +183,80 @@ sessions longer than 30 minutes, writes during contention, other OSes.
 - Everything above was measured with a person's real Chrome: an Agent Window shares its logins and is
   **not** a sandbox. Chrome autofills forms there too, but hides the filled value from scripts (see step 5).
 
-## cdp lane (Chrome for Testing + cdp.py)
+## How the Dev Bridge works
 
-Dedicated **Chrome for Testing** over the DevTools Protocol on a **fixed port (9333)** and a
-**persistent profile** (session and trusted-device token survive). It's separate from the main
-Chrome and doesn't auto-update. `cdp.py` talks CDP directly — no daemon layer; its header records
-the reason (an earlier daemon-based tool hung silently). `bsk` is a daemon too, and its team tests
-are loopback-only, so keep cdp for long or unattended work.
+**What it is.** A Suitelet (`Teibto/TEIBTO-Dev-Bridge`, private repo; its README is the action reference) deployed in the
+NetSuite account. It answers JSON for read-only actions, so Claude checks the real state of records, GL, fields and
+script deployments instead of guessing. Recipes and SuiteQL gotchas: `ns-live-verify`.
 
-### Launch (fixed profile)
+**How a call travels.**
 
-```bash
-~/Applications/"Google Chrome for Testing.app"/Contents/MacOS/"Google Chrome for Testing" \
-  --user-data-dir="$HOME/.qa-chrome/<task>" --remote-debugging-port=9333 \
-  --no-first-run --no-default-browser-check --disable-session-crashed-bubble about:blank
-```
+1. A `bsk` session opens a classic NetSuite page in the user's Chrome profile (the Agent Window shares the user's login).
+2. Dialog guard + identity gate (company and environment are the account the user meant).
+3. `fetch` from inside that page: `POST /app/site/hosting/scriptlet.nl?script=<script id>&deploy=<deploy id>` with a JSON
+   body `{"action": "...", ...}`. The **session cookie** authenticates it — no token, no "Available Without Login".
+4. The Suitelet runs the action as the logged-in user and replies `{ok:true, action, ...}` or `{ok:false, error, code}`.
+   Every call lands in the script's Execution Log (who + what).
+5. `bsk session stop <your id>`.
 
-- **Chrome 136+ ignores `--remote-debugging-port` on the default profile** — `--user-data-dir` is
-  mandatory. One profile per kind of work.
-- **Shared NetSuite browser + coordinator.** On a browser registered as shared, `cdp.py newtab` is
-  **refused** ("use ns-session tab <account> or claim_tab"). Don't work around it. Check
-  `python3 cdp.py ns-session status <compid>` (read-only): `bound:false` means no lane is registered
-  for that account on this machine (true for SB2 on 2026-09-29), and `ns-session bind` is a registry
-  change for the session owner to decide. With a lane: `TGT_ID=$(python3 cdp.py ns-session tab <compid>)`,
-  work in that tab only, close only that tab.
+**Who and what.** Administrator role only. Actions: `ping` (account, envType, user, isAdmin), `help`, `query`
+(SELECT-only SuiteQL: must start with `SELECT`, no `WITH`, no `;`, no DML words even inside strings; at most 1000 rows,
+`truncated` means more), `record` (full JSON or a field subset), `lookup`, `feature`, `search`. Nothing writes.
 
-### Commands
+**Where the address comes from.** Default ids `customscript_teibto_dev_bridge` / `customdeploy_teibto_dev_bridge`;
+another account may use other ids, saved per account in `browser.json` → `dev_bridge.endpoints["<account>"].path`. The
+host and account come from the Home page URL the user pasted in `setup-browser` (`dev_bridge.host` / `account`).
+Never commit an account id.
 
-```bash
-export CDP_PORT=9333
-python3 cdp.py tabs | url | nav <url> [wait] | eval "<js>" | evalf <file.js>
-python3 cdp.py a11y [query]           # accessibility tree → @NNNN refs usable with click; pierces shadow DOM
-python3 cdp.py click <sel|@ref>       # real click via Input event (not synthetic)
-python3 cdp.py shot <out.png> [sel] [--dsf=N] [--vw=W] [--vh=H]
-```
+**How Claude calls it — prefer the helper.** `python3 <plugin>/skills/ns-live-verify/scripts/ns_read.py
+<whoami|ping|query|record|lookup|feature|search> --account <ACCOUNT> ...` opens and stops its own bsk session, does the
+identity gate, pings the bridge before the real request, handles bsk 0.4 cooperate sync, and validates every argument.
+Exit codes: `0` ok, `1` bridge said `ok:false`, `2` refused by a guard, `3` session/login/transport (it never logs in).
+Raw `bsk evaluate "fetch(...)"` is for when the helper cannot do it (recipe: `ns-live-verify` Option A).
 
-### Screenshots — `cdp.py shot`
+**When it fails.** An HTML "Notice / connection timed out" or login page instead of JSON = the session expired, not a
+query error: step 5 below, then retry. `ok:false` with a SuiteQL error = fix the query (`ns-live-verify` gotchas). Not
+deployed in that account = say so and stop; deploying it is a separate decision.
 
-`Page.captureScreenshot` renders the page to PNG — it's not a screen grab, so a covered or
-non-frontmost Chrome still gives the right image (unlike macOS `screencapture`), and it writes a real
-file you can embed in a report.
-- `--vw/--vh/--dsf` must be passed on the `shot` call itself (a separate `viewport` command dies
-  with the websocket).
-- `shot <sel>` uses `document.querySelector` — can't pierce shadow DOM; shoot the viewport and crop.
-- Cropping to one element drops popups/dropdowns (different layer).
+## First run — walkthrough (`setup-browser` runs this at its end)
 
-### Web-component apps (nested shadow DOM)
+Show the user how a real run looks, read-only, narrating each step in one plain line. Use the account from
+`browser.json` (`dev_bridge.account`/`host`); no account there → ask for the Home page URL, or do steps 1–4 only.
 
-`document.querySelector` from outside finds nothing → `cdp.py a11y` for a `@ref`, then `click`, or
-walk `shadowRoot` yourself. Synthetic events (`el.click()`/`dispatchEvent`) are rejected by some
-apps — fire a real `Input.dispatchMouseEvent` (import `cdp`, use `cdp.C()`, which sets
-`suppress_origin=True`; a raw websocket gets a 403 origin check).
+1. The notice (Every run step 0), then `bsk session start --no-focus --name walkthrough --json` and the one tab it opened.
+   *"เปิด Agent Window เบื้องหลังของ Claude เอง ไม่ยุ่งกับ tab ที่คุณเปิดอยู่"*
+2. `navigate` to the Home page (`--wait-until domcontentloaded`). Login page → step 5 (consent from `browser.json`).
+3. Dialog guard, then the identity gate. *"กันไม่ให้ popup ยืนยันโดนกดเอง และเช็คว่าอยู่ถูกบัญชี"*
+4. `bsk observe --max-tokens 600` or a screenshot to a file: show what Claude "sees".
+5. Dev Bridge (if enabled): `ns_read.py ping` then `ns_read.py query --account <ACCOUNT> "SELECT COUNT(*) AS n FROM script"`.
+   *"อ่านข้อมูลจริงผ่าน Dev Bridge แบบอ่านอย่างเดียว"*
+6. `bsk session stop <id>` and confirm your id is gone from `bsk session list`.
+7. Close with three things to remember: Claude tells you each time it opens bsk; on production every click/submit is
+   listed for your OK first; and how to ask (e.g. *"ใช้ bsk เปิด <ลิงก์> แล้วบอกค่า field X"*, *"ใช้ Dev Bridge เช็คว่า
+   script นี้ deploy อยู่ไหม"*).
 
-### Auto-login (click submit, never type credentials)
+## Claude in Chrome
 
-Same rule as bsk step 5: if the Login button is disabled, click the background once (fires `blur`);
-click **Login**; never read the password field; empty fields → stop and ask. `cdp.py login` (reads
-`NS_EMAIL`/`NS_PASSWORD`/`NS_TOTP_SECRET` from a local `NS_ENVFILE`) exists for hands-off login —
-prefer click-submit.
+`mcp__claude-in-chrome__*` drives the main Chrome in real tabs (its own tab group). Use it for sites that need the main
+Google session (Sheets, Drive under the work account), as the second lane when `bsk` is down, or for a step the user wants
+to watch. Its `javascript_tool` can read `:-webkit-autofill` and run `fetch` (verified). Not verified against native
+dialogs: confirm the round like `bsk` before changing data.
 
-## Other browsers
+## Quick reference (bsk)
 
-Claude in Chrome (`mcp__claude-in-chrome__*`) drives the main Chrome for tasks that need the main
-Google session (e.g. Sheets under `<work-email>`). Don't use the 9333 profile (a `<personal-gmail>`
-login) for those — Access denied.
-
-## Quick reference
-
-| Need | bsk | cdp |
-|---|---|---|
-| Session / tab | `bsk session start --no-focus --json` · `bsk tab list --session <id> --scope agent --json` (use the one tab it opened; `tab create` only as fallback) | `cdp.py ns-session tab <compid>` |
-| Navigate | `bsk navigate <url> --wait-until domcontentloaded …` | `cdp.py nav <url>` |
-| Run JS | `bsk evaluate "<js>" …` (awaits promises; 0.4+: after a fresh `cooperate sync`, step 2b) | `cdp.py eval "<js>"` |
-| Bounded page view | `bsk observe --max-tokens 600 …` | `cdp.py a11y <query>` |
-| Screenshot | `bsk screenshot --out f.png …` | `cdp.py shot f.png` |
-| Cleanup | `bsk session stop <id>` · `bsk status` | close only your own tab |
+| Need | Command |
+|---|---|
+| Session / tab | `bsk session start --no-focus --json` · `bsk tab list --session <id> --scope agent --json` (use the one tab it opened; `tab create` only as fallback) |
+| Navigate | `bsk navigate <url> --wait-until domcontentloaded …` |
+| Run JS | `bsk evaluate "<js>" …` (awaits promises; 0.4+: after a fresh `cooperate sync`, step 2b) |
+| Bounded page view | `bsk observe --max-tokens 600 …` |
+| Screenshot | `bsk screenshot --out f.png …` |
+| Dev Bridge read | `ns_read.py <action> --account <ACCOUNT> …` |
+| Cleanup | `bsk session stop <id>` (your id only) · `bsk session list` |
 
 ## Status
 
-v0.2 — bsk lane verified 2026-09-29 on one Apple Silicon Mac against a NetSuite sandbox (login,
-identity gate, Home read, dialog behaviour, `evaluate`+`fetch`); numbers above are from that run.
-Not yet pressure-tested per `superpowers:writing-skills`. Not measured: cdp against a bound NetSuite
-lane on this Mac, long sessions, multi-agent contention on macOS.
+v0.3 — bsk lane verified 2026-09-29 on one Apple Silicon Mac against a NetSuite sandbox (login, identity gate, Home read,
+dialog behaviour, `evaluate`+`fetch`), bsk 0.4.2 cooperate sync 2026-11-06. Dev Bridge flow as implemented by
+`ns_read.py` (verified live on a sandbox; see `ns-live-verify`). The first-run walkthrough is new in 202611_03 and not yet
+run end to end. Not yet pressure-tested per `superpowers:writing-skills`.
