@@ -9,6 +9,16 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.50.0 — 2026-11-17
+
+- **slack-daily-recap 202611_02**:
+  - **Reaction check before "unanswered".** For each item about to be filed as unanswered, `slack_get_reactions` runs on the last message. If the user reacted, the item is filed as "acknowledged by reaction" (open or FYI), not unanswered. Measured live, read-only: `slack_read_thread` detailed shows only a reaction count, concise shows none, and only `slack_get_reactions` names who reacted.
+  - The timezone comes from `slack_read_user_profile` (detailed has a `Timezone` line; concise leaves it out).
+  - The day window is computed in Python with `zoneinfo`, replacing the macOS-only `date -j`. Checked: 17/11 in Asia/Bangkok matches the message timestamps.
+  - The output order is fixed: categories, coverage, then the three lists, then one next-step line.
+  - The coverage note now names user-group mentions.
+  - A Status section was added.
+
 ## v0.49.0 — 2026-11-17
 
 - **capture-artifact 202611_04**:

@@ -9,7 +9,7 @@ description: >-
 
 # Slack daily recap
 
-**Skill version: `202611_01`**
+**Skill version: `202611_02`**
 
 One command at the end of the day, one answer to: who talked to or tagged me today, about what, and what is still open for me.
 Slash command: `/bombot-forge:slack-daily-recap`.
@@ -40,7 +40,10 @@ its own theme.
    (claude.ai Settings -> Connectors, or `/mcp`) and that the recap cannot run until then.
 3. The user's own id: the search tool's description usually says "Current logged in user's user_id is Uxxxx"; otherwise
    `slack_read_user_profile` with no argument. Do not guess an id.
-4. Only the public search is available -> say so now: private channels and DMs will not be covered.
+4. **The user's timezone:** `slack_read_user_profile` (`response_format: detailed`, no argument) has a `Timezone` line
+   (e.g. `Asia/Bangkok`; `concise` leaves it out). Use it for the day boundary and say it in the coverage note. No
+   timezone there → the machine's, and say so.
+5. Only the public search is available -> say so now: private channels and DMs will not be covered.
 
 ## Step 1 - Collect (send the searches together in one turn)
 
@@ -68,7 +71,9 @@ and the `message_ts`, and the next steps need all three (found when this skill w
   usually in a later reply.
 - **DMs are one running conversation per person, not threads.** Read each DM of the day with `slack_read_channel`, passing the
   other person's user id as `channel_id` (works for a DM) with `oldest` / `latest` set to the day's start and end as Unix
-  seconds in the user's timezone (compute them, do not guess; `date -j -f ... +%s` on macOS). A group DM needs its channel id
+  seconds in the user's timezone (compute them, do not guess; works on macOS and Windows:
+  `python3 -c "from datetime import datetime,timedelta;from zoneinfo import ZoneInfo as Z;d=datetime(2026,11,17,tzinfo=Z('Asia/Bangkok'));print(int(d.timestamp()),int((d+timedelta(days=1)).timestamp())-1)"`;
+  on Windows `python`/`py`, and if `zoneinfo` has no data there, `pip install tzdata`). A group DM needs its channel id
   from the detailed search. Treat each person's DM as one unit.
 - A long thread, or one that runs across days: read all of it, and say which part happened before the day.
 - More than about 15 threads: you may hand the reading to read-only subagents (`model: haiku`) in parallel and ask each to return
@@ -77,6 +82,11 @@ and the `message_ts`, and the next steps need all three (found when this skill w
 ## Step 3 - Sort (one thread, one category, in this order)
 
 1. **Unanswered** - a question, request or tag was sent to the user and the user wrote nothing in that thread afterwards.
+   **Before you file it here, check for a reaction:** `slack_get_reactions` on that last message (only for the items
+   about to go in this category). If the user reacted (their id in the list, e.g. ✅ 👍 👀), file it as **"acknowledged
+   by reaction"** under *answered but still open* when it still asks for something, or *FYI* when it does not — never as
+   unanswered. (Measured 2026-11-17: `slack_read_thread` `detailed` shows only the reaction count, `concise` none;
+   only `slack_get_reactions` names who reacted.)
    In a DM this means the last message of the day is the other person's, it asks or waits for something, and the user wrote
    nothing after it. A call may have happened without any text: a Slackbot line such as "A huddle started" after the request
    counts as handled by call (say so); an invitation to a meeting link with no reply can only be reported as "no reply in
@@ -96,12 +106,26 @@ time -> who -> gist -> what it means for the user.
 
 - A heading per category. Each item: thread permalink, channel, who, the subject in one line, status / what is open.
 - Use the user's language (Thai with English terms for this team) and people's names as Slack shows them.
-- End the report with what it **covers and does not cover** (for example: @here/@channel not searched, private channels and DMs
-  not visible on a public-only search, a date boundary in the user's timezone).
-- Last line: "next step" - which thread to draft a reply for first, or which reminders to set.
+- After the categories, what it **covers and does not cover**: @here/@channel and user-group mentions (e.g. `@dev-team`)
+  are not found by the `<@UID>` search; private channels and DMs are not visible on a public-only search; the day boundary
+  and the timezone used.
+- Then the user's global answer format when they have one (checked / inferred / not looked at), and last, one "next step"
+  line: which thread to draft a reply for first, or which reminders to set. Never end on the lists.
 - If the user wants to share it, offer a page/artifact; do not make one unasked.
 
 ## Guardrails
 
-- Match the user's global answer format (checked / inferred / not looked at, then one "next step" line) when the user has one.
 - Customer names, people's names and message text stay in the chat. None of it belongs in this repo.
+
+## Status
+
+202611_01 (2026-11-06):
+- Tested read-only on one real day: 15 mention hits became 10 threads, every thread was read in full, and the items were sorted as expected.
+- Not tested: the pre-flight stop with Slack disconnected, and the subagent hand-off above about 15 threads.
+
+202611_02 (2026-11-17):
+- The reaction check was measured live: `read_thread` detailed shows a count only, concise shows none, and `get_reactions` names who reacted.
+- The timezone now comes from the Slack profile (`Asia/Bangkok` on the maintainer's account).
+- The day window is computed in Python, so it works on Windows (not run on Windows).
+- The output order was fixed, and user-group mentions were added to the coverage note.
+- Not tested: a full recap run with the reaction step.
