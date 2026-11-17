@@ -9,6 +9,23 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.47.0 — 2026-11-17
+
+- **ns-record-write 202611_02**: bsk only. The cdp engine was removed from `ns_write.py`.
+  - `--engine auto` used to fall back to cdp without `--bsk-session`. Now `--bsk-session` and `--bsk-tab` are required.
+  - `--engine bsk` and `--allow-bsk-prod` are still accepted with no effect. `--tab` and `--engine cdp` are now usage errors.
+  - 21 offline tests: the cdp tests were dropped and one for the removed flags was added.
+  - Live on bsk 0.5.0 (SB2, after the extension was updated): a dry-run on a `currency` record. The dialog guard, account guard and BEFORE read worked, and nothing was written. A `--confirm` write on 0.5.0 was not run.
+- **validate-setup.sh**:
+  - Checks bsk (installed, a browser connected, no `version_skew`) instead of `cdp.py` and port 9333.
+  - The hard-coded `/Users/...` path is gone. Windows hand checks are in the skill.
+- **Skill text**:
+  - Dev machines only (non-dev changes go through Claude in Chrome).
+  - The Windows allow rule (`python` / `py`).
+  - The sample allow block no longer allow-lists `suitecloud file:upload` (uploads must prompt).
+  - The test count is fixed. The repo CLAUDE.md and README rows are updated.
+- Projects with a copy of `ns_write.py` (one customer project has it tracked) must re-copy it. The validator flags the drift.
+
 ## v0.46.0 — 2026-11-17
 
 - **ns-live-verify 202611_03**: `ns_read.py` has two new subcommands for the any-role Dev Bridge.

@@ -4,17 +4,15 @@ ns_write.py — scoped, auditable NetSuite record-write helper (submitFields OR 
 
 Runs ONE of two write modes against the record you name, on a logged-in NetSuite tab. It does
 NOT accept free-form JS — only --type / --id / --set field=value. That is the whole point of
-allow-listing this ONE script instead of `cdp.py eval:*`.
+allow-listing this ONE script instead of a raw browser `evaluate`.
 
-Two engines drive the tab (the caller owns the tab; this script never opens or closes one):
-  --engine cdp   Chrome for Testing over CDP (port 9333): pass --tab <TARGET_ID>. Production OK.
-  --engine bsk   BrowserSkill: pass --bsk-session <id> --bsk-tab <id> (your own pinned tab, already
-                 on a classic NetSuite page). --confirm works on any environment; on a non-sandbox
-                 account it prints a WARNING. The protection is the round's confirmation (the caller
-                 lists the write and gets the user's OK) plus dry-run first; this helper's in-page
-                 write is an N/record call that clicks nothing and opened no dialog in any live test.
-                 --allow-bsk-prod is still accepted (no longer needed) so old command lines keep working.
-  --engine auto  (default) bsk if --bsk-session is given, else cdp.
+It drives the tab through BrowserSkill (bsk): pass --bsk-session <id> --bsk-tab <id> (your own pinned
+tab, already on a classic NetSuite record page; the caller owns the tab, this script never opens or
+closes one). --confirm works on any environment; on a non-sandbox account it prints a WARNING. The
+protection is the round's confirmation (the caller lists the write and gets the user's OK) plus
+dry-run first; the in-page write is an N/record call that clicks nothing and opened no dialog in any
+live test. --engine bsk and --allow-bsk-prod are still accepted (no effect) so old command lines parse.
+The cdp engine was removed in plugin 0.47.0 (cdp is history: docs/history/cdp-lane.md).
 
 Modes:
   --mode submit  (default) N/record.submitFields  — fast body-field update, no sourcing/UE
@@ -32,7 +30,7 @@ Guards (all must pass before any write):
 It never reads or types credentials.
 
 Examples:
-  # dry-run submitFields on SB2 (safe)
+  # dry-run submitFields on SB2 (safe); every call also takes --bsk-session <SID> --bsk-tab <TAB>
   python3 scripts/qa/ns_write.py --account 4089685_SB2 \
       --type customrecord_mfg_completionusage --id 16525 \
       --set custrecord_mfg_usagecompletion=2935624
@@ -46,22 +44,16 @@ Examples:
   python3 scripts/qa/ns_write.py --account 4089685_SB2 --mode save \
       --type salesorder --id 12345 --set memo="fixed" --confirm
 
-  # pin a specific tab when several NetSuite tabs are open (cdp)
-  python3 scripts/qa/ns_write.py --tab <TARGET_ID> --account 4089685 ...
-
-  # same dry-run through bsk (own session + pinned tab, on a classic NetSuite page)
-  python3 scripts/qa/ns_write.py --engine bsk --bsk-session <SID> --bsk-tab <TAB> \
+  # in full
+  python3 scripts/qa/ns_write.py --bsk-session <SID> --bsk-tab <TAB> \
       --account 4089685_SB2 --type customrecord_mfg_completionusage --id 16525 \
       --set custrecord_mfg_usagecompletion=2935624
 """
-import os, sys, json, time, argparse, subprocess
+import os, sys, json, argparse, subprocess
 
-CDP = os.environ.get("CDP_SCRIPT", "/Users/bombot/.claude/skills/netsuite-qa-browser/references/cdp.py")
-PORT = os.environ.get("CDP_PORT", "9333")
-
-# Selected engine, set once in main(): the caller owns the tab for both engines. "coop" turns on once
-# bsk (0.4+) has asked for a cooperate sync, so later commands sync first.
-ST = {"engine": "cdp", "session": None, "tab": None, "coop": False}
+# The caller's bsk session and tab, set once in main(). "coop" turns on once bsk (0.4+) has asked for a
+# cooperate sync, so later commands sync first.
+ST = {"session": None, "tab": None, "coop": False}
 
 # bsk 0.4+ refuses a tab action until `bsk cooperate sync` has run, and an observation id works once.
 # Only these refusals are retried, and only when bsk says nothing ran (data.effect_state "none").
@@ -150,33 +142,9 @@ def _await_bsk(setup_js, secs=20):
         return {"ok": False, "err": "unparseable: %s" % str(v)[:200], "transport": True}
 
 
-def _ev(js, tab=None):
-    env = dict(os.environ, CDP_PORT=PORT)
-    if tab:
-        env["TGT_ID"] = tab
-    r = subprocess.run(["python3", CDP, "eval", js], env=env,
-                       capture_output=True, text=True)
-    o = r.stdout.strip()
-    if len(o) >= 2 and o[0] == '"' and o[-1] == '"':
-        o = o[1:-1]
-    return o, r.stderr.strip()
-
-
-def _await(setup_js, tab=None, tries=25):
-    """Fire an async require() that stashes JSON into window.__X, then poll it.
-    cdp.py serializes JS null as the string 'None' — reject it while polling."""
-    if ST["engine"] == "bsk":
-        return _await_bsk(setup_js)
-    _ev("window.__X=null; " + setup_js, tab)
-    for _ in range(tries):
-        v, _e = _ev("window.__X", tab)
-        if v and v not in ("null", "undefined", "None", ""):
-            try:
-                return json.loads(v)
-            except Exception:
-                return {"ok": False, "err": "unparseable: " + v[:200]}
-        time.sleep(1)
-    return {"ok": False, "err": "timeout waiting for browser result", "transport": True}
+def _await(setup_js):
+    """Fire an async require() that stashes JSON into window.__X and wait for it (stubbed in tests)."""
+    return _await_bsk(setup_js)
 
 
 def _s(x):
@@ -196,12 +164,10 @@ def main():
                    help="submit = submitFields (default); save = load/setValue/save")
     ap.add_argument("--dynamic", action="store_true",
                    help="(save mode) load in dynamic mode so field sourcing runs")
-    ap.add_argument("--engine", choices=["auto", "cdp", "bsk"], default="auto",
-                   help="auto = bsk when --bsk-session is given, else cdp")
-    ap.add_argument("--tab", default=None, help="(cdp) CDP target id to pin (optional)")
-    ap.add_argument("--bsk-session", default=None, help="(bsk) your own session id")
-    ap.add_argument("--bsk-tab", default=None,
-                   help="(bsk) your own pinned tab id, already on a classic NetSuite page")
+    ap.add_argument("--engine", choices=["bsk"], default="bsk", help="(no effect) bsk is the only engine")
+    ap.add_argument("--bsk-session", required=True, help="your own bsk session id")
+    ap.add_argument("--bsk-tab", required=True,
+                   help="your own pinned tab id, already on a classic NetSuite record page")
     ap.add_argument("--allow-bsk-prod", action="store_true",
                     help="(deprecated, no effect) bsk may write on any environment; kept so old command "
                          "lines still parse")
@@ -219,26 +185,17 @@ def main():
         values[k.strip()] = v
     fields = list(values.keys())
 
-    # ---- engine ----------------------------------------------------------------
-    engine = args.engine
-    if engine == "auto":
-        engine = "bsk" if args.bsk_session else "cdp"
-    if engine == "bsk":
-        if not (args.bsk_session and args.bsk_tab):
-            ap.error("--engine bsk needs --bsk-session and --bsk-tab (your own pinned tab)")
-        if args.tab:
-            ap.error("--tab is for the cdp engine; use --bsk-tab with bsk")
-        ST.update(engine="bsk", session=args.bsk_session, tab=args.bsk_tab)
-        _v, err = _bsk_eval(DIALOG_GUARD_JS)
-        if err:
-            print("ABORT: could not install the dialog guard:", err); sys.exit(2)
-    print("engine =", engine)
+    # ---- the caller's bsk tab + dialog guard ------------------------------------
+    ST.update(session=args.bsk_session, tab=args.bsk_tab)
+    _v, err = _bsk_eval(DIALOG_GUARD_JS)
+    if err:
+        print("ABORT: could not install the dialog guard:", err); sys.exit(2)
+    print("engine = bsk")
 
     # ---- Guard 1: account identity -------------------------------------------
     guard = _await(
         "require(['N/runtime'], function(rt){ window.__X = JSON.stringify("
-        "{ok:true, acct:String(rt.accountId), env:rt.envType, url:location.host}); });",
-        args.tab)
+        "{ok:true, acct:String(rt.accountId), env:rt.envType, url:location.host}); });")
     if not guard.get("ok"):
         print("ABORT: could not read account from tab:", guard.get("err")); sys.exit(2)
     live = guard.get("acct")
@@ -253,7 +210,7 @@ def main():
         "require(['N/search'], function(s){ try{ var r=s.lookupFields("
         "{type:%s, id:%s, columns:%s}); window.__X=JSON.stringify({ok:true, r:r}); }"
         "catch(e){ window.__X=JSON.stringify({ok:false, err:String(e)}); } });"
-        % (_s(args.type), _s(args.id), cols), args.tab)
+        % (_s(args.type), _s(args.id), cols))
     print("BEFORE:", json.dumps(before.get("r", before), ensure_ascii=False))
     print("\nPLAN [mode=%s%s]: type=%s id=%s values=%s"
           % (args.mode, " dynamic" if args.dynamic else "", args.type, args.id,
@@ -263,7 +220,7 @@ def main():
         print("\nDRY-RUN (no --confirm) — nothing written."); return
     if args.allow_bsk_prod:
         print("NOTE: --allow-bsk-prod is no longer needed (ignored).")
-    if engine == "bsk" and str(guard.get("env")).upper() != "SANDBOX":
+    if str(guard.get("env")).upper() != "SANDBOX":
         print("WARNING: writing to a NON-sandbox account (env=%r) via bsk — the round's confirmation is the guard."
               % guard.get("env"))
 
@@ -289,7 +246,7 @@ def main():
             "}catch(e){ window.__X=JSON.stringify({ok:false, err:String(e)}); } });"
             % (acct_guard, _s(args.type), _s(args.id),
                "true" if args.dynamic else "false", setters))
-    res = _await(write_js, args.tab)
+    res = _await(write_js)
     if not res.get("ok"):
         if res.get("transport"):
             print("OUTCOME UNKNOWN — the write may or may not have happened (%s)." % res.get("err"))
@@ -303,7 +260,7 @@ def main():
         "require(['N/search'], function(s){ try{ var r=s.lookupFields("
         "{type:%s, id:%s, columns:%s}); window.__X=JSON.stringify({ok:true, r:r}); }"
         "catch(e){ window.__X=JSON.stringify({ok:false, err:String(e)}); } });"
-        % (_s(args.type), _s(args.id), cols), args.tab)
+        % (_s(args.type), _s(args.id), cols))
     print("AFTER :", json.dumps(after.get("r", after), ensure_ascii=False))
 
 

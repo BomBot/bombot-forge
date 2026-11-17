@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline tests for ns_write.py — no browser, no network, no bsk/cdp installed.
+"""Offline tests for ns_write.py — no browser, no network, no bsk installed.
 
 The browser layer is stubbed on the loaded module by replacing `_await` (which returns the
 JSON dict the page would stash) and `_bsk_eval` (the bsk dialog-guard call, which returns
@@ -28,7 +28,7 @@ class OfflineWriteTest(unittest.TestCase):
     def setUp(self):
         self.mod = load_module()
         # Reset the engine state before every test, as main() would at process start.
-        self.mod.ST = {"engine": "cdp", "session": None, "tab": None}
+        self.mod.ST = {"session": None, "tab": None, "coop": False}
         self.writes = []
         self.account = "4089685_SB2"
         self.env = "SANDBOX"
@@ -60,8 +60,8 @@ class OfflineWriteTest(unittest.TestCase):
         return code, out.getvalue(), err.getvalue()
 
     def base_args(self, confirm=False):
-        args = ["--account", self.account, "--type", "customrecord_x", "--id", "1",
-                "--set", "memo=v"]
+        args = ["--bsk-session", "s", "--bsk-tab", "t", "--account", self.account, "--type", "customrecord_x",
+                "--id", "1", "--set", "memo=v"]
         if confirm:
             args.append("--confirm")
         return args
@@ -133,16 +133,6 @@ class OfflineWriteTest(unittest.TestCase):
         self.assertEqual(len(self.writes), 1)
         self.assertIn("WRITE ok", out)
 
-    # 6. cdp + --tab + PRODUCTION + --confirm: exit 0, writes
-    def test_cdp_production_writes(self):
-        self.account = "4089685"
-        self.env = "PRODUCTION"
-        code, out, _ = self.run_main(
-            ["--engine", "cdp", "--tab", "T"] + self.base_args(confirm=True))
-        self.assertEqual(code, 0)
-        self.assertEqual(len(self.writes), 1)
-        self.assertIn("WRITE ok", out)
-
     # 7. transport failure during the write: exit 3, OUTCOME UNKNOWN
     def test_transport_failure_is_unknown(self):
         self.write_result = {"ok": False, "transport": True, "err": "lost"}
@@ -205,7 +195,7 @@ class OfflineWriteTest(unittest.TestCase):
     # 14. two --set values both reach the payload (field id and value each)
     def test_two_sets_both_reach_payload(self):
         js = self.confirmed_write(
-            ["--account", self.account, "--type", "customrecord_x", "--id", "1",
+            ["--bsk-session", "s", "--bsk-tab", "t", "--account", self.account, "--type", "customrecord_x", "--id", "1",
              "--set", "memo=a", "--set", "note=b", "--confirm"])
         self.assertIn('"memo":"a"', js)
         self.assertIn('"note":"b"', js)
@@ -213,7 +203,7 @@ class OfflineWriteTest(unittest.TestCase):
     # 15. quotes and backslashes in a value are JSON-escaped into the JS string
     def test_value_is_json_escaped(self):
         js = self.confirmed_write(
-            ["--account", self.account, "--type", "customrecord_x", "--id", "1",
+            ["--bsk-session", "s", "--bsk-tab", "t", "--account", self.account, "--type", "customrecord_x", "--id", "1",
              "--set", 'memo=say "hi" \\ ok', "--confirm"])
         self.assertIn('"memo":"say \\"hi\\" \\\\ ok"', js)
 
@@ -223,17 +213,15 @@ class OfflineWriteTest(unittest.TestCase):
         self.assertIn("account changed to", js)
         self.assertIn('"4089685_SB2"', js)
 
-    # 18. cdp and bsk produce byte-identical write JS for the same arguments
-    def test_cdp_and_bsk_send_same_js(self):
-        bsk_js = self.confirmed_write(
-            self.bsk_args() + self.base_args(confirm=True))
-        self.writes = []
-        # main() keeps engine state in the module (a real run is a fresh process), so reset it
-        # or the second run would still think it is bsk
-        self.mod.ST = {"engine": "cdp", "session": None, "tab": None}
-        cdp_js = self.confirmed_write(
-            ["--engine", "cdp", "--tab", "T"] + self.base_args(confirm=True))
-        self.assertEqual(bsk_js, cdp_js)
+    # 18. the cdp engine is gone: no bsk session/tab is a usage error, and --tab is unknown
+    def test_bsk_session_and_tab_are_required_and_cdp_is_gone(self):
+        argv = ["--account", self.account, "--type", "customrecord_x", "--id", "1", "--set", "memo=v", "--confirm"]
+        for bad in (argv, ["--bsk-session", "s"] + argv, ["--engine", "cdp", "--bsk-session", "s", "--bsk-tab", "t"] + argv,
+                    ["--tab", "T", "--bsk-session", "s", "--bsk-tab", "t"] + argv):
+            with self.subTest(argv=bad):
+                code, _, _ = self.run_main(bad)
+                self.assertEqual(code, 2)
+                self.assertEqual(self.writes, [])
 
 
 class Bsk04EvalTest(unittest.TestCase):

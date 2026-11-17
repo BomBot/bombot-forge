@@ -56,8 +56,8 @@ reusable script emerges — don't split prematurely.
 their own `scripts/qa/ns_write.py` and commit it there (see that skill's Setup section). If you
 change the canonical copy, the skill body's setup instructions assume projects will re-sync
 manually — there's no automated distribution. `validate-setup.sh` in the same folder is a
-per-machine checker (script drift, permissions allow-rule present, `cdp.py` present, QA Chrome
-reachable on CDP port 9333) — run it after changing the write helper to confirm nothing silently
+per-machine checker (script drift, permissions allow-rule present, bsk installed with a browser
+connected and no extension version skew) — run it after changing the write helper to confirm nothing silently
 drifted from the canonical copy.
 
 ## Status

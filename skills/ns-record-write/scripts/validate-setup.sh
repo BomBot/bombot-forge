@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# validate-setup.sh — confirm THIS machine is set up to use ns_submitfields.py the same
+# validate-setup.sh — confirm THIS machine is set up to use ns_write.py the same
 # way as the others. Run from a project root:  bash <skill>/scripts/validate-setup.sh
 # Exit 0 = all required checks PASS; exit 1 = at least one FAIL.
 
@@ -9,8 +9,6 @@ CANON="$SKILL_DIR/scripts/ns_write.py"
 PROJ_SCRIPT="scripts/qa/ns_write.py"
 SETTINGS=".claude/settings.local.json"
 ALLOW_RULE='Bash(python3 scripts/qa/ns_write.py:*)'
-CDP="/Users/bombot/.claude/skills/netsuite-qa-browser/references/cdp.py"
-CDP_PORT="${CDP_PORT:-9333}"
 
 fail=0
 pass() { printf '  \033[32mPASS\033[0m  %s\n' "$1"; }
@@ -51,25 +49,27 @@ else
   bad "$SETTINGS missing — create it with permissions.allow containing \"$ALLOW_RULE\""
 fi
 
-# 3. write engines — at least ONE must be usable (bsk = sandbox writes, cdp = anywhere incl. production)
-engines=0
-if [ -f "$CDP" ]; then pass "cdp lane: cdp.py present ($CDP)"; engines=$((engines+1)); else info "cdp lane unavailable: cdp.py missing at $CDP"; fi
+# 3. bsk: installed, daemon answering, a browser connected, extension not behind the CLI
 if command -v bsk >/dev/null 2>&1; then
-  if BSK_AUTO_START=0 bsk status --json >/dev/null 2>&1; then
-    pass "bsk lane: $(bsk --version 2>/dev/null) — daemon up"; engines=$((engines+1))
+  st="$(BSK_AUTO_START=0 bsk status --json 2>/dev/null)"
+  if [ -z "$st" ]; then
+    bad "bsk installed ($(bsk --version 2>/dev/null)) but the daemon is not answering (bsk daemon start; bsk doctor)"
   else
-    info "bsk installed ($(bsk --version 2>/dev/null)) but daemon/extension not connected (run: bsk daemon start; bsk doctor)"
+    msg="$(printf '%s' "$st" | python3 -c '
+import json, sys
+b = (json.load(sys.stdin).get("browsers") or [])
+if not b: print("NOBROWSER"); sys.exit()
+skew = [x for x in b if x.get("version_skew")]
+print(("SKEW extension %s" % skew[0].get("extension_version")) if skew else "OK")' 2>/dev/null)"
+    case "$msg" in
+      OK)        pass "bsk lane: $(bsk --version 2>/dev/null), browser connected, no version skew" ;;
+      NOBROWSER) bad "bsk daemon up but no browser connected (open Chrome, turn the BrowserSkill extension on)" ;;
+      SKEW*)     bad "bsk $(bsk --version 2>/dev/null) but the Chrome ${msg#SKEW } is behind — update the extension (chrome://extensions)" ;;
+      *)         bad "could not read bsk status" ;;
+    esac
   fi
 else
-  info "bsk lane unavailable: bsk not installed (see the browser-engines skill, bsk setup)"
-fi
-if [ "$engines" -eq 0 ]; then bad "no usable write engine — need bsk (sandbox writes) or cdp.py"; fi
-
-# 4. QA Chrome reachable (informational — only needed for the cdp lane at write time)
-if curl -s --max-time 2 "http://127.0.0.1:${CDP_PORT}/json/version" >/dev/null 2>&1; then
-  info "QA Chrome answering on CDP port ${CDP_PORT}"
-else
-  info "QA Chrome not up on port ${CDP_PORT} (start it before an actual write)"
+  bad "bsk not installed (run the setup-browser skill)"
 fi
 
 echo
