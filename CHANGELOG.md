@@ -9,6 +9,26 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.45.0 — 2026-11-17
+
+- **Dev Bridge `2026.10.30-001` (any role)** is reflected in ns-live-verify 202611_02, browser-engines, setup-browser, setup-init 202611_04 and the Windows onboarding doc:
+  - It runs as the caller's role; `asRole` and `nsCode` are in every reply.
+  - `query` returns the first 5,000 rows (`capped`). New actions: `queryPage` (1,000 a page, 10 pages a call) and `count`. `search` is paged; `record` takes sublists.
+  - Testing as another role: see the recipe in the bridge repo.
+  - `ns_read.py` has no `queryPage` / `count` subcommand yet, so use raw bsk for those.
+  - Checked: SB2 ping already reports `2026.10.30-001` with `asRole`.
+
+- **setup-browser 202611_05**:
+  - Removing cdp now also cleans `browser.json` (`also_installed`, `engine`). It warns that other teams' CDP skills lose their browser, and no longer refers to the cdp lane of `browser-engines`, which was already removed.
+  - Claude in Chrome is **required** for a non-dev, because their UI changes are clicked through it in front of them, and optional for a dev.
+  - Dev Bridge trial: any role. It reports `asRole`, and an old Administrator-only deployment answers `FORBIDDEN`: say so and stop.
+  - Windows backup and move commands for `browser.json`.
+  - The stale `flow-runner` 0.3.0 pin gotcha is replaced by the extension-lag gotcha.
+- **browser-engines 202611_04**: "After a bsk update" is now a passive check, run when bsk stops connecting or refuses actions.
+  - It reads `version_skew` and the `compatibility` features blocked by the extension, then tells the user to update the Chrome extension, giving bsk's own recovery text.
+  - Seen on this Mac: CLI 0.5.0 (protocol 1.9) with extension 0.4.2 (protocol 1.8). `ns_read` ping failed with `strict observation changed`.
+  - After the extension was updated to 0.5.0, ping and a SuiteQL read on SB2 worked with no code change. `ns_read` and `ns_write` need no change for bsk 0.5.0.
+
 ## v0.44.0 — 2026-11-17
 
 - **setup-global-instructions 202611_03**: merged the dev and non-dev skills into one.

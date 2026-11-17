@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (bsk, Claude in Chrome, Dev Bridge, login consent)
 
-**Skill version: `202611_04`**
+**Skill version: `202611_05`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -72,11 +72,13 @@ profile to log in to. Tell the user, in plain words, **what it is for**:
 
 **cdp found (Step 0)?** Recommend removing it, and ask (picker: **Remove it (Recommended)** / **Keep it for now**):
 
-- Remove: list exactly what will go (Chrome for Testing app, each `~/.qa-chrome/<name>` profile, each `cdp.py` copy) and
-  that `ns_write.py --engine cdp` and the cdp lane of `browser-engines` stop working on this machine. Move to the
-  Trash (macOS `~/.Trash`, Windows Recycle Bin), never `rm`. Quit Chrome for Testing first. A `cdp.py` that is tracked
-  in a project's git is **not** deleted here — tell the user which project and leave it to them.
-- Keep: record it in `also_installed` as today; nothing else changes.
+- Remove: list exactly what will go (Chrome for Testing app, each `~/.qa-chrome/<name>` profile with its size, each
+  untracked `cdp.py` copy) and that `ns_write.py --engine cdp` / `ns_read.py --engine cdp` stop working on this machine
+  (cdp is already history in `browser-engines`; other teams' skills that drive CDP, e.g. `netsuite-qa-browser`, lose
+  their browser too). Move to the Trash (macOS `~/.Trash`, Windows Recycle Bin), never `rm`. Quit Chrome for Testing
+  first. A `cdp.py` that is tracked in a project's git is **not** deleted here — tell the user which project and leave
+  it to them. Then remove `cdp` from `also_installed` (and an `engine: "cdp"` becomes `"bsk"`) in `browser.json`.
+- Keep: leave `also_installed` as it is; nothing else changes.
 
 Record `engine: "bsk"`. Never set `engine: "cdp"` on a new machine; an existing `"cdp"` value changes only if the user
 agrees.
@@ -96,13 +98,18 @@ agrees.
    (`bsk session start --no-focus`, use the one `about:blank` tab it opens, `bsk session stop`) and confirm
    your session id is gone from `bsk session list` — stop only your own id, never `--all`, and do not expect the count to be 0 (another Claude session may be using the same daemon). Details and per-run rules: skill `browser-engines`.
 
-## Step 3 — Claude in Chrome (optional)
+## Step 3 — Claude in Chrome (optional for a dev, required for a non-dev)
 
-Say it is **optional** and that it is the second-priority lane (after bsk) — useful when bsk is down, for a
-step that will raise a native dialog you want handled in a real tab, or for sites that need your main Chrome/Google
-session (Google Sheets, Drive). Ask (picker: **I'll install it myself** /
-**Walk me through it** / **Skip — it's optional**): *install it yourself from the link, or want me to walk you
-through?* Link:
+Take the role from `setup-init` (or the machine's `~/.claude/CLAUDE.md`: the non-dev text has the "ห้ามใช้ SDF"
+section); unknown → ask once. It is the second-priority lane (after bsk) — useful when bsk is down, for a step that will
+raise a native dialog you want handled in a real tab, for work the user must watch, and for sites that need the main
+Chrome/Google session (Google Sheets, Drive).
+
+- **Non-dev:** say it is **required** — their no-code UI changes are clicked through it in front of them (bsk works in
+  a background window they cannot see). Ask only how (picker: **I'll install it myself** / **Walk me through it**).
+- **Dev:** optional. Ask (picker: **I'll install it myself** / **Walk me through it** / **Skip — it's optional**).
+
+Link:
 `https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn`.
 After they install, test it: load the tools (`ToolSearch` → `select:mcp__claude-in-chrome__tabs_context_mcp`)
 and call `tabs_context_mcp`. Record `claude_in_chrome: true|false|declined`.
@@ -116,13 +123,16 @@ Explain in plain words:
 
 - **What it is:** a read-only Suitelet (`Teibto/TEIBTO-Dev-Bridge`) deployed in the NetSuite account. Claude calls it
   through the logged-in bsk tab: SELECT-only SuiteQL, a record as JSON, field lookups, feature checks, searches.
-  Nothing is written. **Administrator role only.**
+  Nothing is written. **Any role:** it runs as the role you are logged in with, so it sees exactly what that role
+  may see (a record the role cannot open comes back `ok:false` with `nsCode`, e.g. `INSUFFICIENT_PERMISSION`).
 - **When it helps:** "is this script deployment active?", "what is in this field on SO 1234?", "which transactions
   post to this account?", converting a Saved Search to SuiteQL and proving the rows match, checking the real state
   before and after a change instead of guessing.
 - **Needs:** bsk working (step 2) and the user logged in to that account in the same Chrome profile.
 
 Ask with a picker (**Try it now** / **Later** / **Skip**). Skip this step without asking when step 2 did not pass.
+Any role works since bridge `2026.10.30-001` (deployment: All Roles, no Execute As Role). An account still on an older
+deployment answers `FORBIDDEN` for a non-Administrator: say so and stop — updating that deployment is a separate decision.
 
 If yes:
 1. **Now (not earlier) ask for the Home page URL.** Tell the user exactly: *in your everyday Chrome, log in to the
@@ -136,7 +146,8 @@ If yes:
    account uses other ids, ask the user for them (from the script record). If the bridge isn't deployed in
    that account, say so and stop — deploying it is a separate decision.
 3. Test it: `python3 <plugin>/skills/ns-live-verify/scripts/ns_read.py ping --account <ACCOUNT>` (on Windows `python`
-   or `py` if `python3` is missing). Confirm `account` and `envType` match what they expect and `user.isAdmin` is true.
+   or `py` if `python3` is missing). Confirm `account` and `envType` match what they expect, and tell the user which role the bridge ran as (`asRole`;
+   reads follow that role's permissions).
    Then one `query` with `SELECT COUNT(*) AS n FROM script` to show a real read. Non-sandbox accounts are read
    read-only with a NOTE; name the account in what you tell the user. (Only the delegated agent is gated, see
    `setup-coding-agent`.)
@@ -199,8 +210,9 @@ A machine that was set up before keeps its choices. On every re-run (also from a
    unless the user asks.
 4. **Merge, don't replace.** Keep keys this skill doesn't know (another skill or the user may have
    added them). Only touch keys the user chose to change.
-5. **Back up, then write atomically.** `cp browser.json browser.json.bak.<YYYYMMDD_HHMMSS>` first;
-   write a temp file next to it and `mv` it into place. If the file's modified time changed since
+5. **Back up, then write atomically.** First copy it to `browser.json.bak.<YYYYMMDD_HHMMSS>` (macOS `cp`; Windows
+   `Copy-Item "$HOME\.config\bombot-forge\browser.json" "$HOME\.config\bombot-forge\browser.json.bak.$(Get-Date -Format yyyyMMdd_HHmmss)"`);
+   write a temp file next to it and move it into place (`mv` / `Move-Item -Force`). If the file's modified time changed since
    you read it (another session ran setup meanwhile), re-read, re-merge, and tell the user.
 6. **Nothing to change → write nothing** and say so.
 
@@ -241,8 +253,10 @@ commands are not loaded yet). bsk not working → skip it and say why.
 
 - Setup can't turn the extension's connection on; if `bsk status` shows no browser after the user
   says they did, ask them to check the extension popup and the right Chrome profile.
-- The daemon auto-updates itself; Teibto's `flow-runner.py` pins bsk `0.3.0` (refuses `0.3.1`) —
-  direct `bsk` commands work on either.
+- **The CLI/daemon auto-updates; the Chrome extension does not update with it.** After an update the extension can lag
+  (seen 2026-11-17: CLI 0.5.0 / protocol 1.9, extension 0.4.2 / protocol 1.8 → `version_skew: true` and some features
+  blocked). Symptoms: bsk "stops connecting" or refuses actions after an update. The passive check is in
+  `browser-engines` → *After a `bsk` update*.
 - The prefs file is per machine and private; if it gets committed by mistake, remove it from the
   repo — it can hold an account host.
 
@@ -250,5 +264,7 @@ commands are not loaded yet). bsk not working → skip it and say why.
 
 v0.1 draft — written from the flow the maintainer specified; not yet run end to end on a clean
 machine. Steps 4–5 depend on a Dev Bridge deployment the user already has.
+202611_05 (2026-11-17): cdp removal also cleans `browser.json`; Claude in Chrome required for non-dev; Administrator
+asked before the Dev Bridge trial; Windows backup commands; extension-lag gotcha replaces the stale `flow-runner` pin.
 Step 5b (daemon at login): Windows layout observed on one machine on 2026-11-03 (bsk 0.4.1, `wscript` + .vbs, no window) from a
 session's read-only report; Task Settings XML not captured, log off/on not tried. macOS/Linux untested.

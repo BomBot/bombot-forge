@@ -10,7 +10,7 @@ description: >-
 
 # Setup Init (new machine, one checklist)
 
-**Skill version: `202611_03`**
+**Skill version: `202611_04`**
 
 The front door for a new machine. It does not install anything itself: it checks, explains, and runs the setup
 skills in order, each of which asks before it changes anything. Speak plain Thai mixed with English terms; the user may
@@ -42,7 +42,7 @@ Check every item and show **one table**: # · item · what it is for · installe
 | 2 | plugin `bombot-forge` | these setup and NetSuite skills | `claude plugin list` (version) |
 | 3 | global instructions | how Claude works for you in every session: rules, Slack drafts, browser lanes | `~/.claude/CLAUDE.md` exists and has the team sections (e.g. `# Accuracy`, `# Browser automation`) |
 | 4 | browser lane: bsk (+ Claude in Chrome) | Claude reads NetSuite pages in your logged-in Chrome | `bsk` on the PATH, `BSK_AUTO_START=0 bsk status --json` shows a connected browser, `~/.config/bombot-forge/browser.json` |
-| 5 | Dev Bridge | read-only SuiteQL / record reads, to check real data instead of guessing (Administrator only) | `dev_bridge.enabled` in `browser.json` |
+| 5 | Dev Bridge | read-only SuiteQL / record reads, to check real data instead of guessing (any role; sees what that role may see) | `dev_bridge.enabled` in `browser.json` |
 | 6 | team plugins | code review, KM, release notes, process skills | `claude plugin list` against `setup-plugins/plugins.json` |
 | 7 | Python | runs the Dev Bridge helper `ns_read.py` | `python3 --version` (Windows: `python` / `py`) |
 | 8 | SuiteCloud CLI + SDF project (devs) | pull and later deploy NetSuite files/objects | `node`, `java`, `suitecloud --version`, `suitecloud account:manageauth --list`, an SDF project in this folder |

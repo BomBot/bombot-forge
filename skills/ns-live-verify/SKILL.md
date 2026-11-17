@@ -9,7 +9,7 @@ description: >-
 
 # NetSuite Live Verify (read-only via the TEIBTO Dev Bridge)
 
-**Skill version: `202611_01`**
+**Skill version: `202611_02`**
 
 Run SuiteQL / `record.load().toJSON()` / searches against a live account through a logged-in Chrome
 tab, so you verify against **real state** instead of guessing. Read-only. Pairs with
@@ -34,26 +34,29 @@ another account may deploy it under different ids — check the script record, a
 each account in your private notes (`notes.private.md`, gitignored) or in `browser.json`
 (`dev_bridge.endpoints["<account>"].path`). Never commit a production account id into this tracked file.
 
-Needs a logged-in `*.app.netsuite.com` tab as **Administrator** (the session cookie authenticates;
-no "Available Without Login"). Every reply is `{ok:true, action, ...}` or `{ok:false, error, code}` — check
-`ok` first. Body cap 500 KB; `query`/`search` return at most 1000 rows.
+Needs a logged-in `*.app.netsuite.com` tab, **any role** since bridge `2026.10.30-001` (the session cookie
+authenticates; no "Available Without Login"). It runs as the caller's role, so rows follow that role's permissions —
+say which role answered (`asRole`) when it matters; an older deployment is Administrator-only (`FORBIDDEN`). Every
+reply is `{ok:true, action, asRole, ...}` or `{ok:false, error, code, nsCode?}` — check `ok` first. Body cap 500 KB.
 
 | action | request body | reply |
 |---|---|---|
-| `ping` (GET `?action=ping` also works) | `{}` | `account`, `envType`, `version`, `user{id,role,roleId,isAdmin}`, `serverTime` |
+| `ping` (GET with no action also works, + the manual) | `{}` | `account`, `envType`, `version`, `user{id,role,roleId,isAdmin}`, `serverTime`, `asRole` |
 | `help` (GET ok) | `{}` | the action list |
-| `query` | `{q:"SELECT …", params:[]}` | `rows[]`, `count`, `truncated` — **SELECT only** |
-| `record` | `{type, id, fields?:[…], meta?:true, dynamic?:true}` | `record` (full toJSON with sublists) or `fields{f:{value,text}}`; `meta` adds field + sublist ids |
+| `query` | `{q:"SELECT …", params:[]}` | `rows[]` (first 5,000), `count`, `capped` — **SELECT only** |
+| `queryPage` | `{q, params?, page? \| pages:[from,to], pageSize?}` | `rows[]`, `totalCount`, `pageCount`, `hasMore`, `nextPage` — 1,000 a page, max 10 pages a call; always `ORDER BY` |
+| `count` | `{q, params?}` or a search | `totalCount` (no data) |
+| `record` | `{type, id, fields?:[…], sublists?:[…], meta?:true, dynamic?:true}` | `record` (full toJSON with sublists) or the chosen fields / sublists; `meta` adds field + sublist ids |
 | `lookup` | `{type, id, columns:[…]}` | `values{…}` (fast single-record read) |
 | `feature` | `{names:[…]}` | `features{name:bool}` |
-| `search` | `{searchId}` or `{type, filters, columns, limit}` | `results[]`, `count`, `capped` |
+| `search` | `{searchId}` or `{type, filters, columns, limit}` | `results[]`, `count`, `totalCount`, paged |
 
 `query` details from the script: it must **start with `SELECT`** (so `WITH …` is rejected), contain no
 `;`, and none of `insert|update|delete|merge|create|drop|alter|truncate|grant|revoke` as a word — even
-inside a string literal. Result keys are always **lowercase** (`AS my_id` → `row.my_id`). The platform
-caps non-paged SuiteQL at 5000 rows and the bridge cuts to 1000, so `truncated:true` only means "more
-than 1000": count with `SELECT COUNT(*)`, never with `rows.length`. `OFFSET` is silently ignored — page with
-the `ROWNUM` double-subquery. Every call is written to the script's Execution Log (who + what).
+inside a string literal. Result keys are always **lowercase** (`AS my_id` → `row.my_id`). `query` returns
+the first 5,000 rows (`capped:true` = there may be more): get the total with `count` (or `SELECT COUNT(*)`), never with
+`rows.length`, and read the rest with `queryPage`. `OFFSET` is silently ignored. `ns_read.py` has no
+`queryPage` / `count` subcommand yet — use raw `bsk` (Option A) for those. Every call is written to the script's Execution Log (who + what).
 
 Two ways to drive the tab — **bsk is the default** (see `browser-engines` for the engine choice):
 

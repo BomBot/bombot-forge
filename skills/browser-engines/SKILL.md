@@ -13,7 +13,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0. The old cdp lane is history, not a lane: `docs/history/cdp-lane.md` in this plugin.
 
-**Skill version: `202611_03`**
+**Skill version: `202611_04`**
 
 This skill is the **per-run rules**. Installing and configuring the browser is `setup-browser` (once per machine).
 Command reference for `bsk` comes from the upstream `browser-skill` (installed by `bsk install-skill --harness claude-code`).
@@ -60,11 +60,24 @@ on real NetSuite pages the page load dominates either way.
 
 ### After a `bsk` update (the daemon updates itself)
 
-Compare `daemon_version` in `bsk status --json` with `bsk --version` (and `version_skew`). On Windows (0.4.1) the old
-daemon kept running after an update; the macOS 0.3.3 help suggests update restarts it, conflict not resolved. A daemon that
-is behind: ask the user before stopping it (shared by sessions, never kill it yourself; see
-`setup-browser/references/windows-daemon-hidden.md`). The upstream `browser-skill` updates itself with the CLI. Teibto's
-`flow-runner.py` refuses anything but daemon **and** extension `0.3.0`; direct `bsk` commands work on later versions.
+**Passive check — run it whenever bsk fails to connect or refuses actions it used to accept** (not on every run):
+`BSK_AUTO_START=0 bsk status --json` → read it with Python, not by eye:
+
+- `browsers[].version_skew: true`, or `compatibility.browsers[].features[]` with `available: false` and a
+  `blocked_by[].component: "extension"` → the **Chrome extension is behind the CLI**. The CLI and daemon update
+  themselves; the extension updates only through Chrome. Tell the user, in plain words, with the versions
+  (`cli_version` vs `extension_version`) and bsk's own `recovery` text: open `chrome://extensions`, turn on Developer
+  mode, click **Update** (or wait for the Chrome Web Store), then reload the BrowserSkill extension and check it
+  reconnects (the Update-button route is standard Chrome, not yet tried for this extension). Re-run `bsk status`. Updating the CLI again does not fix it. Seen 2026-11-17 on this Mac: CLI 0.5.0
+  (protocol 1.9), extension 0.4.2 (protocol 1.8), `dom_read` and `unverified_script` blocked; `ns_read.py ping` failed
+  with `strict observation changed` after 5 syncs. After the user updated the extension to 0.5.0, skew cleared and
+  `ns_read.py` ping + query worked with **no code change** (SB2).
+- `daemon_version` differs from `bsk --version` → the daemon is behind. On Windows (0.4.1) the old daemon kept
+  running after an update. Ask the user before stopping it (shared by sessions, never kill it yourself; see
+  `setup-browser/references/windows-daemon-hidden.md`).
+- Empty `browsers` → Chrome is closed or the extension's connection is off (popup toggle, right profile).
+
+The upstream `browser-skill` updates itself with the CLI.
 
 ### Every run
 
@@ -199,9 +212,15 @@ script deployments instead of guessing. Recipes and SuiteQL gotchas: `ns-live-ve
    Every call lands in the script's Execution Log (who + what).
 5. `bsk session stop <your id>`.
 
-**Who and what.** Administrator role only. Actions: `ping` (account, envType, user, isAdmin), `help`, `query`
-(SELECT-only SuiteQL: must start with `SELECT`, no `WITH`, no `;`, no DML words even inside strings; at most 1000 rows,
-`truncated` means more), `record` (full JSON or a field subset), `lookup`, `feature`, `search`. Nothing writes.
+**Who and what.** Any role (bridge `2026.10.30-001`+): it runs as the caller's role, so results follow that role's
+permissions; every reply carries `asRole`, and a NetSuite refusal comes back `ok:false` with `nsCode` (e.g.
+`INSUFFICIENT_PERMISSION`). An older deployment is Administrator-only (`FORBIDDEN`). Actions: `ping` (account, envType,
+user, role), `help`, `query` (SELECT-only SuiteQL: must start with `SELECT`, no `WITH`, no `;`, no DML words even inside
+strings; first 5,000 rows, `capped` means more), `queryPage` (1,000 a page, up to 10 pages a call, `totalCount`),
+`count` (total rows of a query or search, no data), `record` (full JSON with sublists, or chosen fields / sublists),
+`lookup`, `feature`, `search` (paged, `totalCount`). Nothing writes. To see what another role can read, switch role in
+NetSuite (it changes every tab of that account in that Chrome profile — tell the user, switch back after); recipe in the
+Dev Bridge repo `docs/dev-notes/dev-bridge-suiteql-verification.md` → *Testing as another role*.
 
 **Where the address comes from.** Default ids `customscript_teibto_dev_bridge` / `customdeploy_teibto_dev_bridge`;
 another account may use other ids, saved per account in `browser.json` → `dev_bridge.endpoints["<account>"].path`. The

@@ -49,7 +49,7 @@
 - ขอให้ผู้ใช้ก๊อปปี้ URL หน้า Home ของบัญชีที่ใช้งานมาวาง แล้วสร้าง `<ACCOUNT>` จาก URL นั้น (อย่าเดา)
 - ใช้ script id/deploy id เริ่มต้นตาม skill ถ้า ping ไม่ผ่านให้ถามผู้ใช้หา id จริงจาก script record
 - รัน ping ผ่าน `ns-live-verify` (ตัวช่วย `ns_read.py` ใช้ `bsk` เป็น engine) ตรวจว่า `account`, `envType` ตรงกับที่ผู้ใช้คาด
-  และ `user.isAdmin` เป็น true
+  และบอกว่า bridge รันด้วย role ไหน (`asRole`) — ใช้ได้ทุก role อ่านได้เท่าที่ role นั้นมีสิทธิ์
 - บอกผู้ใช้ชัดๆ ว่ากำลังอ่านบัญชีไหน (เป็น production)
 - ถ้าเจอหน้า login ให้ถามผู้ใช้ว่าอนุญาตให้คลิกปุ่ม Login ให้ไหม (ตามขั้น 5 ของ skill `setup-browser`,
   Chrome ต้อง autofill ให้เองและห้ามอ่านช่อง password) ถ้าไม่ผ่านให้ผู้ใช้กดเอง
