@@ -17,7 +17,7 @@ What it does:
 It NEVER applies the patch to your repo and never deletes the worktree — the caller reviews first.
 
   --profile ns-reader (opencode only): NOT a code-edit run. The agent gets an EMPTY scratch folder and a
-  permission list (enforced by OpenCode itself) that allows only `ns_read.py whoami|ping|query|record|lookup|feature|search` from the
+  permission list (enforced by OpenCode itself) that allows only `ns_read.py whoami|ping|query|query-page|count|record|lookup|feature|search` from the
   ns-live-verify skill; every other command, file edit, web access and the flags --allow-prod-read /
   --bridge-path / --config are denied. It can therefore read a SANDBOX account, and nothing else.
   Usage: agent_run.py --profile ns-reader --task-file ask.md --model <provider>/<model>
@@ -82,7 +82,7 @@ def peak_price(model):
 
 AGENT_JSON = "~/.config/bombot-forge/agent.json"
 ACCOUNT_RE = re.compile(r"^[0-9]+(_[A-Za-z0-9]+)?$")
-READER_SUBS = ("whoami", "ping", "query", "record", "lookup", "feature", "search")
+READER_SUBS = ("whoami", "ping", "query", "query-page", "count", "record", "lookup", "feature", "search")
 
 
 def load_agent_cfg(path=None):
@@ -474,7 +474,7 @@ def revoke_read_account(account, path=None):
 
 
 NS_READER_PREAMBLE = """You are a read-only NetSuite assistant. The ONLY command you may run is:
-  {py} {reader} whoami|ping|query|record|lookup|feature|search --account <ACCOUNT> ...
+  {py} {reader} whoami|ping|query|query-page|count|record|lookup|feature|search --account <ACCOUNT> ...
 {prod}Rules (they override the task): never try any other command, flag or file; if a command is refused, say
 so and stop trying to get around it; do not guess values - report exactly what the tool printed; if the
 tool says the session expired or the account is wrong, report that and stop.

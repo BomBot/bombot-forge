@@ -435,9 +435,11 @@ class OfflineReadTest(unittest.TestCase):
         self.assertEqual(len(d["result"]), 100)
 
     # ================= engine / flags / plumbing =================
-    def test_cdp_engine_is_not_implemented(self):
-        code, out = self.invoke(["--engine", "cdp", "whoami", "--account", ACCOUNT, "--config", self.cfg], FakeBsk())
-        self.assertEqual(code, 2)
+    def test_cdp_engine_is_gone(self):
+        with self.assertRaises(SystemExit) as e:        # argparse: not a choice any more
+            with redirect_stderr(io.StringIO()):
+                self.invoke(["--engine", "cdp", "whoami", "--account", ACCOUNT, "--config", self.cfg], FakeBsk())
+        self.assertEqual(e.exception.code, 2)
         cfg = self._cfg({"engine": "cdp"}, "cdp.json")
         fake = FakeBsk()
         code, out = self.invoke(["whoami", "--account", ACCOUNT, "--config", cfg], fake)

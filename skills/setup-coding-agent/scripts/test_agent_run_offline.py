@@ -44,7 +44,7 @@ class PriceTableTest(unittest.TestCase):
 
 
 READER = "/cache/run/ns_read.py"
-SUBS = ("whoami", "ping", "query", "record", "lookup", "feature", "search")
+SUBS = ("whoami", "ping", "query", "query-page", "count", "record", "lookup", "feature", "search")
 
 
 def decide(rules, command):
@@ -68,6 +68,12 @@ class NsReaderPermissionTest(unittest.TestCase):
         r = self.rules([])
         for sub in SUBS:
             self.assertEqual(decide(r, "python3 %s %s --account 4089685_SB2 x" % (READER, sub)), "allow", sub)
+
+    def test_a_subcommand_name_is_matched_whole(self):
+        # `query *` must not let through a longer name that is not on the list
+        r = self.rules([])
+        for sub in ("queryx", "query-pagex", "counts", "query_page"):
+            self.assertEqual(decide(r, "python3 %s %s --account 4089685_SB2 x" % (READER, sub)), "deny", sub)
 
     def test_nothing_else_is_allowed(self):
         r = self.rules(["4089685"])

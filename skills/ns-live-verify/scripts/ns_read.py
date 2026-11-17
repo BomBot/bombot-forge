@@ -20,7 +20,7 @@ ping · query (SuiteQL, SELECT-only, first 5,000 rows) · queryPage (paged Suite
 (customscript_teibto_dev_bridge / customdeploy_teibto_dev_bridge); another account may use others
 (--bridge-path or config dev_bridge.endpoints["<account>"].path).
 
-It drives ONE bsk session it starts and stops itself (engine bsk only, today). Every bsk command
+It drives ONE bsk session it starts and stops itself (bsk is the only engine; cdp was removed in 0.51.0). Every bsk command
 is scoped with --session and --tab-id; the session is stopped in a `finally`, even on error.
 
 Usage:
@@ -39,7 +39,7 @@ Usage:
 Global flags (before or after the subcommand):
   --allow-prod-read   needed for a non-sandbox account only in strict mode (env BOMBOT_NS_READ_STRICT=1, set for the
                       delegated agent); otherwise accepted and ignored
-  --engine bsk|cdp    default: the `engine` key in the config file (bsk)
+  --engine bsk        accepted for old command lines; bsk is the only engine
   --config PATH       default ~/.config/bombot-forge/browser.json; env NS_READ_CONFIG overrides
 
 Output: one JSON object on stdout — {"account", "environment", "result"} where result is the bridge's
@@ -494,8 +494,8 @@ def _global_flags():
     g.add_argument("--allow-prod-read", action="store_true", default=argparse.SUPPRESS,
                    help="required for a non-sandbox account only when BOMBOT_NS_READ_STRICT=1 (the delegated agent); "
                         "otherwise accepted and ignored")
-    g.add_argument("--engine", choices=["bsk", "cdp"], default=argparse.SUPPRESS,
-                   help="default: the config's `engine` key (bsk)")
+    g.add_argument("--engine", choices=["bsk"], default=argparse.SUPPRESS,
+                   help="bsk (the only engine; kept so old command lines parse)")
     g.add_argument("--config", default=argparse.SUPPRESS,
                    help="config JSON path (env NS_READ_CONFIG overrides)")
     return g
@@ -558,10 +558,8 @@ def main(argv=None):
     cfg = load_config(resolve_config_path(args))
     engine = getattr(args, "engine", None) or cfg.get("engine") or "bsk"
     if engine != "bsk":
-        if engine == "cdp":
-            print("engine cdp is not implemented in ns_read.py yet")
-        else:
-            print("engine %s is not implemented in ns_read.py yet" % engine)
+        # an old browser.json may still say "cdp": that lane is history (docs/history/cdp-lane.md)
+        print("engine %r is not supported: ns_read.py runs on bsk only (re-run setup-browser)" % engine)
         return 2
 
     # ---- account -> host --------------------------------------------------------

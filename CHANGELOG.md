@@ -9,6 +9,18 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.51.0 — 2026-11-17
+
+- **setup-coding-agent 202611_01**:
+  - The `ns-reader` profile now allows `ns_read.py query-page` and `count` (added in 0.46.0, read-only, same guard). A new test checks that the rules match whole subcommand names (`queryx`, `query-pagex`, `counts` are denied). 48 offline tests. Not run live through the agent.
+  - cdp mentions removed.
+  - Windows key-file commands (`notepad`, and a PowerShell length check that never reads the key), untested.
+  - The dead reference to setup-browser's "If auto mode blocks a step" was replaced by inline guidance, and the superseded `default_delegate` note was dropped.
+- **Removed the deprecated stubs** `teibto-worker`, `teibto-code` and `setup-teibto-worker` (deprecated since 0.17.0 / 0.18.0; their content lives in `setup-coding-agent`), along with their README rows and plugin.json entries. `setup-global-instructions-nondev` stays one or two more releases.
+- **ns-live-verify 202611_04**: bsk only.
+  - "Option B — cdp.py" was removed, and the scoped helper is now Option B.
+  - `ns_read.py --engine cdp` is now a usage error. An old `browser.json` with `engine: "cdp"` is refused with a hint to re-run `setup-browser`. 49 offline tests.
+
 ## v0.50.0 — 2026-11-17
 
 - **slack-daily-recap 202611_02**:

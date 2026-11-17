@@ -9,7 +9,7 @@ description: >-
 
 # NetSuite Live Verify (read-only via the TEIBTO Dev Bridge)
 
-**Skill version: `202611_03`**
+**Skill version: `202611_04`**
 
 Run SuiteQL / `record.load().toJSON()` / searches against a live account through a logged-in Chrome
 tab, so you verify against **real state** instead of guessing. Read-only. Pairs with
@@ -60,7 +60,7 @@ the first 5,000 rows (`capped:true` = there may be more): get the total with `co
 `ns_read.py query-page --account <A> [--page N | --pages FROM-TO] [--page-size 5..1000] "<SELECT … ORDER BY …>"`
 (it refuses a SELECT without `ORDER BY`, since pages shift without it). Verified on SB2, 2026-11-17. Every call is written to the script's Execution Log (who + what).
 
-Two ways to drive the tab — **bsk is the default** (see `browser-engines` for the engine choice):
+Two ways to call it, both through **bsk** (see `browser-engines`; the old cdp way is history in `docs/history/cdp-lane.md`):
 
 ### Option A — raw `bsk` (verified live on a sandbox; `evaluate` awaits the promise, one call)
 
@@ -84,21 +84,10 @@ Return only what you need from the reply — some browser-automation bridges blo
 URLs / query strings, so never print the endpoint and pick out fields instead of dumping a whole `toJSON()`.
 Read-only: never run writes through this path.
 
-### Option B — `cdp.py` (needs a registered NetSuite lane / claimed tab; pin `TGT_ID`)
-
-Fire the fetch into a `window` variable, read it back in a **separate** call (the console does not await):
-
-```bash
-export CDP_PORT=9333; export TGT_ID=<target-tab-id>
-python3 cdp.py eval 'window.__r=null; fetch("/app/site/hosting/scriptlet.nl?script=customscript_teibto_dev_bridge&deploy=customdeploy_teibto_dev_bridge",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"query",q:"<SELECT ...>",params:[]})}).then(r=>r.json()).then(j=>window.__r=JSON.stringify(j).slice(0,900)); "fired"'
-sleep 3
-python3 cdp.py eval 'window.__r'
-```
-
-### Option C — the scoped helper `scripts/ns_read.py` (for agents that must not run raw `bsk`)
+### Option B — the scoped helper `scripts/ns_read.py` (preferred; the only way for agents that must not run raw `bsk`)
 
 The read-side sibling of `ns_write.py`: one command, no free-form JS, its own `bsk` session that it
-always stops. `python3 scripts/ns_read.py <whoami|ping|query|record|lookup|feature|search> --account <ACCOUNT> …`
+always stops. `python3 scripts/ns_read.py <whoami|ping|query|query-page|count|record|lookup|feature|search> --account <ACCOUNT> …`
 
 - **Identity gate every run** (company from `nlapiGetContext()` must equal `--account`), and the request
   goes out only after the endpoint answers the bridge's own `ping` in the expected shape *and* reports the
@@ -114,8 +103,8 @@ always stops. `python3 scripts/ns_read.py <whoami|ping|query|record|lookup|featu
   `dev_bridge.endpoints["<account>"].path`, else the README's default ids. Nothing else can ride along.
 - Exit codes: `0` ok · `1` the bridge answered `ok:false` · `2` refused by a guard · `3` session/transport/dialog.
 - It announces itself on stderr (`[ns_read] using bsk: opening a background Agent Window …`); stdout stays pure JSON.
-- Engine `bsk` only. `cdp` prints "not implemented" (exit 2) — no lane is bound on the machine it was
-  written on, so it could not be tested.
+- Engine `bsk` only. `--engine cdp` is a usage error since 0.51.0, and an old `browser.json` that still says
+  `engine: "cdp"` is refused (exit 2) with a hint to re-run `setup-browser`.
 - **bsk 0.4+ (cooperate sync):** each `evaluate` is tried; a refusal that asks for a sync (`effect_state: none`) gets
   `bsk cooperate sync` and a retry with `--context`/`--observation` (up to 5 times; NetSuite re-renders, so
   `observation_changed` is common); any other refusal is exit 3. It never calls `cooperate wait` and stops if someone

@@ -11,7 +11,7 @@ description: >-
 
 # Setup Coding Agent (Cline / OpenCode as the worker, Claude as reviewer)
 
-**Skill version: `202609_20`**
+**Skill version: `202611_01`**
 
 Claude writes a brief and reviews; the agent edits files in an **isolated git worktree**; nothing
 reaches your repo until Claude has read the diff and applied it. Tokens burn on the company
@@ -43,7 +43,7 @@ file access; this one reads, edits and runs commands — and is what the **`teib
 - **Never apply without reading every changed line.** `agent_run.py` saves `changes.patch` and
   stops. Claude reads the diff, runs the tests itself, then applies. A cheap model's "tests pass"
   is a claim, not evidence.
-- **These stay with Claude and are never delegated:** anything in a browser (bsk/cdp), any
+- **These stay with Claude and are never delegated:** anything in a browser (bsk, Claude in Chrome), any
   production action, SDF deploys, Slack/email, secrets and credentials, and every decision the
   global `CLAUDE.md` says needs an OK.
 - **Nobody types the API key into chat or a command line.** The user enters it in their own
@@ -119,7 +119,8 @@ Expect `finish: completed`, a one-line patch in `calc.py`, and a token/USD line.
 (`git apply <run dir>/changes.patch`), run `python3 test_calc.py`, and remove the worktree with
 the last command the helper printed.
 
-**Step 4 — record the agent and model.** (`default_delegate` in this file is **superseded since 0.28.0**: how much to hand over is now chosen **per project**, see "Delegation level (per project)"; leave it out or ignore it.) Record `{"agent": "opencode", "model": "<provider-id>/deepseek/deepseek-flash"}`
+**Step 4 — record the agent and model.** (How much to hand over is chosen **per project**, see "Delegation level
+(per project)".) Record `{"agent": "opencode", "model": "<provider-id>/deepseek/deepseek-flash"}`
 (use the agent and the model name exactly as that CLI's own config spells them; for Cline `model` may be
 omitted) in `~/.config/bombot-forge/agent.json` (no secrets). `agent_run.py` and the `teibto-agent`
 subagent read `agent` and `model` from this file, so they need no flags, and **offer** to add a short rule to the global
@@ -149,11 +150,20 @@ template only if the file is missing, locks it to 600 and opens it; it never rea
 ```bash
 F=~/.config/teibto/api.env; mkdir -p ~/.config/teibto
 [ -s "$F" ] || printf 'TEIBTO_API_KEY=\n' > "$F"; chmod 600 "$F"
-open -a "Sublime Text" "$F" 2>/dev/null || open -e "$F"   # fallback: TextEdit
+open -a "Sublime Text" "$F" 2>/dev/null || open -e "$F"   # macOS; fallback: TextEdit
+```
+
+Windows (PowerShell; not run on Windows yet — `chmod` has no equivalent here, the file keeps your profile's permissions):
+
+```powershell
+$F = "$HOME\.config\teibto\api.env"; New-Item -ItemType Directory -Force (Split-Path $F) | Out-Null
+if (-not (Test-Path $F) -or (Get-Item $F).Length -eq 0) { Set-Content $F 'TEIBTO_API_KEY=' -Encoding ascii }
+notepad $F
 ```
 
 Tell the user to paste the key right after `TEIBTO_API_KEY=` (no quotes/spaces), save, and say "saved".
-Check without reading the value: `sed -n 's/^TEIBTO_API_KEY=//p' ~/.config/teibto/api.env | tr -d '\n' | wc -c` (> 0).
+Check without reading the value: `sed -n 's/^TEIBTO_API_KEY=//p' ~/.config/teibto/api.env | tr -d '\n' | wc -c` (> 0);
+PowerShell: `((Get-Content $F | Select-String '^TEIBTO_API_KEY=(.*)').Matches.Groups[1].Value).Length` (> 0).
 Terminal alternative (hidden prompt; the user runs it — it cannot run inside Claude's Bash):
 
 ```bash
@@ -204,10 +214,10 @@ is only loaded at session start, so the first real call needs a fresh session af
 
 `agent_run.py --profile ns-reader --task-file ask.md --model <provider>/<model>` runs the agent in an
 EMPTY scratch folder (no repo, no patch) with a permission list that **OpenCode itself enforces**:
-the only shell commands allowed are `ns_read.py whoami|ping|query|record|lookup|feature|search` (from `ns-live-verify`); every
+the only shell commands allowed are `ns_read.py whoami|ping|query|query-page|count|record|lookup|feature|search` (from `ns-live-verify`; `query-page` / `count` added in 0.51.0, offline-tested only); every
 other command, all file edits, web fetch/search, and the flags `--allow-prod-read`, `--bridge-path`
 and `--config` are denied. So it can read a SANDBOX account through the Dev Bridge and every account listed in
-`agent.json` → `read_accounts` (see below), and can neither click, write, log in, nor run raw `bsk`/`cdp.py`. The Dev Bridge endpoint is the README's default script/deploy ids unless the local `browser.json` has
+`agent.json` → `read_accounts` (see below), and can neither click, write, log in, nor run raw `bsk`. The Dev Bridge endpoint is the README's default script/deploy ids unless the local `browser.json` has
 `dev_bridge.endpoints["<account>"].path`; the agent cannot pass its own (`--bridge-path` is denied).
 A non-sandbox account NOT in that list stays out of the agent's reach (`agent_run.py` runs it with `BOMBOT_NS_READ_STRICT=1`, so `ns_read.py` refuses
 it without `--allow-prod-read`, which the permission list only lets the agent pass for confirmed accounts). Claude's own reads need no flag or approval (since 0.30.0).
@@ -226,7 +236,6 @@ it without `--allow-prod-read`, which the permission list only lets the agent pa
 | `external_directory: deny` also stops the shell from touching other folders | **no — measured**: it covers read/glob/grep only; `git log > /outside/file` wrote a file outside the folder |
 | A `>` redirect is checked against the bash list | **no — measured**: pipes, `&&`, `;`, `$(…)` are checked per command, `>` is not. Since 0.22.8 redirects whose target has `/`, `~`, `$` or `..` are denied (**verified live** with the real config: absolute, `>path`, `~/…` denied). A relative redirect (`> x.txt`) still works and only writes inside this run's empty scratch folder. Fail-closed side effect: a query containing both `>` and `/` is refused |
 | Cline equivalent | none — the profile refuses `--agent cline` |
-| `cdp` engine | not implemented in `ns_read.py` |
 
 ### Confirming a non-sandbox account (production not yet live, customer data)
 
@@ -365,7 +374,7 @@ the code paths and checked by offline tests that fake the OS-specific failure, n
   the helper with a small Python one-liner instead of `ls | sort -V`.
 - Not handled / unknown: `chmod 600` does nothing on Windows (the file keeps your profile's permissions); which shell
   OpenCode uses for its `bash` tool there, and so whether its permission list treats `>`, `|`, `&&` the way it does on
-  macOS; `bsk` and `cdp` launch steps in the browser skills are macOS-only (`open -a`, Chrome paths).
+  macOS.
 - Before trusting `analyze` or `ns-reader` on a new OS, **prove the enforcement there** — the permission list is the
   only barrier. Run the profile with a task that orders forced attempts and check nothing was written: e.g. for
   `analyze` in a scratch repo, `git log --oneline > rel.txt`, the same with an absolute path outside the folder,
@@ -418,10 +427,17 @@ the whole conversation — including code or data the agent read. `agent_run.py`
   log, may contain file contents) and `task.md` — delete it when the work is customer-related.
 - Cline auto-updates itself (`autoUpdateEnabled`); re-run the smoke test after an update.
 - `--worktree` needs a git repo; detached HEAD, so nothing is committed on a branch.
-- If auto mode blocks a step while doing this, stop and offer the three choices in
-  `setup-browser` → "If auto mode blocks a step".
+- If auto mode blocks a step while doing this, stop and tell the user which command was blocked. They can approve
+  that one command, switch the session's permission mode themselves, or run it in their own terminal — never look
+  for a way around the block.
 
 ## Status
 
 v0.1 draft — Cline and OpenCode paths each verified on one Mac with scratch-repo runs. No enforcement layer beyond the worktree; hooks are a possible next step. Not yet run
 on a real customer repo.
+202611_01 (2026-11-17):
+- `ns-reader` allows `query-page` / `count`, with a test that subcommand names match whole.
+- cdp mentions removed.
+- Windows key-file commands added (untested).
+- The dead "If auto mode blocks a step" reference was replaced, and the `default_delegate` note dropped.
+- OpenCode on the maintainer's Mac is still 2.0.20. Cline is not installed on that Mac.

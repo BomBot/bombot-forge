@@ -60,9 +60,6 @@ Kept as short redirect stubs so an old reference doesn't dead-end; the old text 
 
 | Skill | Status |
 |---|---|
-| **teibto-code** | *(deprecated in 0.17.0)* replaced by the `teibto-agent` subagent — see `setup-coding-agent`; the verify-before-apply rule carries over |
-| **teibto-worker** | *(deprecated in 0.17.0)* the subagent it called was removed; use `teibto-agent` (edits), `local-llm` (private text) or `ask_cheap.py` |
-| **setup-teibto-worker** | *(deprecated in 0.18.0)* moved into `setup-coding-agent`: saving `TEIBTO_API_KEY` at a hidden prompt, the `ask_cheap.py` helper and the token/USD price table |
 
 ## Benchmarks
 
