@@ -10,7 +10,7 @@ description: >-
 
 # Setup Init (new machine, one checklist)
 
-**Skill version: `202611_02`**
+**Skill version: `202611_03`**
 
 The front door for a new machine. It does not install anything itself: it checks, explains, and runs the setup
 skills in order, each of which asks before it changes anything. Speak plain Thai mixed with English terms; the user may
@@ -67,8 +67,8 @@ Items already ready: say so and move on.
 1. **`setup-cli` Part A** — git + gh, signed in, Teibto repos visible.
 2. **Plugin** — already installed if this skill is running. After a fresh install the user types `/reload-plugins`
    (or restarts Claude Code) so the slash commands appear.
-3. **Global instructions** — dev: `setup-global-instructions`; non-dev: `setup-global-instructions-nondev`. Merge with an
-   existing file, never overwrite.
+3. **Global instructions** — `setup-global-instructions`, passing the role (dev / non-dev) so it does not ask again.
+   It merges with an existing file, never overwrites.
 4. **`setup-browser`** — bsk, optional Claude in Chrome, Dev Bridge trial (it asks for the Home page URL at that step),
    login-click consent. On Windows, the daemon-at-log-on step.
 5. **`setup-plugins`** — pass the role: the preset (dev = team toolkit + working-discipline plugins; non-dev = team

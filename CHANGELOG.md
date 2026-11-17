@@ -9,6 +9,23 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.44.0 — 2026-11-17
+
+- **setup-global-instructions 202611_03**: merged the dev and non-dev skills into one.
+  - Asks one role question (skipped when `setup-init` passes the role) and detects the OS.
+  - `scripts/build.py --role dev|nondev` replaces `build_nondev.py`. `nondev-sections.md` and the tests moved here: 23 offline tests.
+  - Asks only on conflicting sections. Adds a Windows backup command.
+- **Snapshot re-captured** (shared by both roles):
+  - Browser automation was rewritten: bsk, then Claude in Chrome, then the user. cdp is history, never offered; auto-login only with `auto_login_click: true`; `ns_write` record writes are dev-only. This removes the non-dev conflict with the "Claude in Chrome only" rule.
+  - New section "เครื่องนี้": the OS, plus where to look up the browser lane, plugins and SDF auth ids.
+  - codegraph replaces graphify.
+  - The project-folder-move note was dropped (no longer needed).
+  - The Communication style language rule was synced from the live file.
+  - Placeholders are down to `<Your Name>`, `<work-email>` (asked) and `<OS>` (detected). `<personal-gmail>`, `<qa-project>` and `<PROJECT>` were removed.
+- **setup-global-instructions-nondev 202611_01**: now a deprecated pointer to the merged skill.
+- **setup-init 202611_03**: passes the role to `setup-global-instructions`.
+- README: the two rows were merged.
+
 ## v0.43.0 — 2026-11-17
 
 - **setup-plugins 202611_02**:

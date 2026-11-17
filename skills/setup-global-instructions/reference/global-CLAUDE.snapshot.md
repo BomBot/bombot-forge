@@ -1,8 +1,6 @@
 > **Redacted reference snapshot** of BomBot's global `~/.claude/CLAUDE.md`, kept for the
-> `setup-global-instructions` skill. Customer/personal identifiers are replaced with
-> placeholders — fill them from your own values on each machine, never invent:
-> `<Your Name>` · `<work-email>` · `<personal-gmail>` · `<PROJECT>` (a customer project folder)
-> · `<qa-project>` (the repo that holds the canonical `cdp.py`).
+> `setup-global-instructions` skill. Placeholders are filled per machine, never invented:
+> `<Your Name>` · `<work-email>` (asked) · `<OS>` (detected).
 > Do NOT paste real customer names or account ids back in — this file ships in a public repo
 > and the redaction CI blocks them.
 
@@ -16,6 +14,11 @@
 งานครอบหลาย live account รวม production ของลูกค้า → 2 หลักที่ต้องยึด:
 - **Impact ก่อนแก้** — ของที่แก้มักถูกใช้ร่วม (โค้ด/ออบเจกต์/หลายบัญชี) ไล่ให้ครบว่าใครใช้อยู่ก่อน rename/ลบ/ย้าย อย่าอนุมานจากจุดเดียว
 - **ยืนยันก่อนทำสิ่งที่ย้อนยาก** — revert, ลบ, deploy ขึ้น production → เสนอแผนแล้วรอ OK ก่อนเสมอ
+
+# เครื่องนี้
+- OS: <OS> — คำสั่ง shell ให้ตรง OS นี้ (Windows = PowerShell, path แบบ `$HOME\.claude\...`)
+- รู้ว่าเครื่องนี้มีอะไรจากของจริง ไม่ต้องเดา: browser lane → `~/.config/bombot-forge/browser.json` · plugin → `claude plugin list` · SDF auth id → `suitecloud account:manageauth --list` (เครื่อง dev)
+- เช็กว่าเครื่องขาดอะไร หรือตั้งเพิ่ม → `/bombot-forge:setup-init`
 
 # Accuracy (สำคัญที่สุด)
 - ห้ามเดา ทุกคำตอบต้องอ้างอิงข้อมูลจริงเท่านั้น
@@ -39,7 +42,7 @@
 - ตอบสั้น กระชับ ตรงประเด็น ไม่เกริ่นนำ ไม่มีอารัมภบท
 - ไม่ต้องมีคำขึ้นต้นเชิงมารยาท เช่น "Great question", "I'd be happy to help"
 - ไม่สรุปซ้ำสิ่งที่เพิ่งทำตอนจบ เว้นแต่มีประเด็นสำคัญ
-- พูดคุยทั่วไปตอบเป็นภาษาไทยได้เลย
+- ตอบในแชทเป็น **ไทยคำอังกฤษคำ** ทุกข้อความ (รวม popup / AskUserQuestion) — โครงประโยคไทย ศัพท์เทคนิค EN · **ห้าม EN ล้วน แม้หลัง auto-compact** (summary หลัง compact เป็น EN อย่าไหลตาม)
 
 # Slack / การสื่อสารกับทีม
 
@@ -107,36 +110,10 @@
 
 
 
-# graphify
-- **graphify** (`~/.claude/skills/graphify/SKILL.md`) - any input to knowledge graph. Trigger: `/graphify`
-When the user types `/graphify`, invoke the Skill tool with `skill: "graphify"` before doing anything else.
-
-# Claude Code: ย้าย project folder แล้ว session resume ไม่ได้
-
-อาการ: `Working directory no longer exists: <old path>` ตอนเปิด session ใน Claude Mac app / CLI หลังย้ายโฟลเดอร์ project
-
-Claude Code เก็บ session ที่อิง `cwd` ใน **2 ที่** ต้องแก้ทั้งคู่:
-
-## 1) `~/.claude/projects/<encoded-path>/` (CLI session storage)
-- ชื่อโฟลเดอร์ encode จาก path จริง: `/`, `@`, `_`, space, `.` → `-`
-  - เช่น `/Users/bombot/WebstormProjects/<PROJECT>` → `-Users-bombot-WebstormProjects-<PROJECT>`
-- ต้องแก้ทุกไฟล์ `.jsonl` ใต้โฟลเดอร์ (รวม `<sessionId>/subagents/agent-*.jsonl` และ `tool-results/*.txt`) ที่มี `"cwd":"<old>"`
-
-## 2) `~/Library/Application Support/Claude/` (Mac desktop app)
-- `claude-code-sessions/<workspaceUUID>/<projectUUID>/local_*.json` — มี `"cwd"` และ `"originCwd"`
-- `local-agent-mode-sessions/...` — โครงสร้างเดียวกัน
-- `claude_desktop_config.json` — MCP server `cwd` paths
-
-## ขั้นตอนแก้
-
-1. Backup ก่อน:
-   - `tar -czf backup.tar.gz ./<old-encoded-folder>` (ใส่ `./` หน้าชื่อที่ขึ้นต้นด้วย `-` เพื่อกัน tar แปลความเป็น flag)
-2. **Replace แบบ per-project** ในไฟล์ทั้งสองที่ — อย่า replace prefix แบบเหมารวม เพราะถ้ามี project อื่นในโฟลเดอร์เก่าที่ **ไม่ได้ย้าย** (เช่น MCP config ชี้ project บน Drive อยู่) จะพังของพวกนั้น
-3. Rename โฟลเดอร์ใน `~/.claude/projects/` เป็น encoded path ใหม่
-4. **Quit Claude Mac app ด้วย Cmd+Q แล้วเปิดใหม่** (app cache session list ไว้ใน memory)
-
-## ไม่ต้องแก้ (เก็บ runtime state ไม่ผูก path)
-- `~/.claude/sessions/` (pid file), `~/.claude/session-env/`, `~/.claude/shell-snapshots/`, `~/.claude/tasks/`, `~/.claude/plans/`, `~/.claude/todos/`
+# codegraph (ไล่ impact ในโค้ด)
+- repo ที่ผูก codegraph MCP ไว้ (`.codegraph/` มีอยู่ · `claude mcp get codegraph` = Connected) → ไล่ "ใครเรียก / แก้แล้วกระทบอะไร" ด้วย codegraph (`callers` / `impact` / `explore`) ก่อน grep ไล่ไฟล์
+- ผลของ codegraph คือที่มา ไม่ใช่ข้อยุติ: ก่อนสรุป impact ให้สุ่ม grep ยืนยัน เพราะ string id (custscript_*, customrecord_*) และการเรียกแบบ dynamic อาจไม่อยู่ใน graph
+- ยังไม่ได้ผูกใน repo ไหน → ไม่ต้องติดตั้งเอง; วิธีตั้งอยู่ใน skill `setup-plugins` (ส่วน codegraph)
 
 # Session memory (cross-session continuity)
 เป้าหมาย: session อื่นที่อยู่โฟลเดอร์เดียวกันทำงานต่อได้ทันที ไม่ต้อง debug/คิดซ้ำ
@@ -163,79 +140,35 @@ Claude Code เก็บ session ที่อิง `cwd` ใน **2 ที่**
 - ภายหลังพบว่า fact ที่เก็บไว้ผิด/ล้าสมัย → แก้หรือลบทันที ไม่ปล่อยค้าง
 - ไฟล์ที่เนื้อหาทับกัน ยุบเป็นตัวเดียว อย่าให้ `MEMORY.md` บวมจนไม่มีใครอ่าน
 
-# Browser automation (bsk เป็นตัวหลัก · cdp.py เป็น fallback · Claude in Chrome)
+# Browser automation (bsk เป็นตัวหลัก · Claude in Chrome)
 
-**เลือก engine ให้ถูก:**
-| | **bsk** (BrowserSkill · Chrome หลักที่ login อยู่) — ค่าเริ่มต้น | **cdp.py** (Chrome for Testing, port 9333) — fallback (เฉพาะเครื่องที่ติดตั้ง) | Claude in Chrome (MCP, Chrome หลัก) |
-|---|---|---|---|
-| ใช้เมื่อ | **อ่านหน้า / QA / screenshot / dbgQuery** (วัดแล้วเร็วกว่า ~22× ต่อคำสั่ง) และ record write ผ่าน `ns_write.py` (dry-run ก่อน · บน production ต้องยืนยันรอบนั้น · ไม่ต้องใส่ flag) | เมื่อ bsk ใช้ไม่ได้บนเครื่องนั้น · ขั้นที่น่าจะเด้ง dialog (ลบ/ยืนยัน/popup/iframe) · `lens`/`netlog`/`stub`/`diff` · shadow DOM · งานไม่มีคนเฝ้า | งานที่ต้องใช้ session Google/Chrome หลัก (เช่น Google Sheets, login `<work-email>`) |
-| ขับด้วย | `bsk` CLI (`session`/`tab`/`navigate`/`evaluate`/`observe`/`screenshot`) — ดู skill `browser-engines` | `cdp.py` (eval/click/shot) | `mcp__claude-in-chrome__*` (navigate/computer/read_page) — ระบุ Browser 1/2 |
-- **cdp.py = deprecated สำหรับงานอ่าน/QA (ยังไม่ลบ)** — งานอ่าน/QA ใหม่เริ่มด้วย bsk; ใช้ cdp เมื่อ `BSK_AUTO_START=0 bsk status --json` ล้ม (ไม่มี daemon/extension หรือเครื่องนั้นใช้ bsk ไม่ได้) — **เฉพาะเครื่องที่ติดตั้ง cdp** (`~/.config/bombot-forge/browser.json`: `engine` หรือ `also_installed` มี `cdp`)
-- **ลำดับ lane:** 1) bsk หรือ cdp (ตามที่เครื่องเลือกใน `setup-browser`) → 2) Claude in Chrome → 3) ให้ผู้ใช้ทำเองที่หน้าจอ · cdp.py ขับ Chrome ปกติไม่ได้ (Chrome 136+ ไม่รับ debug port บน default profile) เครื่องที่ใช้ Chrome ปกติ = bsk
-- **อ่าน `~/.config/bombot-forge/browser.json` ก่อนเลือกหรือแนะนำ lane** (`engine` / `also_installed` / `claude_in_chrome`) และแนะนำ**เฉพาะ lane ที่เครื่องนั้นมีจริง** — เครื่องที่เลือก bsk อย่างเดียวห้ามพูดถึงหรือสลับไป cdp: ไป Claude in Chrome (ถ้า `claude_in_chrome` เป็น true) แล้วค่อยให้ผู้ใช้ทำเองที่หน้าจอ
-- **bsk กด accept dialog ให้เองทุกชนิด (alert/confirm/prompt/beforeunload) ปิดไม่ได้** → ทุกครั้งหลัง navigate ติด guard (`window.confirm=()=>false` ฯลฯ) และตรวจ identity gate (`nlapiGetContext().getCompany()` + `getEnvironment()`) ก่อนอ่านต่อ · guard ครอบเฉพาะ top window (iframe same-origin ยังถูก accept, popup ค้างรอคน) · **คลิก/กรอก/submit บน production ผ่าน bsk ทำได้ แต่ต้องยืนยันก่อนทุกรอบ:** list ให้ฉันเห็นว่ารอบนี้จะ process/คลิก/submit/update อะไรบ้าง (หน้าไหน · ปุ่มไหน · record ไหน · ค่าอะไร · ขั้นไหนอาจเด้ง confirm) แล้วรอ OK (ใช้ได้เฉพาะรอบนั้น) · ระหว่างทำถ้ามี dialog ที่ไม่อยู่ใน list (ดู `dialogs` ใน result) หรือผลไม่ทราบ → หยุดและรายงาน · ขั้นที่น่าจะเด้ง dialog หรืออยู่ใน iframe/popup ให้ใส่ใน list แล้วให้ฉันเลือก: Claude ทำต่อด้วย bsk / cdp (เฉพาะเครื่องที่มี) / Claude in Chrome (ยังไม่เคยยืนยันกับ native dialog = เสี่ยงเท่า bsk) / ฉันกดเอง · เขียนค่าใน record ผ่าน `ns_write.py` ต้อง dry-run ก่อนและยืนยันรอบนั้น (ไม่ต้องใส่ flag) · ทีละ record · ผลไม่ทราบ (exit 3) = หยุด
-- **bsk: มี tab ของตัวเอง + pin + ปิด session ทุกครั้ง** (`bsk session start --no-focus` → `tab list --scope agent` เอา tab เดียวที่ session เปิดมาให้แล้ว (ไม่ต้อง `tab create` เพราะจะเปิด about:blank เพิ่มเป็น 2 tab) → ใส่ `--tab-id` ทุกคำสั่ง → `bsk session stop`) · `observe` ใส่ `--max-tokens` เสมอ (ไม่ใส่ = หน้าเล็กๆ ก็ 18 KB) · **bsk 0.4+:** `evaluate`/`click`/`navigate` ครั้งที่ 2 ขึ้นไป ต้อง `bsk cooperate sync` ก่อนทุกครั้งแล้วส่ง `--context` + `--observation` (observation ใช้ได้ครั้งเดียว; ใช้ `observation_id` ระดับบน; retry เฉพาะเมื่อ `effect_state: none`; ห้าม `cooperate wait` เอง) · รายละเอียดใน skill `browser-engines`
-- **บอกผู้ใช้ทุกครั้งที่ใช้ bsk** — 1 บรรทัดในแชทก่อนคำสั่ง `bsk` แรกของงาน: ทำอะไร · บัญชี/หน้าไหน · เป็น Agent Window เบื้องหลัง (ปิดเมื่อเสร็จ) · bsk เปิด tab ใน window ปกติของผู้ใช้ไม่ได้ (ทำงานใน Agent Window เสมอ) · **เป็นการแจ้ง ไม่ใช่การขออนุมัติ — ส่งแล้วทำต่อ ไม่ต้องรอตอบ**
-- **ห้าม `bsk session stop --all` และอย่าคาดว่า `session_count` ต้องเป็น 0** — daemon ใช้ร่วมกัน session Claude อื่นของผู้ใช้อาจกำลังใช้ bsk อยู่ (เคยเผลอปิดของเขาไปครั้งหนึ่ง) · ปิดเฉพาะ id ของตัวเอง แล้วเช็กว่า id นั้นหายจาก `bsk session list`
-- **เช็กว่า Chrome autofill แล้วหรือยังด้วย `:-webkit-autofill` (boolean) ห้ามดูจากความยาวค่า** — Chrome ซ่อนค่าที่ autofill จาก script จนกว่าผู้ใช้จะแตะหน้า (วัดแล้ว: `value.length` = 0 ทั้งที่ autofill ติดแล้ว ทั้งใน bsk Agent Window และ tab ที่ซ่อน) · flag ติด → กด Login ตามกฎด้านล่างได้ (ทดสอบแล้ว 30/09/2026 บน SB2: กด `#login-submit` ผ่าน bsk แล้ว submit ค่าที่ซ่อนอยู่สำเร็จ เข้า Home ได้) · ไม่ผ่าน → เปิดหน้า login ใน tab จริงให้ผู้ใช้กดเอง
-- ❌ อย่าใช้ 9333 (`<personal-gmail>`) เข้า Google Sheets ของ `<work-email>` = Access denied → ใช้ claude-in-chrome Browser 2
+- **อ่าน `~/.config/bombot-forge/browser.json` ก่อนเลือกหรือแนะนำ lane** (`engine` / `claude_in_chrome` / `dev_bridge` / `auto_login_click`) และแนะนำ**เฉพาะ lane ที่เครื่องนั้นมีจริง**
+- **ลำดับ lane:** 1) bsk → 2) Claude in Chrome (ถ้า `claude_in_chrome` เป็น true) → 3) ให้ฉันทำเองที่หน้าจอ · วิธีใช้ละเอียดอยู่ใน skill `browser-engines`
+    - cdp.py / Chrome for Testing เลิกใช้แล้ว ห้ามแนะนำหรือสลับไปใช้ แม้เครื่องนั้นยังมีของค้างอยู่ (เหลือแค่เป็นประวัติใน bombot-forge `docs/history/cdp-lane.md`)
 
-**Auto-login (session หมด → เด้งหน้า login)** — Chrome ตั้ง autofill email/password ไว้แล้ว:
-1. ถ้าปุ่ม Login/เข้าสู่ระบบ **disable อยู่** → คลิกพื้นหลังนอกกรอบ login 1 ครั้ง (trigger blur → ปุ่ม enable)
-2. กดปุ่ม **Login / เข้าสู่ระบบ** (ได้ทั้ง `bsk click '#login-submit'`, cdp.py click และ claude-in-chrome)
-- 🔑 **ห้ามอ่าน/ดึงค่า field password** — แค่คลิก submit; credential เป็นของ Chrome ไม่ใช่ของ Claude
-- `:-webkit-autofill` ไม่ติด → หยุด ถามก่อน **ห้ามพิมพ์ credential เอง** (ห้ามตัดสินจากความยาวค่า — ดูข้อด้านบน)
-- 2FA/trusted-device: profile เก็บ token ~30 วัน มักไม่ถาม TOTP
+| | **bsk** (BrowserSkill · Chrome หลักที่ login อยู่) — ค่าเริ่มต้น | **Claude in Chrome** (MCP · Chrome หลัก) |
+|---|---|---|
+| ใช้เมื่อ | **อ่านหน้า / QA / screenshot / Dev Bridge** และ record write ผ่าน `ns_write.py` (เฉพาะเครื่อง dev · dry-run ก่อน · บน production ต้องยืนยันรอบนั้น) | งานที่ฉันต้องเห็นต่อหน้า และงานที่ต้องใช้ session Google ของ `<work-email>` (เช่น Google Sheets) |
+| ขับด้วย | `bsk` CLI (`session`/`tab`/`navigate`/`evaluate`/`observe`/`screenshot`) — ดู skill `browser-engines` | `mcp__claude-in-chrome__*` (navigate/computer/read_page) |
 
----
+- **bsk กด accept dialog ให้เองทุกชนิด (alert/confirm/prompt/beforeunload) ปิดไม่ได้** → ทุกครั้งหลัง navigate ติด guard (`window.confirm=()=>false` ฯลฯ) และตรวจ identity gate (`nlapiGetContext().getCompany()` + `getEnvironment()`) ก่อนอ่านต่อ
+    - guard ครอบเฉพาะ top window (iframe same-origin ยังถูก accept, popup ค้างรอคน)
+- **คลิก/กรอก/submit บน production ทำได้ แต่ต้องยืนยันก่อนทุกรอบ:** list ให้ฉันเห็นว่ารอบนี้จะ process/คลิก/submit/update อะไรบ้าง (หน้าไหน · ปุ่มไหน · record ไหน · ค่าอะไร · ขั้นไหนอาจเด้ง confirm) แล้วรอ OK (ใช้ได้เฉพาะรอบนั้น)
+    - ระหว่างทำถ้ามี dialog ที่ไม่อยู่ใน list (ดู `dialogs` ใน result) หรือผลไม่ทราบ → หยุดและรายงาน
+    - ขั้นที่น่าจะเด้ง dialog หรืออยู่ใน iframe/popup ให้ใส่ใน list แล้วให้ฉันเลือก: Claude ทำต่อด้วย bsk / Claude in Chrome (ยังไม่เคยยืนยันกับ native dialog = เสี่ยงเท่า bsk) / ฉันกดเอง
+    - เขียนค่าใน record ผ่าน `ns_write.py` ต้อง dry-run ก่อนและยืนยันรอบนั้น · ทีละ record · ผลไม่ทราบ (exit 3) = หยุด
+- **bsk: มี tab ของตัวเอง + pin + ปิด session ทุกครั้ง** (`bsk session start --no-focus` → `tab list --scope agent` เอา tab ที่ session เปิดให้ (ไม่ต้อง `tab create`) → ใส่ `--tab-id` ทุกคำสั่ง → `bsk session stop`)
+    - `observe` ใส่ `--max-tokens` เสมอ
+    - **bsk 0.4+:** `evaluate`/`click`/`navigate` ครั้งที่ 2 ขึ้นไป ต้อง `bsk cooperate sync` ก่อนทุกครั้งแล้วส่ง `--context` + `--observation` (ใช้ได้ครั้งเดียว · retry เฉพาะเมื่อ `effect_state: none` · ห้าม `cooperate wait` เอง)
+- **บอกฉันทุกครั้งที่ใช้ bsk** — 1 บรรทัดก่อนคำสั่ง `bsk` แรกของงาน: ทำอะไร · บัญชี/หน้าไหน · เป็น Agent Window เบื้องหลัง (ปิดเมื่อเสร็จ) · **เป็นการแจ้ง ไม่ใช่การขออนุมัติ — ส่งแล้วทำต่อ**
+- **ห้าม `bsk session stop --all`** — daemon ใช้ร่วมกับ session Claude อื่นของฉัน · ปิดเฉพาะ id ของตัวเอง แล้วเช็กว่า id นั้นหายจาก `bsk session list`
 
-**Chrome for Testing (cdp.py) — รายละเอียด (เฉพาะเครื่องที่ติดตั้ง cdp):**
-มี **Google Chrome for Testing** ลงไว้แล้ว (ติดตั้ง 18/08/2026) แยกขาดจาก Chrome ตัวหลัก
-ตัวหลัก update ปกติ ตัวนี้ไม่ auto-update จึงไม่พังเองกลางทาง
-
-```
-~/Applications/Google Chrome for Testing.app     # binary
-~/.qa-chrome/<งาน>                                # profile (session ค้างอยู่ ไม่ต้อง login ซ้ำ)
-CDP port 9333
-```
-
-เปิด
-
-```bash
-~/Applications/"Google Chrome for Testing.app"/Contents/MacOS/"Google Chrome for Testing" \
-  --user-data-dir="$HOME/.qa-chrome/<งาน>" --remote-debugging-port=9333 \
-  --no-first-run --no-default-browser-check --disable-session-crashed-bubble about:blank
-```
-
-ขับด้วย `cdp.py` (ต้นฉบับ `~/WebstormProjects/<qa-project>/scripts/qa/cdp.py` · ดู skill `netsuite-qa-browser`)
-
-```bash
-export CDP_PORT=9333
-python3 cdp.py tabs | url | nav <url> [wait] | eval "<js>" | evalf <file.js>
-python3 cdp.py a11y [คำค้น]          # ได้ ref @NNNN ที่ใช้กับ click ได้ — เจาะ shadow DOM ให้
-python3 cdp.py click <sel|@ref>       # คลิกจริงด้วย Input event
-python3 cdp.py shot <out.png> [sel] [--dsf=N] [--vw=W] [--vh=H]
-```
-
-**capture หน้าจอ** — ใช้ `cdp.py shot` เท่านั้น
-`Page.captureScreenshot` สั่งให้ Chrome **เรนเดอร์หน้าเว็บ** ออกมาเป็น PNG ไม่ใช่ถ่ายหน้าจอ
-⇒ หน้าต่างอื่นทับ หรือ Chrome ไม่ได้อยู่บนสุด ก็ได้ภาพถูกต้อง (ต่างจาก `screencapture` ของ macOS ที่ภาพจะโดนทับ)
-เขียนไฟล์ลงดิสก์ได้จริง จึงเอาไปฝังใน HTML/รายงานได้ — ต่างจาก screenshot ของ extension ที่ได้แค่ภาพในแชต
-
-กับดักที่เจ็บมาแล้ว
-- `--vw/--vh/--dsf` **ต้องส่งตอน `shot`** สั่ง `viewport` แยกคำสั่งไม่มีผล (Emulation override ตายพร้อม websocket)
-- `shot <sel>` ใช้ `document.querySelector` **เจาะ shadow DOM ไม่ได้** — แอปที่เป็น web component ให้ถ่ายทั้ง viewport แล้ว crop ทีหลัง
-- crop เฉพาะ element จะ**ตก popup/dropdown** เพราะอยู่คนละ layer
-- แท็บที่ไม่ได้อยู่หน้าสุด **ใน Chrome** จะไม่ถูกวาด (`shot` เรียก `Page.bringToFront` ให้เองแล้ว)
-- browser กลางที่ลงทะเบียนเป็น shared NetSuite: `cdp.py newtab` **โดน coordinator ปฏิเสธ** — ห้ามเลี่ยง; ใช้ `cdp.py ns-session tab <compid>` หลัง `ns-session bind <compid>` (เป็นการแก้ registry ของ session owner) · เช็คก่อนด้วย `ns-session status <compid>` (`bound:false` = ยังไม่มี lane)
-
-**แอปที่เป็น web component (shadow DOM ซ้อนหลายชั้น)** เช่น MFG Handheld / Release 2.0
-`document.querySelector` จากภายนอกหาไม่เจอ ⇒ ใช้ `cdp.py a11y` เอา `@ref` แล้ว `click` หรือเขียน
-helper เดินทะลุ `shadowRoot` เอง · **synthetic event (`el.click()` / `dispatchEvent`) บางแอปไม่รับ**
-ต้องยิง `Input.dispatchMouseEvent` ที่พิกัดจริง (import `cdp` แล้วใช้ `cdp.C()` — มันตั้ง `suppress_origin=True`
-ให้แล้ว ถ้าต่อ websocket เองจะโดน 403 origin check)
-
-⚠️ Chrome 136+ **เมิน `--remote-debugging-port` ถ้าใช้ default profile** ⇒ ต้องมี `--user-data-dir` เสมอ
+**Auto-login (session หมด → เด้งหน้า login)** — เฉพาะเมื่อ `browser.json` มี `auto_login_click: true`:
+1. เช็กว่า Chrome autofill แล้วด้วย `:-webkit-autofill` (boolean) **ห้ามดูจากความยาวค่า** (Chrome ซ่อนค่าจาก script) · ไม่ติด → หยุด ให้ฉันกดเอง
+2. ถ้าปุ่ม Login **disable อยู่** → คลิกพื้นหลังนอกกรอบ login 1 ครั้ง
+3. กดปุ่ม **Login / เข้าสู่ระบบ** (`bsk click '#login-submit'` หรือ Claude in Chrome)
+- 🔑 **ห้ามอ่าน/ดึงค่า field password และห้ามพิมพ์ credential เอง** — แค่คลิก submit; credential เป็นของ Chrome
+- 2FA/trusted-device: Chrome เก็บไว้ ~30 วัน มักไม่ถาม TOTP · ถ้าถาม → ฉันกรอกเอง
 
 # Coding agent (delegate edits)
 - ระดับการส่งงานแก้ไฟล์ให้ coding agent **ตั้งรายโปรเจกต์** (บล็อก "การส่งงานแก้ไฟล์ให้ coding agent" ใน `CLAUDE.local.md` ของโปรเจกต์ ตั้งด้วย skill `setup-coding-agent`): always / medium / low / on-request · **ไม่มีบล็อก = on-request (ส่งเมื่อผู้ใช้สั่งเท่านั้น)** · เมื่อส่ง → ผ่าน `agent_run.py`; Claude เขียน brief และ review ทุกบรรทัดก่อน apply

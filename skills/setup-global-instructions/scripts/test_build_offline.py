@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Offline tests for build_nondev.py (no network, no Claude)."""
+"""Offline tests for build.py (no network, no Claude)."""
 import importlib.util
 import json
 import os
@@ -10,7 +10,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def load():
-    spec = importlib.util.spec_from_file_location("build_nondev", os.path.join(_HERE, "build_nondev.py"))
+    spec = importlib.util.spec_from_file_location("build", os.path.join(_HERE, "build.py"))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -27,20 +27,19 @@ class BuildNondevTest(unittest.TestCase):
 
     def test_sections_and_order(self):
         h = self.heads(self.out)
-        starts = ["Role", "Accuracy", "Communication style", "Slack", "ห้ามใช้ SDF", "ขอบเขตงานผ่าน UI", "Hotfix JS",
+        starts = ["Role", "เครื่องนี้", "Accuracy", "Communication style", "Slack", "ห้ามใช้ SDF", "ขอบเขตงานผ่าน UI", "Hotfix JS",
                   "วิธีทำงาน", "Git", "Session memory", "Browser automation"]
         self.assertEqual(len(h), len(starts), h)
         for got, want in zip(h, starts):
             self.assertTrue(got.startswith(want), (got, want))
 
     def test_developer_only_sections_are_gone(self):
-        for dropped in ["SDF Deploy", "Code conventions", "Editing existing code", "Coding agent", "graphify",
-                        "Claude Code: ย้าย project folder"]:
+        for dropped in ["SDF Deploy", "Code conventions", "Editing existing code", "Coding agent", "codegraph"]:
             self.assertNotIn(dropped, "\n".join(self.heads(self.out)))
         self.assertNotIn("project:deploy", self.out.split("# ห้ามใช้ SDF", 1)[0])
 
     def test_kept_sections_are_byte_identical_to_the_dev_snapshot(self):
-        for prefix in ["Accuracy", "Communication style", "Slack", "Session memory", "Browser automation"]:
+        for prefix in ["เครื่องนี้", "Accuracy", "Communication style", "Slack", "Session memory", "Browser automation"]:
             body = self.m.pick(self.dev, prefix)
             self.assertIn(body, self.out, prefix)
 
@@ -150,8 +149,10 @@ class BuildNondevTest(unittest.TestCase):
         # a machine that chose bsk only must not be sent to cdp: lanes come from browser.json, escalation is Claude in Chrome then the user
         self.assertIn("~/.config/bombot-forge/browser.json", self.out)
         self.assertIn("เฉพาะ lane ที่เครื่องนั้นมีจริง", self.out)
-        self.assertIn("เครื่องที่เลือก bsk อย่างเดียวห้ามพูดถึงหรือสลับไป cdp", self.out)
-        self.assertIn("fallback (เฉพาะเครื่องที่ติดตั้ง)", self.out)
+        self.assertIn("ห้ามแนะนำหรือสลับไปใช้", self.out)          # cdp is history: never offered
+        self.assertNotIn("9333", self.out)
+        self.assertNotIn("<personal-gmail>", self.out)
+        self.assertNotIn("<qa-project>", self.out)
         self.assertNotIn("ใช้ cdp แทนจะปลอดภัยกว่า", self.out)
         self.assertNotIn("(fallback / write บน production)", self.out)
 
@@ -167,6 +168,19 @@ class BuildNondevTest(unittest.TestCase):
     def test_missing_nondev_section_is_refused(self):
         with self.assertRaises(ValueError):
             self.m.build(nondev_text="# Role\nonly this\n")
+
+    def test_record_writes_are_dev_only_and_auto_login_follows_the_consent(self):
+        # non-dev changes go through Claude in Chrome in front of the user; the shared browser text must not say otherwise
+        self.assertIn("`ns_write.py` (เฉพาะเครื่อง dev", self.out)
+        self.assertIn("`auto_login_click: true`", self.out)
+
+    def test_dev_role_is_the_snapshot_as_is(self):
+        import contextlib, io, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "dev.md")
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(self.m.main(["--role", "dev", "--out", out]), 0)
+            self.assertEqual(open(out, encoding="utf-8").read(), open(self.m.DEV_SNAPSHOT, encoding="utf-8").read())
 
     def test_deny_rules_are_the_measured_set(self):
         self.assertEqual(self.m.DENY_RULES, ["Bash(suitecloud:*)", "Bash(npx suitecloud:*)", "Bash(*suitecloud*)"])
