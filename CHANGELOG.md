@@ -9,6 +9,20 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.49.0 — 2026-11-17
+
+- **capture-artifact 202611_04**:
+  - `annotate-overlay.js`: `__A` now returns `{ok, missing, offscreen}` (box numbers). A box that is not found or not fully in view no longer disappears silently and leaves the numbers out of step with the caption. The skill requires `ok:true` before a shot.
+  - Live test on SB2 with bsk 0.5.0, read-only (a currency record):
+    - The identity gate and the overlay inject worked.
+    - A bad selector came back as `missing:[2]`.
+    - `screenshot` on the session's own Agent Window tab needed **no** cooperate sync and gave a 3308x1702 PNG.
+    - The PIL preview worked. The session was stopped.
+  - The prerequisite now also checks bsk `version_skew`.
+  - The preview uses PIL instead of `sips`, which is macOS-only. Windows Drive path and `Test-Path` added.
+  - cdp mentions removed. bsk 0.5's `screenshot --ref` and its "shared-tab" sync flags are noted (not tried).
+  - The Slack step now points to the global rules instead of copying them, and keeps only what is specific to this skill: the no-thread case and the content.
+
 ## v0.48.0 — 2026-11-17
 
 - **ns-sdf-prod-deploy 202611_01**:

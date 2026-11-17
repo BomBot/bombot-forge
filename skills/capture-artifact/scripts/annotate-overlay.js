@@ -1,5 +1,5 @@
 // Red-box overlay for change-summary screenshots.
-// Inject with: bsk evaluate "$(cat annotate-overlay.js)"   (or cdp.py evalf annotate-overlay.js)
+// Inject with: bsk evaluate "$(cat annotate-overlay.js)"
 // bsk 0.4+: each evaluate needs a fresh `bsk cooperate sync` and its --context/--observation (browser-engines step 2b).
 // Then per shot: scroll to the spot, call __A({...}), take the screenshot.
 //
@@ -13,15 +13,19 @@
 //     lines: ['was X -> now Y', ...]   // one line per box
 //   })
 //
+// __A returns JSON: {ok, missing:[N...], offscreen:[N...]} (N = box number). ok:false = a box was not found or is not
+// fully in the viewport, so the numbering would not match the caption: scroll / fix the selector, then call again.
 // Helpers: __find(cssSel, text) returns the first element whose text contains `text`.
 window.__sleep = ms => new Promise(r => setTimeout(r, ms));
 window.__q = s => (typeof s === 'string' ? document.querySelector(s) : s);
 window.__find = (sel, txt) => [...document.querySelectorAll(sel)].find(e => e.textContent.indexOf(txt) >= 0);
 window.__A = function (o) {
   document.querySelectorAll('.__ann').forEach(e => e.remove());
+  const missing = [], offscreen = [];
   (o.boxes || []).forEach((b, i) => {
-    const el = __q(b); if (!el) { return; }
+    const el = __q(b); if (!el) { missing.push(i + 1); return; }
     const r = el.getBoundingClientRect();
+    if (r.top < 0 || r.left < 0 || r.bottom > innerHeight || r.right > innerWidth || !r.width) { offscreen.push(i + 1); }
     const d = document.createElement('div'); d.className = '__ann';
     Object.assign(d.style, { position: 'fixed', left: (r.left - 5) + 'px', top: (r.top - 5) + 'px', width: (r.width + 10) + 'px', height: (r.height + 10) + 'px',
       border: '3px solid #e11d1d', borderRadius: '8px', zIndex: 99998, pointerEvents: 'none', boxSizing: 'border-box' });
@@ -41,6 +45,6 @@ window.__A = function (o) {
     + (o.sub ? '<div style="color:#475467;margin-bottom:6px">' + o.sub + '</div>' : '')
     + '<ol style="margin:0;padding-left:22px">' + (o.lines || []).map(l => '<li style="margin:5px 0">' + l + '</li>').join('') + '</ol>';
   document.body.appendChild(p);
-  return 'ok';
+  return JSON.stringify({ ok: !missing.length && !offscreen.length, missing: missing, offscreen: offscreen });
 };
 'loaded';

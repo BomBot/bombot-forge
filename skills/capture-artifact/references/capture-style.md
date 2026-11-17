@@ -36,14 +36,20 @@ The scratchpad dies with the session, so it cannot hold "before" shots for anoth
 
 ## Technique
 
-- **Capture:** `bsk screenshot --out <png>` writes a real file (so does `cdp.py shot`). The `claude-in-chrome`
-  screenshot does not write a file to disk, so it cannot feed this workflow. Browser handling (own session, pinned
+- **Capture:** `bsk screenshot --out <png>` writes a real file. The `claude-in-chrome` screenshot does not write a
+  file to disk, so it cannot feed this workflow. `screenshot` needed no `cooperate sync` on the session's own Agent
+  Window tab (measured on bsk 0.4.2 and 0.5.0, SB2, 2026-11-17); bsk 0.5 lists `--context` / `--observation` on it "for
+  shared-tab actions", so if it is ever refused, sync and pass them. bsk 0.5 also has `screenshot --ref @eN` (crop to an
+  element from the latest `observe`) — not tried here; the PIL crop below is the tested way. Browser handling (own session, pinned
   tab, dialog guard, identity gate) is in `browser-engines`.
 - **Overlay:** inject `scripts/annotate-overlay.js` with `bsk evaluate`, then per shot: scroll, `__A({...})`,
-  screenshot. On bsk 0.4+ every `evaluate` (inject, scroll, `__A`) needs a fresh `bsk cooperate sync` and its
+  screenshot. **`__A` returns `{ok, missing, offscreen}`** (box numbers): `ok:false` = a box is not found or not fully
+  in the viewport, so the numbers would not match the caption — fix the selector or scroll and call it again before
+  shooting (verified on SB2: a bad selector came back as `missing:[2]`). On bsk 0.4+ every `evaluate` (inject, scroll, `__A`) needs a fresh `bsk cooperate sync` and its
   `--context` + `--observation` (`browser-engines` step 2b); `screenshot` does not.
 - **Overlay failures seen:**
-  - A box whose element is scrolled off-screen just disappears, and the numbering stops matching the panel.
+  - A box whose element is scrolled off-screen just disappears, and the numbering stops matching the panel (now
+    reported by `__A`, see above).
   - Collapsed accordions must be opened first (a UI-only click: allowed; never press anything that writes).
   - The caption panel can cover the last box: move it (`pos:'tr'`).
   - A sticky header or summary dock hides about 60px at the top: scroll first.
@@ -56,12 +62,14 @@ The scratchpad dies with the session, so it cannot hold "before" shots for anoth
   than the viewport, measure the `.sheet` bottom x 2 before cropping, and never overwrite the only copy. In a modal,
   put labels in the side margin (max-width about 175px), not over table rows; clamp the label y to the viewport; a
   label-only anchor needs its border box hidden.
-- **Look at every shot** as a small JPEG preview (about 1100px, `sips -s format jpeg -s formatOptions 65
-  --resampleWidth 1100`) before keeping it. Box off-screen or hidden under a panel = re-shoot.
+- **Look at every shot** as a small JPEG preview (about 1100px) before keeping it. Box off-screen or hidden under a
+  panel = re-shoot. PIL works on macOS and Windows (`sips` is macOS-only):
+  `im = Image.open(png); im.convert("RGB").resize((1100, round(im.height * 1100 / im.width))).save(jpg, quality=65)`.
 
 ## Where it goes
 
-1. **Drive, by local copy.** Google Drive desktop syncs a local folder, so `cp` from the shot folder is instant and
+1. **Drive, by local copy.** Google Drive desktop syncs a local folder (macOS `~/Library/CloudStorage/GoogleDrive-<account>/My
+   Drive/`, Windows usually a drive letter such as `G:\My Drive\`), so a plain copy from the shot folder is instant and
    costs zero tokens. Do **not** push images through the Drive MCP `create_file`: it takes inline content only, and a
    118 KB image cost more than 100K tokens just to read. Create the subfolder first, then `cp`. Name files
    `NN-<short title>.png`; keep the 2x originals.

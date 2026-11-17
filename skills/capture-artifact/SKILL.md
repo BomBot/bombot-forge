@@ -11,7 +11,7 @@ disable-model-invocation: true
 
 # capture-artifact
 
-**Skill version: `202611_03`**
+**Skill version: `202611_04`**
 
 Turns "what we just deployed" into red-boxed screenshots with captions. Slash command: `/bombot-forge:capture-artifact`.
 
@@ -35,17 +35,18 @@ unless they are stale.
 
 ## Prerequisites (check first, stop if one fails)
 
-- **`bsk` installed and answering** - `BSK_AUTO_START=0 bsk status --json`. This skill needs it: no fallback to `cdp` or
-  Claude in Chrome (Claude in Chrome cannot write a screenshot file to disk). If it fails, stop and tell the user to run
+- **`bsk` installed and answering, extension not behind the CLI** - `BSK_AUTO_START=0 bsk status --json` lists a
+  browser with `version_skew` false (`browser-engines` → *After a `bsk` update*). This skill needs bsk: no fallback to
+  Claude in Chrome (it cannot write a screenshot file to disk). If it fails, stop and tell the user to run
   `/bombot-forge:setup-browser`.
-- Full mode only: **`<DRIVE_BASE>` exists** (`test -d`). If Google Drive is not mounted, `mkdir -p` would create a plain
+- Full mode only: **`<DRIVE_BASE>` exists** (`test -d`; PowerShell `Test-Path`). If Google Drive is not mounted, `mkdir -p` would create a plain
   local folder that never syncs and nothing would warn. Stop and say so.
 
 ## Inputs to settle first (ask once if missing, do not guess)
 
 | Input | Where it comes from |
 |---|---|
-| `<DRIVE_BASE>` - local Google Drive sync folder for AI material (full mode) | the project's `CLAUDE.local.md` or memory; else ask. Looks like `~/Library/CloudStorage/GoogleDrive-<account>/My Drive/<folder>/` |
+| `<DRIVE_BASE>` - local Google Drive sync folder for AI material (full mode) | the project's `CLAUDE.local.md` or memory; else ask. Looks like `~/Library/CloudStorage/GoogleDrive-<account>/My Drive/<folder>/` (macOS) or `G:\My Drive\<folder>\` (Windows) |
 | `<PROJECT>` - the project's subfolder under it (full mode) | same; else ask |
 | Decision-log artifact URL (full mode) | `$ARGUMENTS`, the work's earlier artifact, or ask. If it cannot be found, ask: never create a new one silently |
 | Flow for the overview diagram (full mode): lanes, boxes in order, cross-lane arrows, who owns each box | the code, the docs, this session's work notes, the issue. **Every box name and arrow needs a source; an arrow without one -> ask the user, never guess** |
@@ -67,7 +68,8 @@ unless they are stale.
      pack) -> layout A, before -> after. **Check the folder's timestamp**: a "before" from a different deploy than the
      one just before this change is wrong; say where each "before" came from in the sheet footer.
    - None -> layout B, current state with numbered boxes; say in the README why there is no "before".
-   - Every box is numbered; item N in the caption = box N; each item says "was -> now".
+   - Every box is numbered; item N in the caption = box N; each item says "was -> now". `__A` must return `ok:true`
+     (no `missing` / `offscreen` box) before the shot.
    - Preview every shot as a ~1100px JPEG before keeping it. Box off-screen or hidden = re-shoot.
    - Look at each preview for data that is not needed to show the change (other customers' names, prices, personal
      data). If found, tell the user and ask: mask it, pick another view, or keep it.
@@ -102,24 +104,14 @@ unless they are stale.
    - Add `section.shots` after the status table, wider than the reading column, `<figure>` + `<figcaption>`. No links around images; no Drive image links. Update the status table /
    decision log for this round on the same page if not done yet. Page limit is 16 MB (about 30 shots at ~400 KB): above
    that, lower the JPEG quality or split the gallery.
-6. **Slack draft (full mode) - never send yourself.** Follow the Slack rules in the user's global `~/.claude/CLAUDE.md`
-   (section "Slack / การสื่อสารกับทีม"); the points that matter here:
+6. **Slack draft (full mode) - never send yourself.** Draft exactly as the Slack rules in the user's global
+   `~/.claude/CLAUDE.md` say (section "Slack / การสื่อสารกับทีม": read the whole thread and new messages first, the
+   thread link above a code-block draft in blockquote form, manager language, lettered options, which points the user
+   answers themselves, send only after the OK). Those rules are the source; this step adds only:
    - **No thread:** skip the reply. Ask once whether the user wants a standalone message drafted (for a channel or DM
-     they name; never pick one yourself). If yes, draft it the same way, with the link line reading "no thread -
-     target: <what the user said>".
-   - With a thread: before drafting, re-read it, including messages that arrived after the work. If a new message
-     contradicts what was done, or more work is needed first, **tell the user and ask; do not draft yet**.
-   - Show the **Slack link of the thread you would reply in**, above the draft.
-   - The draft goes **in chat as a code block**, written as a blockquote: every line starts with `> ` (a lone `>` for a
-     blank line, never an empty line), bullets as `> - ...` and sub-bullets as `>     - ...` (4 spaces). Never the
-     `•` character (Slack shows it as plain text, not a bullet) and no ` · ` joining several facts in one line: one point per
-     bullet, its details as sub-bullets. Do not use the Slack draft tool. Wait for the OK.
-   - Reader is a manager: business language, no field ids, SQL, file names or function names. One summary line, then as
-     many bullets as the content needs (one point per bullet): what changed (in words the user sees on screen), the key
-     number now, the artifact link and that the pictures are in its screenshots section, and any open decision as
-     lettered options (a / b / c).
-   - Tell the user which questions they should answer or propose themselves.
-   - Only after the OK: send in the work's existing thread and give the message link.
+     they name; never pick one yourself). If yes, the link line reads "no thread - target: <what the user said>".
+   - The content: what changed (in words the user sees on screen), the key number now, the artifact link and that the
+     pictures are in its screenshots section.
 7. **Close.** Tell the user where the pack is (`.captures/...` path, or the Drive folder + artifact URL with version) and
    `SendUserFile` shot `00`. If you found a new trick or trap, update the project's existing style note in memory (or
    tell the user it belongs in `references/capture-style.md`) rather than creating a duplicate. End the reply per the
