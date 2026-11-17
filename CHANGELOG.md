@@ -9,6 +9,22 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.42.0 — 2026-11-17
+
+setup-plugins explains and groups the plugins and offers a preset per role. **setup-plugins 202611_01**, **setup-init 202611_02** (step 5 passes the role).
+
+- **plugins.json schema 2:** each plugin has `group`, a plain Thai `what` line, `default_for` (dev / nondev) and `access:
+  "private"` where it needs org access. Groups: ก. Teibto team (teibto-netsuite-toolkit, must have) · ข. working discipline
+  (superpowers, mattpocock-skills, andrej-karpathy-skills) · ค. UI design and web debugging (impeccable, ui-ux-pro-max and
+  the new **chrome-devtools-mcp**). `account_synced` lists plugins that come with the claude.ai account
+  (teibto-userguide-toolkit, engineering): checked, never installed from GitHub.
+- **Presets:** dev = ก+ข, non-dev = ก; extras picked by group. Helper: `plan --role`, `apply --defaults --role`.
+- **Facts written down:** `Teibto/Teibto-Claude-Skills` is a private repo (checked with `gh repo view`), so group ก needs
+  `setup-cli` Part A (org membership + `gh auth setup-git`); `claude plugin list --json` lists account-synced plugins as
+  `<name>@synced` (checked on the author's machine).
+- After installing: `/reload-plugins` (or restart). Windows: `python` / `py` when `python3` is missing.
+- 16 offline tests (was 12). Install of the private repo with access and Windows still untested.
+
 ## v0.41.0 — 2026-11-17
 
 browser-engines and setup-browser no longer overlap or contradict. **browser-engines 202611_03**, **setup-browser 202611_04**.

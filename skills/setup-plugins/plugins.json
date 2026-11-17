@@ -1,42 +1,94 @@
 {
-  "schema": 1,
-  "about": "Plugins this setup can install, by GitHub source. Pick a subset at run time; nothing here is copied, only pointed at.",
+  "schema": 2,
+  "about": "Plugins this setup can install, by GitHub source, grouped; default_for marks the preset per role (dev / nondev). account_synced plugins come with the claude.ai account and are only checked, never installed here. Nothing is copied, only pointed at.",
   "plugins": [
     {
       "name": "teibto-netsuite-toolkit",
       "marketplace": "teibto-skills",
       "source": "https://github.com/Teibto/Teibto-Claude-Skills.git",
-      "note": "TEIBTO NetSuite toolkit (code review, KM generator, release notes ...). Access to the repo may be restricted."
+      "note": "TEIBTO NetSuite toolkit (code review, KM generator, release notes ...). Private repo in the Teibto org: needs membership and git signed in through gh (setup-cli Part A).",
+      "group": "team",
+      "default_for": [
+        "dev",
+        "nondev"
+      ],
+      "what": "ชุด skill ของทีม Teibto: code review SuiteScript, KM จากโค้ด, release note, API doc, ตรวจ ref ของ SDF",
+      "access": "private"
     },
     {
       "name": "superpowers",
       "marketplace": "superpowers-dev",
       "source": "https://github.com/obra/superpowers.git",
-      "note": "Process skills (brainstorming, debugging, TDD, plans)."
+      "note": "Process skills (brainstorming, debugging, TDD, plans).",
+      "group": "discipline",
+      "default_for": [
+        "dev"
+      ],
+      "what": "วินัยการทำงาน: brainstorm ก่อนทำ, debug อย่างเป็นระบบ, TDD, เขียนแผน, review"
     },
     {
       "name": "impeccable",
       "marketplace": "impeccable",
       "source": "pbakaus/impeccable",
-      "note": "Frontend design critique and polish skills."
+      "note": "Frontend design critique and polish skills.",
+      "group": "ui",
+      "default_for": [],
+      "what": "ตรวจและขัดเกลาหน้าจอ UI (Suitelet, หน้าเว็บ): layout, สี, ตัวอักษร, accessibility"
     },
     {
       "name": "mattpocock-skills",
       "marketplace": "mattpocock",
       "source": "https://github.com/mattpocock/skills.git",
-      "note": "Engineering-practice skills (TDD, diagnosing bugs, code review, grilling)."
+      "note": "Engineering-practice skills (TDD, diagnosing bugs, code review, grilling).",
+      "group": "discipline",
+      "default_for": [
+        "dev"
+      ],
+      "what": "แนวปฏิบัติวิศวกรรม: TDD, หา bug, code review, ซักคำถามก่อนลงมือ"
     },
     {
       "name": "andrej-karpathy-skills",
       "marketplace": "karpathy-skills",
       "source": "https://github.com/multica-ai/andrej-karpathy-skills.git",
-      "note": "Karpathy-style coding guidelines skill."
+      "note": "Karpathy-style coding guidelines skill.",
+      "group": "discipline",
+      "default_for": [
+        "dev"
+      ],
+      "what": "แนวเขียนโค้ดแบบ Karpathy: เรียบง่าย ไม่เดา ตรวจผลก่อนบอกว่าเสร็จ"
     },
     {
       "name": "ui-ux-pro-max",
       "marketplace": "ui-ux-pro-max-skill",
       "source": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git",
-      "note": "UI/UX design intelligence skill."
+      "note": "UI/UX design intelligence skill.",
+      "group": "ui",
+      "default_for": [],
+      "what": "คลังความรู้ UI/UX: style, palette, ฟอนต์, chart สำหรับออกแบบหน้าจอ"
+    },
+    {
+      "name": "chrome-devtools-mcp",
+      "marketplace": "chrome-devtools-plugins",
+      "source": "https://github.com/ChromeDevTools/chrome-devtools-mcp.git",
+      "note": "Chrome DevTools MCP by the Chrome team: inspect pages, console, network, performance.",
+      "group": "ui",
+      "default_for": [],
+      "what": "debug หน้าเว็บผ่าน Chrome DevTools: console, network, performance (เหมาะกับ dev ที่ทำ Suitelet/UI)"
+    }
+  ],
+  "groups": {
+    "team": "ก. ทีม Teibto (must have)",
+    "discipline": "ข. วินัยการทำงาน (dev แนะนำ)",
+    "ui": "ค. ออกแบบและ debug หน้าเว็บ (เลือกเอง)"
+  },
+  "account_synced": [
+    {
+      "name": "teibto-userguide-toolkit",
+      "what": "ทำ user guide จากระบบจริง (live, builder, video)"
+    },
+    {
+      "name": "engineering",
+      "what": "skill งานวิศวกรรมทั่วไป (architecture, debug, deploy checklist, incident)"
     }
   ]
 }

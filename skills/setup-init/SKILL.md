@@ -10,7 +10,7 @@ description: >-
 
 # Setup Init (new machine, one checklist)
 
-**Skill version: `202611_01`**
+**Skill version: `202611_02`**
 
 The front door for a new machine. It does not install anything itself: it checks, explains, and runs the setup
 skills in order, each of which asks before it changes anything. Speak plain Thai mixed with English terms; the user may
@@ -71,7 +71,8 @@ Items already ready: say so and move on.
    existing file, never overwrite.
 4. **`setup-browser`** — bsk, optional Claude in Chrome, Dev Bridge trial (it asks for the Home page URL at that step),
    login-click consent. On Windows, the daemon-at-log-on step.
-5. **`setup-plugins`** — the user picks; recommend `teibto-netsuite-toolkit`.
+5. **`setup-plugins`** — pass the role: the preset (dev = team toolkit + working-discipline plugins; non-dev = team
+   toolkit) is offered first, extras by group after. Needs step 1 done (the team toolkit is a private repo).
 6. **`setup-cli` Part B** (devs only) — SuiteCloud CLI, clone a repo or create an SDF project here, auth id, `file:list`
    test. Not ready now → write `~/.claude/onboarding-sdf-todo.md` (what is left) and give the phrase *"ตั้ง SDF ต่อ"*.
 

@@ -68,9 +68,38 @@ class PluginsSetupTest(unittest.TestCase):
         return [json.loads(l) for l in open(self.state + ".log") if l.strip()]
 
     # ---- manifest
-    def test_shipped_manifest_is_valid_and_has_the_six_chosen_plugins(self):
+    def test_shipped_manifest_is_valid_and_has_the_chosen_plugins(self):
         self.assertEqual(sorted(e["name"] for e in self.entries), sorted(
-            ["teibto-netsuite-toolkit", "superpowers", "impeccable", "mattpocock-skills", "andrej-karpathy-skills", "ui-ux-pro-max"]))
+            ["teibto-netsuite-toolkit", "superpowers", "impeccable", "mattpocock-skills", "andrej-karpathy-skills", "ui-ux-pro-max",
+             "chrome-devtools-mcp"]))
+        _, groups, synced = self.mod.load_full()
+        self.assertTrue(all(e["group"] in groups and e.get("what") for e in self.entries))
+        self.assertEqual([x["name"] for x in synced], ["teibto-userguide-toolkit", "engineering"])
+
+    def test_role_presets(self):
+        self.assertEqual(self.mod.preset(self.entries, "nondev"), ["teibto-netsuite-toolkit"])
+        self.assertEqual(sorted(self.mod.preset(self.entries, "dev")), sorted(
+            ["teibto-netsuite-toolkit", "superpowers", "mattpocock-skills", "andrej-karpathy-skills"]))
+        with self.assertRaises(ValueError):
+            self.mod.preset(self.entries, "admin")
+
+    def test_manifest_rejects_unknown_group_and_role(self):
+        p = os.path.join(self.tmp, "m.json")
+        base = {"name": "a", "marketplace": "b", "source": "x/y"}
+        for extra in [{"group": "nope"}, {"group": "g", "default_for": ["boss"]}]:
+            with self.subTest(extra=extra):
+                json.dump({"groups": {"g": "G"}, "plugins": [dict(base, **extra)]}, open(p, "w"))
+                with self.assertRaises(ValueError):
+                    self.mod.load_manifest(p)
+
+    def test_plan_marks_preset_private_and_synced(self):
+        _, groups, synced = self.mod.load_full()
+        out = "\n".join(self.mod.plan(self.entries, ["engineering@synced"], [], groups, "nondev", synced))
+        self.assertIn("[preset for nondev]", out)
+        self.assertIn("[private: needs Teibto org access]", out)
+        self.assertIn("present as engineering@synced", out)
+        self.assertIn("teibto-userguide-toolkit   not present", out)
+        self.assertEqual(out.count("[preset for nondev]"), 1)
 
     def test_manifest_rejects_option_injection_and_odd_sources(self):
         p = os.path.join(self.tmp, "m.json")
@@ -156,9 +185,20 @@ class PluginsSetupTest(unittest.TestCase):
         offered = [l.split()[0] for l in r.stdout.splitlines() if "would-run" in l]
         self.assertNotIn("impeccable", offered)          # already installed: not offered
         self.assertEqual(sorted(offered), sorted(["teibto-netsuite-toolkit", "superpowers", "mattpocock-skills",
-                                                  "andrej-karpathy-skills", "ui-ux-pro-max"]))
+                                                  "andrej-karpathy-skills", "ui-ux-pro-max", "chrome-devtools-mcp"]))
         r2 = subprocess.run([sys.executable, os.path.join(_HERE, "plugins_setup.py")], env=env, capture_output=True, text=True)
         self.assertIn("already installed", r2.stdout)
+
+    def test_cli_defaults_installs_only_the_missing_part_of_the_role_preset(self):
+        self.set_state(installed=["superpowers@synced"])
+        r = subprocess.run([sys.executable, os.path.join(_HERE, "plugins_setup.py"), "apply", "--defaults", "--role", "dev",
+                            "--dry-run"], env=dict(os.environ), capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        offered = sorted(l.split()[0] for l in r.stdout.splitlines() if "would-run" in l)
+        self.assertEqual(offered, ["andrej-karpathy-skills", "mattpocock-skills", "teibto-netsuite-toolkit"])
+        r2 = subprocess.run([sys.executable, os.path.join(_HERE, "plugins_setup.py"), "apply", "--defaults"],
+                            env=dict(os.environ), capture_output=True, text=True)
+        self.assertEqual(r2.returncode, 2, r2.stdout)
 
     def test_cli_exit_code_is_1_when_an_install_fails(self):
         self.set_state(markets=["mattpocock"], fail_install=["mattpocock-skills@mattpocock"])

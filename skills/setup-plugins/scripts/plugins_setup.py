@@ -3,8 +3,10 @@
 plugins_setup.py - show which of the plugins listed in ../plugins.json this machine already has, and install
 the ones the USER picked, from their GitHub source, at user scope.
 
-  python3 plugins_setup.py                     # plan (default): one line per plugin + what apply would run
+  python3 plugins_setup.py [plan] [--role dev|nondev]   # plan (default): plugins by group, the role's preset marked,
+                                                        # and the account-synced ones checked
   python3 plugins_setup.py apply NAME [NAME..] [--dry-run]
+  python3 plugins_setup.py apply --defaults --role dev|nondev [--dry-run]   # the role's preset, missing ones only
   python3 plugins_setup.py apply --all-missing [--dry-run]
 
 It runs only these `claude` commands (anything else is refused in code, not by convention):
@@ -21,6 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MANIFEST = os.path.join(HERE, "..", "plugins.json")
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 SOURCE_RE = re.compile(r"^(https://[A-Za-z0-9._~/@:-]+|[A-Za-z0-9._-]+/[A-Za-z0-9._-]+)$")
+ROLES = ("dev", "nondev")
 AUTH_HINT = re.compile(r"authenticat|permission denied|could not read|not found|403|401|access", re.I)
 
 
@@ -40,9 +43,25 @@ def run_claude(args):
     return r.returncode, r.stdout, r.stderr
 
 
-def load_manifest(path=None):
+def load_full(path=None):
+    """The whole manifest, validated: (plugins, groups, account_synced)."""
     with open(path or MANIFEST, encoding="utf-8") as f:
         d = json.load(f)
+    plugins = _validate(d)
+    groups = d.get("groups") or {}
+    synced = d.get("account_synced") or []
+    for x in synced:
+        if not isinstance(x.get("name"), str) or not NAME_RE.match(x["name"]):
+            raise ValueError("bad account_synced entry: %r" % (x,))
+    return plugins, groups, synced
+
+
+def load_manifest(path=None):
+    return load_full(path)[0]
+
+
+def _validate(d):
+    groups = d.get("groups") or {}
     seen = set()
     for e in d.get("plugins", []):
         for k in ("name", "marketplace", "source"):
@@ -52,6 +71,11 @@ def load_manifest(path=None):
             raise ValueError("bad plugin/marketplace name: %r" % (e,))
         if not SOURCE_RE.match(e["source"]) or e["source"].startswith("-"):
             raise ValueError("bad source (want owner/repo or an https git URL): %r" % (e["source"],))
+        if groups and e.get("group") not in groups:
+            raise ValueError("unknown group %r for %s" % (e.get("group"), e["name"]))
+        bad_roles = [r for r in e.get("default_for", []) if r not in ROLES]
+        if bad_roles:
+            raise ValueError("bad default_for %r for %s" % (bad_roles, e["name"]))
         if e["name"] in seen:
             raise ValueError("duplicate plugin name: %s" % e["name"])
         seen.add(e["name"])
@@ -83,14 +107,39 @@ def classify(entry, installed, markets):
     return "needs-marketplace", want
 
 
-def plan(entries, installed, markets):
+def plan(entries, installed, markets, groups=None, role=None, synced=()):
     lines = []
-    for e in entries:
-        st, detail = classify(e, installed, markets)
-        label = {"installed": "already installed", "elsewhere": "already present as " + detail + " - not installed again",
-                 "ready": "missing - marketplace known, install only", "needs-marketplace": "missing - marketplace + install"}[st]
-        lines.append("  %-26s %-40s %s" % (e["name"], e["source"], label))
+    order = list(groups or {}) or [None]
+    for g in order:
+        members = [e for e in entries if g is None or e.get("group") == g]
+        if not members:
+            continue
+        if g is not None:
+            lines.append("%s" % groups[g])
+        for e in members:
+            st, detail = classify(e, installed, markets)
+            label = {"installed": "already installed", "elsewhere": "already present as " + detail + " - not installed again",
+                     "ready": "missing - marketplace known, install only", "needs-marketplace": "missing - marketplace + install"}[st]
+            mark = " [preset for %s]" % role if role and role in e.get("default_for", []) else ""
+            priv = " [private: needs Teibto org access]" if e.get("access") == "private" else ""
+            lines.append("  %-26s %s%s%s" % (e["name"], label, mark, priv))
+            if e.get("what"):
+                lines.append("  %-26s - %s" % ("", e["what"]))
+    if synced:
+        lines.append("from the claude.ai account (synced; checked only, never installed here)")
+        for x in synced:
+            have = [i for i in installed if i.split("@")[0] == x["name"]]
+            lines.append("  %-26s %s" % (x["name"], ("present as " + ", ".join(have)) if have else
+                                         "not present - check the claude.ai account / org, not GitHub"))
+            if x.get("what"):
+                lines.append("  %-26s - %s" % ("", x["what"]))
     return lines
+
+
+def preset(entries, role):
+    if role not in ROLES:
+        raise ValueError("--role must be dev or nondev")
+    return [e["name"] for e in entries if role in e.get("default_for", [])]
 
 
 def apply(entries, names, dry_run=False):
@@ -136,22 +185,31 @@ def apply(entries, names, dry_run=False):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd")
-    sub.add_parser("plan")
+    pl = sub.add_parser("plan")
+    pl.add_argument("--role", choices=ROLES)
     a = sub.add_parser("apply")
     a.add_argument("names", nargs="*")
     a.add_argument("--all-missing", action="store_true")
+    a.add_argument("--defaults", action="store_true", help="add the --role preset (missing ones only)")
+    a.add_argument("--role", choices=ROLES)
     a.add_argument("--dry-run", action="store_true")
     args = ap.parse_args(argv)
     if not (shutil.which("claude") or os.environ.get("CLAUDE_BIN")):
         print("REFUSED: the `claude` CLI is not on PATH."); return 2
     try:
-        entries = load_manifest()
+        entries, groups, synced = load_full()
         if args.cmd in (None, "plan"):
             installed, markets = read_state()
             print("plugins.json - %d plugins (source: GitHub)" % len(entries))
-            print("\n".join(plan(entries, installed, markets)))
+            print("\n".join(plan(entries, installed, markets, groups, getattr(args, "role", None), synced)))
             return 0
         names = list(args.names)
+        if args.defaults:
+            if not args.role:
+                raise ValueError("--defaults needs --role dev|nondev")
+            installed, markets = read_state()
+            names += [n for n in preset(entries, args.role) if n not in names and
+                      classify(next(e for e in entries if e["name"] == n), installed, markets)[0] in ("ready", "needs-marketplace")]
         if args.all_missing:
             installed, markets = read_state()
             names += [e["name"] for e in entries if classify(e, installed, markets)[0] in ("ready", "needs-marketplace")
@@ -164,7 +222,7 @@ def main(argv=None):
     for n, st, msg in results:
         print("  %-26s %-9s %s" % (n, st, msg))
     if any(st == "installed" for _, st, _ in results):
-        print("\nRestart Claude Code to load the new plugins.")
+        print("\nType /reload-plugins in Claude Code (or restart it) to load the new plugins.")
     return 1 if any(st == "FAILED" for _, st, _ in results) else 0
 
 
