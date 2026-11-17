@@ -9,6 +9,20 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.48.0 — 2026-11-17
+
+- **ns-sdf-prod-deploy 202611_01**:
+  - The authid swap is now **one shell block with a `trap`** that restores even when the command fails. The old gotcha that said to split it into three calls to get past the auto-mode classifier is removed: a failure between the calls left `project.json` on the prod authid. This matches the global rule.
+  - The swap edits only `defaultAuthId` (with Python), where the old version rewrote the whole file with `printf`. It keeps its backup in `mktemp` instead of a fixed `/tmp` name. Tested with a fake `project.json` and a failing command: restored, and other keys kept.
+  - New rule: read `defaultAuthId` before any SDF command.
+  - New steps:
+    - `project:deploy --dryrun` preview.
+    - Check that the authid matches the account by the team name.
+    - After an upload, `file:import` the files back and expect an empty `git diff`.
+    - Check the deployment status through `ns_read`.
+  - The rule against an unscoped `project:deploy` is reworded. Windows PowerShell swap added (untested).
+  - CLI flags re-checked on SuiteCloud CLI 3.0.0: none of the six commands has `--authid`.
+
 ## v0.47.0 — 2026-11-17
 
 - **ns-record-write 202611_02**: bsk only. The cdp engine was removed from `ns_write.py`.
