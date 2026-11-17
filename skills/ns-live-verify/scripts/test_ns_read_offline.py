@@ -349,6 +349,15 @@ class OfflineReadTest(unittest.TestCase):
               "--columns", "tranid,entity"],
              {"action": "search", "type": "transaction", "limit": 200, "filters": [["type", "anyof", "SalesOrd"]],
               "columns": ["tranid", "entity"]}),
+            (["query-page", "SELECT id FROM t ORDER BY id"], {"action": "queryPage", "q": "SELECT id FROM t ORDER BY id", "params": []}),
+            (["query-page", "SELECT id FROM t ORDER BY id", "--page", "11", "--page-size", "200"],
+             {"action": "queryPage", "q": "SELECT id FROM t ORDER BY id", "params": [], "page": 11, "pageSize": 200}),
+            (["query-page", "SELECT id FROM t order  by id", "--pages", "1-10"],
+             {"action": "queryPage", "q": "SELECT id FROM t order  by id", "params": [], "pages": [1, 10]}),
+            (["count", "SELECT id FROM t"], {"action": "count", "q": "SELECT id FROM t", "params": []}),
+            (["count", "--search-id", "customsearch_x"], {"action": "count", "searchId": "customsearch_x"}),
+            (["count", "--type", "transaction", "--filters-json", '[["type","anyof","SalesOrd"]]'],
+             {"action": "count", "type": "transaction", "filters": [["type", "anyof", "SalesOrd"]]}),
         ]
         for argv, expected in cases:
             with self.subTest(argv=argv):
@@ -375,6 +384,16 @@ class OfflineReadTest(unittest.TestCase):
             ["search", "--type", "t", "--filters-json", "{not json"], ["search", "--type", "t", "--filters-json", '{"a":1}'],
             ["search", "--type", "t", "--filters-json", "[" + "1," * 3000 + "1]"],
             ["search", "--type", "t", "--columns", "a,b;c"],
+            ["query-page", "SELECT id FROM t"], ["query-page", "DELETE FROM t ORDER BY id"],
+            ["query-page", "SELECT id FROM t ORDER BY id", "--page", "0"],
+            ["query-page", "SELECT id FROM t ORDER BY id", "--page", "1", "--pages", "1-2"],
+            ["query-page", "SELECT id FROM t ORDER BY id", "--pages", "1-11"],
+            ["query-page", "SELECT id FROM t ORDER BY id", "--pages", "3-2"],
+            ["query-page", "SELECT id FROM t ORDER BY id", "--pages", "0-2"],
+            ["query-page", "SELECT id FROM t ORDER BY id", "--page-size", "4"],
+            ["query-page", "SELECT id FROM t ORDER BY id", "--page-size", "1001"],
+            ["count"], ["count", "SELECT id FROM t", "--search-id", "x"], ["count", "UPDATE t SET a=1"],
+            ["count", "--search-id", "a b"], ["count", "--type", "t", "--filters-json", "{not json"],
         ]
         for argv in bad:
             with self.subTest(argv=argv):

@@ -14,7 +14,7 @@ ONLY this script instead of raw `bsk`, so this file IS the safety boundary:
 
 The Dev Bridge is ONE Suitelet: POST JSON {action, ...} to
 /app/site/hosting/scriptlet.nl?script=<script id>&deploy=<deploy id>. Its actions (all read-only):
-ping · query (SuiteQL, SELECT-only) · record (record.load().toJSON()) · lookup (search.lookupFields)
+ping · query (SuiteQL, SELECT-only, first 5,000 rows) · queryPage (paged SuiteQL) · count (total rows) · record (record.load().toJSON()) · lookup (search.lookupFields)
 · feature (runtime.isFeatureInEffect) · search (saved or ad-hoc). Envelope: {ok:true,...} or
 {ok:false,error,code}. The default script/deploy ids are the README's recommended ones
 (customscript_teibto_dev_bridge / customdeploy_teibto_dev_bridge); another account may use others
@@ -27,6 +27,9 @@ Usage:
   python3 ns_read.py whoami  --account 4089685_SB2
   python3 ns_read.py ping    --account 4089685_SB2
   python3 ns_read.py query   --account 4089685_SB2 "SELECT id, acctnumber FROM account WHERE isinactive = 'F'"
+  python3 ns_read.py query-page --account 4089685_SB2 --pages 1-3 "SELECT id, tranid FROM transaction ORDER BY id"
+  python3 ns_read.py count   --account 4089685_SB2 "SELECT id FROM transaction WHERE type = 'SalesOrd'"
+  python3 ns_read.py count   --account 4089685_SB2 --search-id customsearch_x
   python3 ns_read.py record  --account 4089685_SB2 --type salesorder --id 12345 [--fields tranid,status] [--meta]
   python3 ns_read.py lookup  --account 4089685_SB2 --type item --id 12345 --columns itemid,displayname
   python3 ns_read.py feature --account 4089685_SB2 --names binmanagement,subsidiaries
@@ -231,6 +234,49 @@ def build_request(args):
     if c == "query":
         err = validate_sql(args.sql)
         return ({"action": "query", "q": args.sql, "params": []}, None) if not err else (None, err)
+    if c == "query-page":
+        err = validate_sql(args.sql)
+        if err:
+            return None, err
+        # pages of an unordered SELECT can shift between calls; the bridge's own manual says always ORDER BY
+        if not re.search(r"\border\s+by\b", args.sql, re.I):
+            return None, "query-page needs ORDER BY (pages are not stable without it)"
+        body = {"action": "queryPage", "q": args.sql, "params": []}
+        if args.page is not None and args.pages:
+            return None, "give --page or --pages, not both"
+        if args.page is not None:
+            if args.page < 1:
+                return None, "--page must be >= 1"
+            body["page"] = args.page
+        if args.pages:
+            m = re.match(r"^([0-9]+)-([0-9]+)$", args.pages)
+            if not m or not (1 <= int(m.group(1)) <= int(m.group(2))) or int(m.group(2)) - int(m.group(1)) >= 10:
+                return None, "--pages must be FROM-TO, 1-based, at most 10 pages (e.g. 1-10)"
+            body["pages"] = [int(m.group(1)), int(m.group(2))]
+        if args.page_size is not None:
+            if not 5 <= args.page_size <= 1000:
+                return None, "--page-size must be 5..1000"
+            body["pageSize"] = args.page_size
+        return body, None
+    if c == "count":
+        if sum(map(bool, (args.sql, args.search_id, args.type))) != 1:
+            return None, "give exactly one of: a SELECT, --search-id, or --type"
+        if args.sql:
+            err = validate_sql(args.sql)
+            return ({"action": "count", "q": args.sql, "params": []}, None) if not err else (None, err)
+        if args.search_id:
+            if not ID_RE.match(args.search_id):
+                return None, "--search-id must be [A-Za-z0-9_]+ (got %r)" % args.search_id
+            return {"action": "count", "searchId": args.search_id}, None
+        if not ID_RE.match(args.type):
+            return None, "--type must be [A-Za-z0-9_]+ (got %r)" % args.type
+        body = {"action": "count", "type": args.type}
+        if args.filters_json:
+            f, err = _json_list(args.filters_json, "--filters-json")
+            if err:
+                return None, err
+            body["filters"] = f
+        return body, None
     if c == "record":
         if not ID_RE.match(args.type):
             return None, "--type must be [A-Za-z0-9_]+ (got %r)" % args.type
@@ -475,6 +521,16 @@ def build_parser():
     add("ping", "the bridge's own ping: account, envType, user, role")
     p = add("query", "one SuiteQL SELECT via the Dev Bridge")
     p.add_argument("sql", help="a single SELECT statement")
+    p = add("query-page", "a SuiteQL SELECT by pages (1,000 a page, up to 10 pages a call) + totalCount")
+    p.add_argument("sql", help="a single SELECT statement with ORDER BY")
+    p.add_argument("--page", type=int, default=None, help="one page, 1-based (default: page 1)")
+    p.add_argument("--pages", default=None, help="FROM-TO, at most 10 pages, e.g. 1-10")
+    p.add_argument("--page-size", type=int, default=None, help="5..1000 (bridge default 1000)")
+    p = add("count", "total rows of a SuiteQL SELECT or a search, no data")
+    p.add_argument("sql", nargs="?", default=None, help="a single SELECT statement")
+    p.add_argument("--search-id", default=None)
+    p.add_argument("--type", default=None)
+    p.add_argument("--filters-json", default=None, help='JSON array, e.g. [["type","anyof","SalesOrd"]]')
     p = add("record", "record.load(type,id).toJSON(), or a field subset")
     p.add_argument("--type", required=True, help="record type id (e.g. salesorder, customrecord_x)")
     p.add_argument("--id", required=True, help="record internal id")

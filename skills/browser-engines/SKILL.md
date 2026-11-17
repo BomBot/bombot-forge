@@ -13,7 +13,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0. The old cdp lane is history, not a lane: `docs/history/cdp-lane.md` in this plugin.
 
-**Skill version: `202611_04`**
+**Skill version: `202611_05`**
 
 This skill is the **per-run rules**. Installing and configuring the browser is `setup-browser` (once per machine).
 Command reference for `bsk` comes from the upstream `browser-skill` (installed by `bsk install-skill --harness claude-code`).
@@ -228,7 +228,7 @@ host and account come from the Home page URL the user pasted in `setup-browser` 
 Never commit an account id.
 
 **How Claude calls it — prefer the helper.** `python3 <plugin>/skills/ns-live-verify/scripts/ns_read.py
-<whoami|ping|query|record|lookup|feature|search> --account <ACCOUNT> ...` opens and stops its own bsk session, does the
+<whoami|ping|query|query-page|count|record|lookup|feature|search> --account <ACCOUNT> ...` opens and stops its own bsk session, does the
 identity gate, pings the bridge before the real request, handles bsk 0.4 cooperate sync, and validates every argument.
 Exit codes: `0` ok, `1` bridge said `ok:false`, `2` refused by a guard, `3` session/login/transport (it never logs in).
 Raw `bsk evaluate "fetch(...)"` is for when the helper cannot do it (recipe: `ns-live-verify` Option A).

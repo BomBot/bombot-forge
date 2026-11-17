@@ -9,6 +9,15 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.46.0 — 2026-11-17
+
+- **ns-live-verify 202611_03**: `ns_read.py` has two new subcommands for the any-role Dev Bridge.
+  - `count`: total rows of a SELECT, `--search-id`, or `--type` with `--filters-json`.
+  - `query-page`: `--page N` or `--pages FROM-TO` (at most 10), plus `--page-size 5..1000`. It refuses a SELECT without `ORDER BY` because pages shift.
+  - Both go through the same SELECT-only guard. There are 49 offline tests, 16 of them new.
+  - Live on SB2: `count` of `script` = 1557 (the same as `COUNT(*)`), and `query-page --pages 1-2 --page-size 5` returned 10 rows. The session was stopped.
+- **browser-engines 202611_05**: lists the new subcommands.
+
 ## v0.45.0 — 2026-11-17
 
 - **Dev Bridge `2026.10.30-001` (any role)** is reflected in ns-live-verify 202611_02, browser-engines, setup-browser, setup-init 202611_04 and the Windows onboarding doc:

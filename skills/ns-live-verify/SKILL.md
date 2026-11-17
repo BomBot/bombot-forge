@@ -9,7 +9,7 @@ description: >-
 
 # NetSuite Live Verify (read-only via the TEIBTO Dev Bridge)
 
-**Skill version: `202611_02`**
+**Skill version: `202611_03`**
 
 Run SuiteQL / `record.load().toJSON()` / searches against a live account through a logged-in Chrome
 tab, so you verify against **real state** instead of guessing. Read-only. Pairs with
@@ -55,8 +55,10 @@ reply is `{ok:true, action, asRole, ...}` or `{ok:false, error, code, nsCode?}` 
 `;`, and none of `insert|update|delete|merge|create|drop|alter|truncate|grant|revoke` as a word — even
 inside a string literal. Result keys are always **lowercase** (`AS my_id` → `row.my_id`). `query` returns
 the first 5,000 rows (`capped:true` = there may be more): get the total with `count` (or `SELECT COUNT(*)`), never with
-`rows.length`, and read the rest with `queryPage`. `OFFSET` is silently ignored. `ns_read.py` has no
-`queryPage` / `count` subcommand yet — use raw `bsk` (Option A) for those. Every call is written to the script's Execution Log (who + what).
+`rows.length`, and read the rest with `queryPage`. `OFFSET` is silently ignored. With the helper:
+`ns_read.py count --account <A> "<SELECT>"` (or `--search-id` / `--type --filters-json`) and
+`ns_read.py query-page --account <A> [--page N | --pages FROM-TO] [--page-size 5..1000] "<SELECT … ORDER BY …>"`
+(it refuses a SELECT without `ORDER BY`, since pages shift without it). Verified on SB2, 2026-11-17. Every call is written to the script's Execution Log (who + what).
 
 Two ways to drive the tab — **bsk is the default** (see `browser-engines` for the engine choice):
 
