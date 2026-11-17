@@ -9,6 +9,12 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.51.1 — 2026-11-17
+
+- **docs/onboarding/new-member-starter.md** (no skill version):
+  - New step 0: check `git --version` and install git first (macOS `xcode-select --install`, Windows `winget install --id Git.Git -e`), because `marketplace add` pulls the plugin from a git repo and `setup-init`, which installs git, lives inside that plugin. Not run on a machine without git.
+  - Step 1 now updates a plugin that is already installed: `claude plugin marketplace update bombot-forge`, then `claude plugin update bombot-forge@bombot-forge` (the marketplace refresh is needed to see the new version).
+
 ## v0.51.0 — 2026-11-17
 
 - **setup-coding-agent 202611_01**:

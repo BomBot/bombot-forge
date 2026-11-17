@@ -10,14 +10,31 @@
 - ห้ามเขียนข้อมูลใน NetSuite ห้าม commit, push, deploy หรือส่งข้อความ Slack/email
 - ขั้นไหนล้มเหลว ให้หยุด รายงาน error จริง แล้วเสนอทางแก้
 
+## ขั้น 0: เช็ก git
+
+ขั้น 1 ดึง plugin จาก git repo จึงต้องมี git ก่อน (`setup-init` ลงให้ไม่ได้ เพราะมันอยู่ใน plugin นั้นเอง)
+
+- ตรวจ: `git --version` ได้เลขเวอร์ชัน → ข้ามไปขั้น 1
+- ไม่มี (บอกผู้ใช้ก่อน แล้วรอ OK):
+  - macOS: `xcode-select --install` แล้วกด Install ในหน้าต่างที่เด้งขึ้น รอจนเสร็จ
+  - Windows: `winget install --id Git.Git -e` แล้วปิด/เปิด Claude Code ใหม่ให้เห็น `git`
+- รัน `git --version` อีกครั้งให้ได้เลขเวอร์ชันก่อนไปต่อ
+
 ## ขั้น 1: ติดตั้ง plugin `bombot-forge`
 
-- ตรวจก่อน: `claude plugin list` มี `bombot-forge` แล้วหรือยัง ถ้ามีแล้วข้ามไปขั้น 2
+- ตรวจก่อน: `claude plugin list` มี `bombot-forge` แล้วหรือยัง
 - ยังไม่มี (บอกผู้ใช้ก่อนว่าจะติดตั้งชุด skill ของทีม แล้วรอ OK):
 
 ```
 claude plugin marketplace add https://github.com/BomBot/bombot-forge.git
 claude plugin install bombot-forge@bombot-forge
+```
+
+- มีแล้ว ให้ update เป็นเวอร์ชันล่าสุด (บอกผู้ใช้ก่อน แล้วรอ OK) ต้องรันทั้ง 2 บรรทัด เพราะถ้าไม่ refresh marketplace ก่อน จะไม่เห็นเวอร์ชันใหม่:
+
+```
+claude plugin marketplace update bombot-forge
+claude plugin update bombot-forge@bombot-forge
 ```
 
 - ขอให้ผู้ใช้พิมพ์ `/reload-plugins` ในช่องแชท (หรือ restart Claude Code) เพื่อให้ skill ใหม่โหลด
