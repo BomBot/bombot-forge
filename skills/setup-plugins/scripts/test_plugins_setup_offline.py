@@ -71,7 +71,7 @@ class PluginsSetupTest(unittest.TestCase):
     def test_shipped_manifest_is_valid_and_has_the_chosen_plugins(self):
         self.assertEqual(sorted(e["name"] for e in self.entries), sorted(
             ["teibto-netsuite-toolkit", "superpowers", "impeccable", "mattpocock-skills", "andrej-karpathy-skills", "ui-ux-pro-max",
-             "chrome-devtools-mcp"]))
+             "chrome-devtools-mcp", "ponytail"]))
         _, groups, synced = self.mod.load_full()
         self.assertTrue(all(e["group"] in groups and e.get("what") for e in self.entries))
         self.assertEqual([x["name"] for x in synced], ["teibto-userguide-toolkit", "engineering"])
@@ -185,7 +185,7 @@ class PluginsSetupTest(unittest.TestCase):
         offered = [l.split()[0] for l in r.stdout.splitlines() if "would-run" in l]
         self.assertNotIn("impeccable", offered)          # already installed: not offered
         self.assertEqual(sorted(offered), sorted(["teibto-netsuite-toolkit", "superpowers", "mattpocock-skills",
-                                                  "andrej-karpathy-skills", "ui-ux-pro-max", "chrome-devtools-mcp"]))
+                                                  "andrej-karpathy-skills", "ui-ux-pro-max", "chrome-devtools-mcp", "ponytail"]))
         r2 = subprocess.run([sys.executable, os.path.join(_HERE, "plugins_setup.py")], env=env, capture_output=True, text=True)
         self.assertIn("already installed", r2.stdout)
 

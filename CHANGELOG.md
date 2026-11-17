@@ -9,6 +9,19 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.43.0 — 2026-11-17
+
+- **setup-plugins 202611_02**:
+  - `ponytail` (DietrichGebert/ponytail) added to group ข. It is on trial and in no preset; its hooks were read before the install and run locally, and its webhook is empty by default.
+  - New section "Extra tool, not a plugin: codegraph". It covers a per-repo setup done by hand:
+    - turn telemetry off first;
+    - skip `codegraph install`, because it writes into the global `CLAUDE.md`;
+    - exclude `.codegraph/` with `.git/info/exclude`;
+    - use a local-scope MCP;
+    - verify, then undo.
+  - Checked on 1.6.2 against TEIBTO-MFG-Manufacturing. Version 1.6.2 rejects `--local-only` and `--no-telemetry`.
+  - jevgrep was rejected: it sends source code to an external AI provider.
+
 ## v0.42.0 — 2026-11-17
 
 setup-plugins explains and groups the plugins and offers a preset per role. **setup-plugins 202611_01**, **setup-init 202611_02** (step 5 passes the role).

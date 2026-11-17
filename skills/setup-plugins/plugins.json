@@ -58,6 +58,15 @@
       "what": "แนวเขียนโค้ดแบบ Karpathy: เรียบง่าย ไม่เดา ตรวจผลก่อนบอกว่าเสร็จ"
     },
     {
+      "name": "ponytail",
+      "marketplace": "ponytail",
+      "source": "DietrichGebert/ponytail",
+      "note": "On trial (2026-11-17). Hooks need node on the PATH; they run locally (SessionStart injects the mode and a git ls-files map, a per-task ledger CSV under ~/.config/ponytail/band/); the optional webhook is empty by default, so nothing leaves the machine. Applies to every session once installed.",
+      "group": "discipline",
+      "default_for": [],
+      "what": "ให้ Claude ใช้โค้ดเดิม / ของ native ก่อนเขียนใหม่ แก้ให้น้อยที่สุด มี /ponytail-review และ /ponytail-audit ตรวจโค้ดเกินจำเป็น (กำลังทดลอง)"
+    },
+    {
       "name": "ui-ux-pro-max",
       "marketplace": "ui-ux-pro-max-skill",
       "source": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git",

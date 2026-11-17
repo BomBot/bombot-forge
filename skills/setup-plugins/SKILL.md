@@ -3,7 +3,7 @@ name: setup-plugins
 description: >-
   Use when setting up a new machine or session with the team's other Claude Code plugins: shows the plugins in this
   skill's plugins.json by group with what each is for (ก. Teibto team toolkit — must have; ข. working discipline:
-  superpowers, mattpocock-skills, andrej-karpathy-skills; ค. UI design and web debugging: impeccable, ui-ux-pro-max,
+  superpowers, mattpocock-skills, andrej-karpathy-skills, ponytail; ค. UI design and web debugging: impeccable, ui-ux-pro-max,
   chrome-devtools-mcp), marks the preset for the user's role (dev / non-dev), checks the plugins that come with the
   claude.ai account, and installs the ones the user picks from GitHub at user scope. Copies nothing. Not for updating
   installed plugins, and not for plugins that have no GitHub source.
@@ -11,7 +11,7 @@ description: >-
 
 # Setup Plugins (the team's other plugins, by group)
 
-**Skill version: `202611_01`**
+**Skill version: `202611_02`**
 
 `plugins.json` (beside this file) lists plugins by GitHub source, each with a `group`, a plain `what` line and
 `default_for` (the preset per role). The helper `scripts/plugins_setup.py` compares that list with what this machine has
@@ -23,13 +23,37 @@ and installs the ones the user picks. Nothing is bundled: every install is `clau
 | Group | Plugins | What for | Preset |
 |---|---|---|---|
 | **ก. ทีม Teibto (must have)** | teibto-netsuite-toolkit | the team's NetSuite skills: SuiteScript code review, KM from code, release notes, API docs, SDF reference check | dev + non-dev |
-| **ข. วินัยการทำงาน** | superpowers, mattpocock-skills, andrej-karpathy-skills | brainstorm before building, systematic debugging, TDD, plans, review | dev |
+| **ข. วินัยการทำงาน** | superpowers, mattpocock-skills, andrej-karpathy-skills, ponytail (trial) | brainstorm before building, systematic debugging, TDD, plans, review; ponytail: reuse existing / native code before writing new, smallest change | dev (ponytail: pick) |
 | **ค. ออกแบบและ debug หน้าเว็บ** | impeccable, ui-ux-pro-max, chrome-devtools-mcp | critique and polish Suitelet/web UI; UI/UX reference; debug pages through Chrome DevTools | pick |
 | **ง. มากับบัญชี claude.ai (synced)** | teibto-userguide-toolkit, engineering | user guides from the live system; general engineering skills | checked only |
 
 Group ง is not installed from GitHub: such plugins appear as `<name>@synced` when the claude.ai account has them. Missing →
 tell the user to check their claude.ai account / org, not GitHub. Any plugin of groups ก–ค that is already there as
 `@synced` is skipped (no second copy).
+
+## Extra tool, not a plugin: codegraph (trial, per repo)
+
+[colbymchenry/codegraph](https://github.com/colbymchenry/codegraph) indexes a repo's code into a local graph so Claude
+can ask "who calls X / what does changing X affect" through MCP, instead of grepping file by file. Useful for impact
+checks in a large SuiteScript repo. It is an npm CLI plus an MCP server, so the helper does not install it; offer it only
+to devs, only when they ask, and set it up by hand for **one repo at a time**:
+
+1. `npm i -g @colbymchenry/codegraph` (needs Node; ask first, show the source URL).
+2. **`codegraph telemetry off` before anything else** — telemetry is on by default (anonymous usage stats).
+3. **Don't run `codegraph install`**: it writes a section into the global `~/.claude/CLAUDE.md`. Instead, in the repo:
+   add `.codegraph/` to `.git/info/exclude`, run `codegraph init --yes` (builds the index), then
+   `claude mcp add codegraph --scope local -e DO_NOT_TRACK=1 -- codegraph serve --mcp --path "<repo path>"` (stored in
+   `~/.claude.json` for that project only; nothing is written into the repo).
+4. Verify: `claude mcp get codegraph` shows Connected, and `codegraph callers <a function>` matches a grep.
+5. Undo: `claude mcp remove codegraph --scope local` (in the repo), `npm rm -g @colbymchenry/codegraph`, delete
+   `.codegraph/`.
+
+Checked on this Mac with 1.6.2 (2026-11-17, TEIBTO-MFG-Manufacturing: 1,378 files indexed in 4.1 s; `callers` matched
+grep). The README on `main` documents `init --local-only` and `serve --no-telemetry`, but **1.6.2 rejects both** — check
+`--help` of the installed version. Windows not run.
+
+Rejected: **jevgrep** — its README says searches send source content to the AI provider picked at `jg auth`; not for
+customer code.
 
 ## Before you start
 
@@ -101,3 +125,6 @@ plugins go under `account_synced` (name + what). Run the offline tests
 
 202611_01 — groups, role presets, `what` lines, account-synced check, `chrome-devtools-mcp` added; 16 offline tests on
 macOS. Private-repo install with access, `/reload-plugins` and Windows untested (see the table).
+
+202611_02 — `ponytail` added to group ข (trial, not in any preset); codegraph documented as a hand-set, per-repo extra
+tool (telemetry off, local MCP scope, not `codegraph install`); jevgrep recorded as rejected.
