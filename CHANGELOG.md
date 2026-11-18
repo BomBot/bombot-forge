@@ -9,6 +9,18 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.52.1 — 2026-11-18
+
+- **setup-browser 202611_06**:
+  - The Dev Bridge trial says what to do when `ping` is refused with "A page frame changed" and there is no skew: update the plugin to 0.52.0+ (issue #1). Never switch `dev_bridge` off to get past it; the teammate's first fix did that and only hid the problem.
+  - Gotchas added for that refusal and for "User activity revoked this action", which means the user is in that Chrome, so stop.
+  - The login-consent summary says the background click must be a real `bsk click`.
+- **browser-engines 202611_07**, login step:
+  - Both clicks must be real `bsk click`s. On 2026-11-18 a JS `element.click()` on the disabled button did not log in.
+  - The `body` selector aims at the middle of the page, which is the login panel.
+  - "User activity revoked" means stop.
+  - A working background-click target was not found this round, because the user logged in by hand.
+
 ## v0.52.0 — 2026-11-18
 
 - **ns-live-verify 202611_05** — fixes [issue #1](https://github.com/BomBot/bombot-forge/issues/1) (`ns_read.py` failed every call on bsk 0.5.0 with "A page frame changed"):

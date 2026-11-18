@@ -13,7 +13,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0. The old cdp lane is history, not a lane: `docs/history/cdp-lane.md` in this plugin.
 
-**Skill version: `202611_06`**
+**Skill version: `202611_07`**
 
 This skill is the **per-run rules**. Installing and configuring the browser is `setup-browser` (once per machine).
 Command reference for `bsk` comes from the upstream `browser-skill` (installed by `bsk install-skill --harness claude-code`).
@@ -140,7 +140,10 @@ The upstream `browser-skill` updates itself with the CLI.
    Then, with the user's consent (`auto_login_click`) and the flag on: if the Login button is disabled, click the page
    background outside the white login panel (right side of the screen) once so `blur` enables it; click `#login-submit`
    once (on 0.4+ after a fresh sync, step 2b; never read or type a credential; stop on an MFA prompt or any page change)
-   and check that the URL left the login page. **Tested (2026-09-30, SB2):** a `bsk`
+   and check that the URL left the login page. Both clicks must be real `bsk click`s: on 2026-11-18 a JS
+   `element.click()` from `evaluate` on the disabled button left the page on `enterpriselogin.nl`, and the selector
+   `body` aims at the middle of the page, which is the login panel, not the background. A refusal "User activity
+   revoked this action" means the user is in that Chrome: stop, do not retry. **Tested (2026-09-30, SB2):** a `bsk`
    click on `#login-submit` with both fields `:-webkit-autofill` (values hidden, length 0) submitted them and landed on
    the Home page (`SANDBOX`, no MFA). Repeated after the user logged out (a real expired session): `ns_read.py` stopped at the login page without logging in, then the same click landed on Home again. If it does not leave the login page, or there is no consent,
    hand off to a **real tab** (the user's own Chrome, where they can see it and press Login):

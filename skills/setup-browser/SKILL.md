@@ -10,7 +10,7 @@ description: >-
 
 # Setup Browser (bsk, Claude in Chrome, Dev Bridge, login consent)
 
-**Skill version: `202611_05`**
+**Skill version: `202611_06`**
 
 Run once per machine (and again to change a choice). It asks, installs what you pick, tests it,
 and writes the answers to `~/.config/bombot-forge/browser.json` — a local file with **no
@@ -148,6 +148,10 @@ If yes:
 3. Test it: `python3 <plugin>/skills/ns-live-verify/scripts/ns_read.py ping --account <ACCOUNT>` (on Windows `python`
    or `py` if `python3` is missing). Confirm `account` and `envType` match what they expect, and tell the user which role the bridge ran as (`asRole`;
    reads follow that role's permissions).
+   If `ping` fails with a bsk refusal (`A page frame changed`, `observation_changed`) while `bsk status --json` shows
+   no `version_skew`: the plugin is older than 0.52.0 (a live Home portlet defeats the strict path; issue #1).
+   Update the plugin (`claude plugin marketplace update bombot-forge`, then `claude plugin update
+   bombot-forge@bombot-forge`, `/reload-plugins`) and try again. Do **not** switch `dev_bridge` off to get past it.
    Then one `query` with `SELECT COUNT(*) AS n FROM script` to show a real read. Non-sandbox accounts are read
    read-only with a NOTE; name the account in what you tell the user. (Only the delegated agent is gated, see
    `setup-coding-agent`.)
@@ -162,7 +166,7 @@ autofill the email + password on its own, without asking you to type or unlock a
 time. Record `auto_login_click: true|false`.
 
 How the click works when consented (check `:-webkit-autofill`, never the value length; never touch the password
-field; disabled button → click the background once; stop on MFA or any change; verify the URL left the login page) is
+field; disabled button → click the background once with a real `bsk click`, not a JS `element.click()`; stop on MFA or any change; verify the URL left the login page) is
 the per-run rule in **`browser-engines` step 5** — follow it there, don't restate it. Tested: a `bsk` click on
 `#login-submit` with hidden autofilled values logged in on SB2 (2026-09-30).
 
@@ -257,6 +261,12 @@ commands are not loaded yet). bsk not working → skip it and say why.
   (seen 2026-11-17: CLI 0.5.0 / protocol 1.9, extension 0.4.2 / protocol 1.8 → `version_skew: true` and some features
   blocked). Symptoms: bsk "stops connecting" or refuses actions after an update. The passive check is in
   `browser-engines` → *After a `bsk` update*.
+- **No skew and still refused on NetSuite** ("A page frame changed"): a page that changes every second (a Home
+  portlet counting down "Auto refresh in Ns") needs plugin 0.52.0+, where `ns_read` runs `--unverified` with its own
+  host/company checks. Seen 2026-11-17 on a teammate's production account; the first fix tried there was turning the
+  Dev Bridge off, which hides the problem.
+- **bsk refuses with "User activity revoked this action"** and the next `cooperate sync` has no `context_id`: the user
+  is using that Chrome right now. Stop and say so; retry only after they leave it alone (seen 2026-11-18 on a login click).
 - The prefs file is per machine and private; if it gets committed by mistake, remove it from the
   repo — it can hold an account host.
 
@@ -264,6 +274,8 @@ commands are not loaded yet). bsk not working → skip it and say why.
 
 v0.1 draft — written from the flow the maintainer specified; not yet run end to end on a clean
 machine. Steps 4–5 depend on a Dev Bridge deployment the user already has.
+202611_06 (2026-11-18): Dev Bridge trial and gotchas cover the bsk 0.5 page-change refusal (update to 0.52.0+, never
+switch the bridge off for it), "User activity revoked" means stop, the login click needs a real bsk click.
 202611_05 (2026-11-17): cdp removal also cleans `browser.json`; Claude in Chrome required for non-dev; Administrator
 asked before the Dev Bridge trial; Windows backup commands; extension-lag gotcha replaces the stale `flow-runner` pin.
 Step 5b (daemon at login): Windows layout observed on one machine on 2026-11-03 (bsk 0.4.1, `wscript` + .vbs, no window) from a
