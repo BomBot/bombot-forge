@@ -74,7 +74,7 @@ FIRST_WORD_RE = re.compile(r"^([A-Za-z]+)")
 
 # Selected session/tab, set once per run. The script owns both. "coop" turns on once bsk (0.4+) has
 # asked for a cooperate sync, so later commands sync first instead of failing once each.
-ST = {"session": None, "tab": None, "coop": False}
+ST = {"session": None, "tab": None, "coop": False, "unverified": False, "host": None, "company": None}
 
 # bsk 0.4+ refuses a tab action until `bsk cooperate sync` has run, and an observation id works once.
 # These are the refusals a fresh sync fixes; bsk reports them with data.effect_state "none" (nothing ran).
@@ -391,11 +391,35 @@ def _cooperate_sync():
     return ["--context", str(ctx), "--observation", str(obs)]
 
 
+def _unverified_available():
+    """True when both the daemon and every connected browser offer bsk's `unverified_script` (bsk 0.5+)."""
+    d, err = _bsk_run(["status", "--json"])
+    if err or not isinstance(d, dict):
+        return False
+    c = d.get("compatibility") or {}
+    browsers = [b.get("features") or [] for b in c.get("browsers") or [] if isinstance(b, dict)]
+
+    def has(feats):
+        return isinstance(feats, list) and any(
+            isinstance(f, dict) and f.get("feature") == "unverified_script" and f.get("available") for f in feats)
+    return has(c.get("daemon")) and bool(browsers) and all(has(f) for f in browsers)
+
+
 def _bsk_eval(expr, timeout=60):
     """One `bsk evaluate` on this run's pinned tab. Returns the value; raises SessionProblem.
     On bsk 0.4+ each evaluate needs a fresh cooperate sync; a refusal is retried only when bsk says
     nothing ran (effect_state "none"), so a call that may have had an effect is never replayed."""
     base = ["evaluate", expr, "--session", ST["session"], "--tab-id", ST["tab"], "--json"]
+    if ST["unverified"]:
+        # bsk 0.5: a live page (Home's "Auto refresh in Ns" portlet) changes faster than any sync, so a strict
+        # observation never matches. The sync still checks the tab is ours; the page preconditions (host,
+        # company) are checked inside the script that fetches (_fetch_js), which throws before any request.
+        d, err = _bsk_run(base + _cooperate_sync()[:2] + ["--unverified"], timeout)
+        if err:
+            raise SessionProblem(err)
+        if d.get("dialogs"):
+            raise SessionProblem("native dialog fired (guard leaked): %s" % json.dumps(d["dialogs"])[:200])
+        return d.get("value")
     extra = _cooperate_sync() if ST["coop"] else []
     for _ in range(SYNC_TRIES):
         d, err = _bsk_run(base + extra, timeout)
@@ -434,8 +458,13 @@ def _identity():
 def _fetch_js(path, body_obj):
     """Same-origin POST from the tab. json.dumps every interpolated value, never concatenate."""
     body_text = json.dumps(body_obj)
-    return ("fetch(%s,{method:'POST',headers:{'Content-Type':'application/json'},body:%s})"
-            ".then(function(r){return r.text();})" % (json.dumps(path), json.dumps(body_text)))
+    # the script re-checks the page it runs on and throws before fetching (needed when bsk runs it unverified)
+    guard = ("if(location.host!==%s)throw new Error('wrong host: '+location.host);"
+             "if(typeof nlapiGetContext!=='function')throw new Error('not a NetSuite app page (login?)');"
+             "if(String(nlapiGetContext().getCompany())!==%s)throw new Error('wrong company');"
+             % (json.dumps(ST["host"]), json.dumps(ST["company"])))
+    return ("(function(){%sreturn fetch(%s,{method:'POST',headers:{'Content-Type':'application/json'},body:%s})"
+            ".then(function(r){return r.text();});})()" % (guard, json.dumps(path), json.dumps(body_text)))
 
 
 def _read_response(raw):
@@ -445,6 +474,11 @@ def _read_response(raw):
     try:
         data = json.loads(raw)
     except ValueError:
+        if "do not have privileges" in raw:
+            # an older bridge deployment not open to this role answers an HTML Notice, not JSON
+            print("bridge not allowed for this role: NetSuite answered 'You do not have privileges to view "
+                  "this page' (switch role, or redeploy the bridge for this role)")
+            return 1, None
         if raw.strip().startswith("<") or "Notice" in raw:
             print("SESSION EXPIRED or not logged in (bridge returned an HTML notice page)")
             return 3, None
@@ -619,6 +653,7 @@ def main(argv=None):
                 return 3
         tab = str(tab)  # bsk returns a JSON number; subprocess argv must be str
         ST["tab"] = tab
+        ST["unverified"] = _unverified_available()
 
         url = "https://%s/app/center/card.nl?sc=-29&whence=" % host
         d, err = _bsk_run(["navigate", url, "--wait-until", "domcontentloaded",
@@ -639,6 +674,7 @@ def main(argv=None):
         if company != account:
             print("wrong account: page is %r but --account is %r" % (company, account))
             return 2
+        ST["host"], ST["company"] = host, company
         allow_prod = getattr(args, "allow_prod_read", False)
         strict = os.environ.get("BOMBOT_NS_READ_STRICT") == "1"       # set by agent_run.py for the delegated agent
         if str(env).upper() != "SANDBOX" and strict and not allow_prod:

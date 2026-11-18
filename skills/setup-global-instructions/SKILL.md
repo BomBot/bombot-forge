@@ -11,7 +11,7 @@ description: >-
 
 # Setup Global Instructions (dev or non-dev · compare + merge ~/.claude/CLAUDE.md)
 
-**Skill version: `202611_03`**
+**Skill version: `202611_04`**
 
 `~/.claude/CLAUDE.md` is loaded into **every** session on the machine, so a bad edit has a huge blast radius: this
 skill **builds, compares and proposes**; it never clobbers.

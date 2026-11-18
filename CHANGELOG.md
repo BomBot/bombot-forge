@@ -9,6 +9,18 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.52.0 — 2026-11-18
+
+- **ns-live-verify 202611_05** — fixes [issue #1](https://github.com/BomBot/bombot-forge/issues/1) (`ns_read.py` failed every call on bsk 0.5.0 with "A page frame changed"):
+  - Cause: ns_read opens the Home dashboard, and a portlet there counting down "Auto refresh in 58s" changes the page every second, so a strict observation never matches and re-syncing cannot win. Our own Home has no such portlet, which is why it passed here.
+  - When `bsk status --json` shows `unverified_script` available on the daemon and every browser, every `evaluate` runs with `--context <id> --unverified` after a fresh `cooperate sync` (still stops if someone else drives the tab), with no `--observation`. Otherwise the 0.4 strict path is kept.
+  - The fetch script now checks `location.host`, `nlapiGetContext` and the company itself and throws before any request (exit 3).
+  - An HTML "You do not have privileges to view this page" from the bridge is reported as `bridge not allowed for this role` (exit 1) instead of an expired session.
+  - 54 offline tests (5 new). Live on SB2, bsk 0.5.0: `ping`, `query`, `count`, `query-page` all ran unverified; a tampered company made the script throw before the fetch. The portlet itself was not reproduced here.
+  - `ns_write.py` is unchanged on purpose: it writes, it runs on the user's record page, and its write script already carries an account guard; it stays on the strict path.
+- **browser-engines 202611_06**: step 2b says what to do on a page that never stops changing (`--unverified` with in-script checks for reads only; never for a write).
+- **setup-global-instructions 202611_04**: the snapshot's bsk bullet gets the same rule in one line.
+
 ## v0.51.1 — 2026-11-17
 
 - **docs/onboarding/new-member-starter.md** (no skill version):

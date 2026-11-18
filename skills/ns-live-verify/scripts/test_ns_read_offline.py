@@ -55,7 +55,7 @@ class FakeBsk:
 
     @staticmethod
     def decode(expr):
-        path = json.loads(re.match(r'fetch\(("(?:[^"\\]|\\.)*")', expr).group(1))
+        path = json.loads(re.search(r'fetch\(("(?:[^"\\]|\\.)*")', expr).group(1))
         lit = re.search(r"body:(\"(?:[^\"\\]|\\.)*\")\}\)", expr).group(1)
         return path, json.loads(json.loads(lit))
 
@@ -77,15 +77,15 @@ class FakeBsk:
             expr = cmd_args[1]
             if self.dialogs is not None:
                 return {"ok": True, "value": "x", "dialogs": self.dialogs}, None
-            if "nlapiGetContext" in expr:
-                v = self.identity if self.identity is not None else json.dumps(
-                    {"ok": True, "company": self.company, "environment": self.env})
-                return {"ok": True, "value": v}, None
-            if expr.startswith("fetch("):
+            if "fetch(" in expr:
                 path, body = self.decode(expr)
                 self.paths.append(path)
                 self.bodies.append(body)
                 return {"ok": True, "value": self.ping if body.get("action") == "ping" else self.reply}, None
+            if "nlapiGetContext" in expr:
+                v = self.identity if self.identity is not None else json.dumps(
+                    {"ok": True, "company": self.company, "environment": self.env})
+                return {"ok": True, "value": v}, None
             return {"ok": True, "value": "guard"}, None
         return {"ok": True}, None
 
@@ -609,6 +609,66 @@ class OfflineReadTest(unittest.TestCase):
         self.assertEqual(fake.syncs, self.mod.SYNC_TRIES)
         self.assertEqual(fake.bodies, [])
         self.assertTrue(fake.stopped())
+
+    # ---- bsk 0.5: unverified evaluate on live pages (issue #1) -----------------
+    @staticmethod
+    def _status(daemon=True, browser=True):
+        f = lambda on: [{"feature": "unverified_script", "available": on, "blocked_by": []}]
+        return {"ok": True, "compatibility": {"daemon": f(daemon), "browsers": [{"features": f(browser)}]}}
+
+    def _bsk05(self, daemon=True, browser=True, **kw):
+        status = self._status(daemon, browser)
+
+        class Bsk05(CoopFakeBsk):
+            def __call__(s, cmd_args, timeout=60):
+                if cmd_args[0] == "status":
+                    s.calls.append(list(cmd_args))
+                    return status, None
+                if cmd_args[0] == "evaluate" and "--unverified" in cmd_args:
+                    if "--context" not in cmd_args:
+                        s.calls.append(list(cmd_args))
+                        return None, Refusal("cooperation_sync_required")
+                    return FakeBsk.__call__(s, cmd_args, timeout)
+                return super().__call__(cmd_args, timeout)
+        return Bsk05(**kw)
+
+    def test_bsk05_runs_every_evaluate_unverified_with_a_context_and_no_observation(self):
+        code, out, fake = self.run_cmd(["query", "SELECT 1 FROM dual"], self._bsk05())
+        self.assertEqual(code, 0, out)
+        self.assertEqual(len(fake.real_bodies()), 1)
+        ev = fake.evaluates()
+        self.assertTrue(ev and all("--unverified" in c and "--context" in c and "--observation" not in c
+                                   for c in ev))
+        self.assertEqual(fake.syncs, len(ev))              # sync before each: refuses a tab someone is using
+        self.assertTrue(fake.stopped())
+
+    def test_bsk05_still_stops_when_someone_else_is_using_the_tab(self):
+        fake = self._bsk05(state={"mode": "user_control", "editing": True})
+        code, out, fake = self.run_cmd(["query", "SELECT 1 FROM dual"], fake)
+        self.assertEqual(code, 3)
+        self.assertEqual(fake.bodies, [])
+
+    def test_strict_path_when_the_browser_lacks_unverified_script(self):
+        for daemon, browser in ((True, False), (False, True)):
+            code, out, fake = self.run_cmd(["query", "SELECT 1 FROM dual"], self._bsk05(daemon, browser))
+            self.assertEqual(code, 0, out)
+            self.assertFalse(any("--unverified" in c for c in fake.evaluates()))
+
+    def test_fetch_script_checks_host_and_company_before_fetching(self):
+        code, out, fake = self.run_cmd(["query", "SELECT 1 FROM dual"], self._bsk05())
+        fetches = [c[1] for c in fake.evaluates() if "fetch(" in c[1]]
+        self.assertTrue(fetches)
+        for js in fetches:
+            g = js.index("fetch(")
+            self.assertIn("location.host!==%s" % json.dumps(self.mod.host_for(ACCOUNT)), js[:g])
+            self.assertIn("getCompany())!==%s" % json.dumps(ACCOUNT), js[:g])
+            self.assertIn("throw new Error", js[:g])
+
+    def test_html_privileges_notice_says_the_role_is_not_allowed(self):
+        html = "<html><title>Notice</title>You do not have privileges to view this page</html>"
+        code, out, fake = self.run_cmd(["query", "SELECT 1 FROM dual"], FakeBsk(ping=html))
+        self.assertEqual(code, 1)
+        self.assertIn("not allowed for this role", out)
 
 
 if __name__ == "__main__":

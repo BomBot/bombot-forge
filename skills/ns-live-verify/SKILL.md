@@ -9,7 +9,7 @@ description: >-
 
 # NetSuite Live Verify (read-only via the TEIBTO Dev Bridge)
 
-**Skill version: `202611_04`**
+**Skill version: `202611_05`**
 
 Run SuiteQL / `record.load().toJSON()` / searches against a live account through a logged-in Chrome
 tab, so you verify against **real state** instead of guessing. Read-only. Pairs with
@@ -109,11 +109,23 @@ always stops. `python3 scripts/ns_read.py <whoami|ping|query|query-page|count|re
   `bsk cooperate sync` and a retry with `--context`/`--observation` (up to 5 times; NetSuite re-renders, so
   `observation_changed` is common); any other refusal is exit 3. It never calls `cooperate wait` and stops if someone
   else is driving the tab. **Verified live on bsk 0.4.2 (2026-11-06, sandbox):** `whoami`, `ping`, `query` (a `COUNT(*)`).
+- **bsk 0.5+ (`unverified_script` offered by the daemon and every connected browser, read from `bsk status --json`):**
+  every `evaluate` runs with `--context <id> --unverified` after a fresh `cooperate sync`, and no `--observation`. Reason:
+  a Home dashboard with a live portlet ("Auto refresh in 58s") changes every second, so a strict observation never
+  matches and every call was refused ("A page frame changed" / `observation_changed`, issue #1). The sync still stops
+  the run when someone else is driving the tab; the page checks move into the fetch script, which throws before any
+  request when `location.host`, `nlapiGetContext` or the company is not what the identity gate saw (exit 3).
+  Without `unverified_script` the 0.4 strict path above is used.
+  **Verified live on bsk 0.5.0 (2026-11-18, sandbox):** `ping`, `query`, `count`, `query-page`, and a tampered company
+  that made the script throw before the fetch. Not reproduced here: the auto-refresh portlet itself (reported on
+  the reporter's production Home page).
+- A Dev Bridge deployment the current role may not open answers an HTML "You do not have privileges to view this
+  page" Notice; ns_read reports it as `bridge not allowed for this role` (exit 1), not as an expired session.
 - **Verified live on a sandbox** with the default ids: `ping`, `query` (a `COUNT(*)`), `record` (a field
   subset and a full dump, cut by `--max-chars`), `lookup`, `feature`, `search` (ad-hoc), a bad column
   (bridge `ok:false` → exit 1), and the local refusals. **Not verified live:** a saved search
   (`--search-id`), `--meta`, `--filters-json` with a real filter, any non-sandbox read.
-- 38 offline tests: `python3 scripts/test_ns_read_offline.py`.
+- 54 offline tests: `python3 scripts/test_ns_read_offline.py`.
 
 ## SuiteQL gotchas (cost real time)
 

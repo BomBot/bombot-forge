@@ -160,6 +160,7 @@
 - **bsk: มี tab ของตัวเอง + pin + ปิด session ทุกครั้ง** (`bsk session start --no-focus` → `tab list --scope agent` เอา tab ที่ session เปิดให้ (ไม่ต้อง `tab create`) → ใส่ `--tab-id` ทุกคำสั่ง → `bsk session stop`)
     - `observe` ใส่ `--max-tokens` เสมอ
     - **bsk 0.4+:** `evaluate`/`click`/`navigate` ครั้งที่ 2 ขึ้นไป ต้อง `bsk cooperate sync` ก่อนทุกครั้งแล้วส่ง `--context` + `--observation` (ใช้ได้ครั้งเดียว · retry เฉพาะเมื่อ `effect_state: none` · ห้าม `cooperate wait` เอง)
+    - หน้าที่เปลี่ยนตลอด (portlet "Auto refresh in Ns") sync กี่รอบก็ไม่ทัน → งานอ่านใช้ `--context` + `--unverified` (ไม่ส่ง `--observation`) แล้วให้สคริปต์เช็ก host/company เองและ throw ก่อนทำอะไร · งานเขียนห้ามใช้ ให้ไปหน้าที่ไม่เปลี่ยนแทน
 - **บอกฉันทุกครั้งที่ใช้ bsk** — 1 บรรทัดก่อนคำสั่ง `bsk` แรกของงาน: ทำอะไร · บัญชี/หน้าไหน · เป็น Agent Window เบื้องหลัง (ปิดเมื่อเสร็จ) · **เป็นการแจ้ง ไม่ใช่การขออนุมัติ — ส่งแล้วทำต่อ**
 - **ห้าม `bsk session stop --all`** — daemon ใช้ร่วมกับ session Claude อื่นของฉัน · ปิดเฉพาะ id ของตัวเอง แล้วเช็กว่า id นั้นหายจาก `bsk session list`
 

@@ -13,7 +13,7 @@ description: >-
 
 > Renamed from `cdp-browser` in 0.22.0. The old cdp lane is history, not a lane: `docs/history/cdp-lane.md` in this plugin.
 
-**Skill version: `202611_05`**
+**Skill version: `202611_06`**
 
 This skill is the **per-run rules**. Installing and configuring the browser is `setup-browser` (once per machine).
 Command reference for `bsk` comes from the upstream `browser-skill` (installed by `bsk install-skill --harness claude-code`).
@@ -103,6 +103,11 @@ The upstream `browser-skill` updates itself with the CLI.
    - An observation works **once**: sync again before the next action (a reused one -> `observation_required`). The
      context stays valid while the page does not change. NetSuite pages re-render between the sync and the action
      (`observation_changed`, seen live on a sandbox), so allow a few sync-and-retry rounds.
+   - **A page that never stops changing** (a dashboard portlet counting down "Auto refresh in 58s") cannot be won by
+     re-syncing (bsk 0.5.0, issue #1). For a **read** script use `--context <context_id> --unverified` with no
+     `--observation` (offered when `bsk status --json` lists `unverified_script` as available), and make the script
+     check its own preconditions (host, company) and throw before it does anything. The reply carries
+     `verified: false`, which is expected. Do not use it for a write: navigate to a page that does not change instead.
    - Not needed: the **first** `navigate` from `about:blank` (and `sync` fails there with `frame_unobservable`, so
      navigate first), `screenshot`, `observe`, `tab list`, `session start/stop`.
    - Retry a refused action only when the reply says `data.effect_state: "none"` (nothing ran). Never call
