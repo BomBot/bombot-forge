@@ -9,6 +9,16 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.53.0 — 2026-11-20
+
+- **github-code-flow 202611_01** (new, draft): the team's flow for changing code in a GitHub repo, with no account in the skill.
+  - Steps: issue first, branch from the repo's base, import the live file and compare before editing, edit with `@change`, upload only after the user's OK, PR, then port to sandbox. A `plain` repo runs only issue, branch, edit and PR.
+  - Per-repo values (base branch, auth ids, deploy scope, files never to touch, labels) live in `<git-common-dir>/bombot-forge/github-flow.json`. It is inside `.git`, so it is never committed and every worktree sees it.
+  - First run on a machine detects what it can (git author, `project.json`, `manageauth --list`, `gh`) and asks only the rest. Later runs re-check the values and stop if one is gone. The file is the single source; nothing is copied into memory.
+  - After the PR it stops: merging waits for the user.
+  - `disable-model-invocation: true`, so it runs only from the slash command. Step 0c can add one line to the repo's `CLAUDE.local.md` (kept out of git through `.git/info/exclude`) so sessions in that repo follow it automatically.
+  - Not run end to end yet.
+
 ## v0.52.1 — 2026-11-18
 
 - **setup-browser 202611_06**:
