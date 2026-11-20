@@ -55,6 +55,14 @@ Used while delivering NetSuite work. Claude picks them from their descriptions; 
 | **slack-daily-recap** | end of the day (`/bombot-forge:slack-daily-recap`, read-only): who tagged or wrote to you in Slack today, every thread read to the end, sorted into unanswered / answered-but-open / FYI with due dates worth a reminder; needs the Slack connector (stops with how to connect it if missing); never sends, reacts or schedules, and leaves credentials and key-bearing links out |
 | **github-code-flow** | changing code in a GitHub repo (`/bombot-forge:github-code-flow`, slash command only): issue first, branch, compare with the live target, upload only after OK, PR then wait for the user to merge, port to sandbox; per-repo values in a per-machine config inside `.git` (asked once, re-checked every run), optional auto-use per repo through `CLAUDE.local.md` |
 
+### Using github-code-flow
+
+- Type `/bombot-forge:github-code-flow` in a session opened in the repo, optionally with an issue number or a Slack link.
+- First run on a machine: it detects what it can (git author, base branch, `project.json`, `suitecloud account:manageauth --list`) and asks only the rest. The answers go to `.git/bombot-forge/github-flow.json`, inside `.git`, so they are never committed and every worktree shares them.
+- Later runs re-check those values (branch and auth ids still exist) and stop if one is gone.
+- It can add one line to that repo's `CLAUDE.local.md` (kept out of git) so every session there follows the flow without the slash command. To turn it off, delete the line.
+- Uploads to a live account wait for your OK each round; after the PR it stops and waits for you to merge.
+
 ## Deprecated
 
 Kept as short redirect stubs so an old reference doesn't dead-end; the old text is in git history.
@@ -117,6 +125,8 @@ These skills are first drafts distilled from one session's real work. Per
 - [ ] For `ns-bundle-to-sdf-repo` (has discipline rules): only one conversion so far — needs
       a second bundle conversion to confirm the Change ID `isvalid`-flag workaround and the
       "no plain branch-push trigger" CI gotcha generalize, not one-off
+- [ ] For `github-code-flow` (discipline rules + per-machine config): first real run on an SDF repo and a
+      `plain` repo, config re-check after an auth id is renamed, step 0c line on Windows
 - [ ] Decide final layout for your setup (`skills/` plugin format here vs `.claude/skills/`
       + `.agents/skills/` mirror used by teibto-dev-standards)
 

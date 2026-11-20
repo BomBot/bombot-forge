@@ -9,6 +9,10 @@ Versioning (matches Teibto-Claude-Skills convention):
   e.g. `feat(ns-live-verify): add scriptdeployment recipe (202609_02 / 0.2.0)`.
 - Bump the skill's `YYYYMM_##` on any skill-body change; bump plugin semver + tag on release.
 
+## v0.53.1 — 2026-11-20
+
+- README: a "Using github-code-flow" section (how to start it, where the config lives, the auto-use line, what waits for OK) and a Status checklist item for its first real runs. No skill body changed.
+
 ## v0.53.0 — 2026-11-20
 
 - **github-code-flow 202611_01** (new, draft): the team's flow for changing code in a GitHub repo, with no account in the skill.
